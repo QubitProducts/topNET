@@ -1,0 +1,27 @@
+import org.gradle.api.artifacts.*
+
+apply plugin: 'base' // To add "clean" task to the root project.
+apply from: 'common.gradle'
+
+subprojects {
+    apply from: rootProject.file('common.gradle')
+}
+
+task mergedJavadoc(type: Javadoc, description: 'Creates Javadoc from all the projects.') {
+    title = 'All modules'
+    destinationDir = new File(project.buildDir, 'merged-javadoc')
+
+    // Note: The closures below are executed lazily.
+    source {
+       subprojects*.sourceSets*.main*.allSource
+    }
+    classpath.from {
+        subprojects*.configurations*.compile*.copyRecursive({ !(it instanceof ProjectDependency); })*.resolve()
+    }
+}
+
+dependencies {
+    compile 'com.qubit.opentag:config:3.0.1'
+    compile 'com.qubit.opentag:logs:3.0.1'
+    compile group: 'org.apache.httpcomponents', name: 'httpcore', version: '4.4.5'
+}
