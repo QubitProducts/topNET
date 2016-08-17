@@ -17,8 +17,10 @@ import java.nio.channels.Selector;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 class HandlingThread extends Thread {
+  private final Selector serverChannelSelector;
 
   public HandlingThread(Selector serverChannelSelector) {
+    this.serverChannelSelector = serverChannelSelector;
   }
 
   @Override
@@ -77,8 +79,15 @@ class HandlingThread extends Thread {
       try {
         busy = true;
         if (key.isReadable()) {
-          dataHandler.read(key);
+          if (dataHandler.read(key)) {
+            key.channel().register(serverChannelSelector, SelectionKey.OP_WRITE);
+          }
           return true;
+        } else if (key.isWritable()) {
+          if (dataHandler.write(key)) {
+            key.cancel();
+            key.channel().close(); // done
+          }
         }
       } catch (IOException ex) {
         // some trouble, metrics???

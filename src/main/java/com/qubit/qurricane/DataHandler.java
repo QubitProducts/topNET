@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
@@ -33,7 +34,6 @@ public class DataHandler {
   private final ByteBuffer buffer = ByteBuffer.allocate(BUF_SIZE);
 
   private String method;
-  private String body;
   private String path;
   private boolean headersReady;
   private boolean bodyRequired = false;
@@ -51,35 +51,21 @@ public class DataHandler {
     touch = System.currentTimeMillis();
   }
 
-  public void read(SelectionKey key) throws IOException {
-
+  // returns true if should listen for write
+  public boolean read(SelectionKey key) throws IOException {
+    boolean ret = false;
+    
     try {
 
       if (this.getLock().tryLock()) { // important step! skip those busy
 
         SocketChannel socketChannel = (SocketChannel) key.channel();
-
         ByteBuffer buf = getBuffer();
-
+        
         int read = socketChannel.read(buf);
 
-        if (read == 0) {
-            // done. process stuff
-          //socketChannel.close();
-          this.response();
-
-        } else if (read != -1) {
-          this.flushBuffer();
-
-          try {
-            if (!socketChannel.isConnected()) {
-              Server.close(key);
-            }
-            // @todo report stalled
-          } finally {
-            //dataHandler.finish();
-          }
-          return;
+        if (read != -1) {
+          ret = this.flushReads(key);
         } else {
           socketChannel.close();
           this.processError();
@@ -91,6 +77,8 @@ public class DataHandler {
     } finally {
       this.getLock().unlock();
     }
+    
+    return ret;
   }
 
   public void processError() {
@@ -154,13 +142,6 @@ public class DataHandler {
   }
 
   /**
-   * @return the body
-   */
-  public String getBody() {
-    return body;
-  }
-
-  /**
    * @return the headers
    */
   public Map<String, String> getHeaders() {
@@ -197,7 +178,9 @@ public class DataHandler {
     return buffer;
   }
 
-  protected synchronized void flushBuffer() throws UnsupportedEncodingException {
+  // returns true if write listening should be enabled
+  protected synchronized boolean flushReads(SelectionKey key) 
+          throws UnsupportedEncodingException {
     byte previous = -1;
     buffer.flip();
 
@@ -219,9 +202,8 @@ public class DataHandler {
                         = Long.parseLong(this.headers.get("Content-Length"));
               } catch (NullPointerException | NumberFormatException ex) {
                 this.processError(); // bad headers
-                return;
+                return false;
               }
-              this.response();
             }
             break;
           }
@@ -252,16 +234,17 @@ public class DataHandler {
         }
 
         if (this.contentLengthCounter >= this.contentLength) {
-          this.response();
+          return true;
         }
 
       } else {
         // ignore rest of request if content length is unset!
-        this.response();
+        return true;
       }
     }
 
     buffer.clear();
+    return false;
   }
 
   private void processHeaderLine() {
@@ -334,8 +317,8 @@ public class DataHandler {
     }
   }
 
-  void response() {
-
+  void response(SelectionKey key) {
+    
   }
 
   /**
@@ -357,5 +340,39 @@ public class DataHandler {
    */
   public void setQueued(boolean queued) {
     this.queued = queued;
+  }
+
+  String defaultHeaders = 
+          "HTTP/1.1 200 OK\r\nCache-control: no-cache\r\n";
+  int i = 0;
+  byte[] str = null;
+  boolean write(SelectionKey key) throws UnsupportedEncodingException, IOException {
+    
+    if (buffer.hasRemaining()) {
+      this.flushReads(key);
+    }
+    
+    SocketChannel channel = (SocketChannel) key.channel();
+    
+    buffer.flip();
+    
+    if (str == null) {
+      str = (defaultHeaders + bodyBuffer.toString()).getBytes();
+    }
+    
+    while(buffer.hasRemaining() && i < str.length) {
+      buffer.put(str[i]);
+      i++;
+    }
+    
+    channel.write(buffer);
+    
+    buffer.clear();
+    
+    if (i == str.length) {
+      return true;
+    }
+    
+    return false;
   }
 }
