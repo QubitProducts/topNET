@@ -64,10 +64,10 @@ public class Server {
   }
 
   public void stop() throws IOException {
-    MainPreparatorThread.keepRunning = false;
+    MainAcceptAndDispatchThread.keepRunning = false;
     
     // wait for all to finish
-    while (!MainPreparatorThread.handlingThreads.isEmpty());
+    while (!MainAcceptAndDispatchThread.handlingThreads.isEmpty());
     
     serverChannel.close();
   }
@@ -93,50 +93,6 @@ public class Server {
     return address;
   }
 
-  protected static void read(SelectionKey key, DataHandler dataHandler)
-          throws IOException {
-    if (dataHandler != null) {
-      
-      try {
-        
-        if (dataHandler.getLock().tryLock()) { // important step! skip those busy
-          
-          SocketChannel socketChannel = (SocketChannel) key.channel();
-
-          ByteBuffer buf = dataHandler.getBuffer();
-
-          int read = socketChannel.read(buf);
-
-          if (read == 0) {
-            // done. process stuff
-            //socketChannel.close();
-            dataHandler.response();
-
-          } else if (read != -1) {
-            dataHandler.flushBuffer();
-
-            try {
-              if (!socketChannel.isConnected()) {
-                Server.close(key);
-              }
-              // @todo report stalled
-            } finally {
-              //dataHandler.finish();
-            }
-            return;
-          } else {
-            socketChannel.close();
-            dataHandler.processError();
-          }
-          
-          dataHandler.touch();
-        }
-        
-      } finally {
-        dataHandler.getLock().unlock();
-      }
-    }
-  }
 
   protected static void accept(SelectionKey key, Selector selector)
           throws IOException {
@@ -169,7 +125,7 @@ public class Server {
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
-      MainPreparatorThread t = new MainPreparatorThread(selector);
+      MainAcceptAndDispatchThread t = new MainAcceptAndDispatchThread(selector);
       t.start();
     }
       

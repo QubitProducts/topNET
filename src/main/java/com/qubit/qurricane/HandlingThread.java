@@ -5,13 +5,12 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.MainPreparatorThread.keysQueue;
+import static com.qubit.qurricane.MainAcceptAndDispatchThread.keysQueue;
 import static com.qubit.qurricane.Server.MAX_SIZE;
 import static com.qubit.qurricane.Server.TOUT;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.util.LinkedList;
 
 /**
  *
@@ -27,12 +26,12 @@ class HandlingThread extends Thread {
 
     try {
 
-      MainPreparatorThread.handlingThreads.add(this);
+      MainAcceptAndDispatchThread.handlingThreads.add(this);
 
       {
         
         
-        while (MainPreparatorThread.keepRunning) {
+        while (MainAcceptAndDispatchThread.keepRunning) {
 
           SelectionKey key;
 
@@ -66,19 +65,19 @@ class HandlingThread extends Thread {
       }
       
     } finally {
-      MainPreparatorThread.handlingThreads.remove(this);
+      MainAcceptAndDispatchThread.handlingThreads.remove(this);
     }
   }
 
   public volatile boolean busy = false;
 
-  protected boolean processKey(SelectionKey key, DataHandler dataHandler)
+  private boolean processKey(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (key.isValid()) {
       try {
         busy = true;
         if (key.isReadable()) {
-          Server.read(key, dataHandler);
+          dataHandler.read(key);
           return true;
         }
       } catch (IOException ex) {

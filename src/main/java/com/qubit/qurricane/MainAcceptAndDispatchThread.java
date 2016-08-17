@@ -21,7 +21,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-class MainPreparatorThread extends Thread {
+class MainAcceptAndDispatchThread extends Thread {
 
   public static volatile boolean keepRunning;
   public static final List<HandlingThread> handlingThreads;
@@ -37,16 +37,13 @@ class MainPreparatorThread extends Thread {
   private final Selector serverChannelSelector;
   private Lock lock = new ReentrantLock();
 
-  MainPreparatorThread(final Selector serverChannelSelector) {
+  MainAcceptAndDispatchThread(final Selector serverChannelSelector) {
     this.serverChannelSelector = serverChannelSelector;
   }
 
   @Override
   public void run() {
     
-
-    try {
-
       while (keepRunning) {
         try {
           // pick current events list:
@@ -61,7 +58,8 @@ class MainPreparatorThread extends Thread {
           continue;
         }
 
-        Set<SelectionKey> selectionKeys = getServerChannelSelector().selectedKeys();
+        Set<SelectionKey> selectionKeys = 
+                getServerChannelSelector().selectedKeys();
 
         Iterator<SelectionKey> keysIterator = selectionKeys.iterator();
 
@@ -80,9 +78,10 @@ class MainPreparatorThread extends Thread {
                 }
 
               } else if (key.isReadable()) {
-                  // reads will be handler by handlingThreads
+                // reads will be handler by handlingThreads
                 // @todo consider queueing data handlers instead
                 DataHandler dataHandler = (DataHandler) key.attachment();
+                
                 if (dataHandler == null) {
                   dataHandler = new DataHandler();
                   key.attach(dataHandler);
@@ -99,8 +98,6 @@ class MainPreparatorThread extends Thread {
         selectionKeys.clear();
       }
 
-    } finally {
-    }
   }
 
   /**

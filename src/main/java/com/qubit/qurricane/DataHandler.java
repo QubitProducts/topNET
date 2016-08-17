@@ -7,8 +7,11 @@ package com.qubit.qurricane;
 
 import static com.qubit.qurricane.Server.BUF_SIZE;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,9 +22,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class DataHandler {
-  
+
   private ReentrantLock lock = new ReentrantLock();
-  
+
   private volatile long touch; // check if its needed volatile
   private volatile long size = 0; // check if its needed volatile
 
@@ -41,15 +44,57 @@ public class DataHandler {
   private final StringBuffer currentLine = new StringBuffer();
   private int contentLengthCounter = 0;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
-                                   // body is used, see comparison to counter
+  // body is used, see comparison to counter
   private boolean queued;
 
   public DataHandler() {
     touch = System.currentTimeMillis();
   }
 
+  public void read(SelectionKey key) throws IOException {
+
+    try {
+
+      if (this.getLock().tryLock()) { // important step! skip those busy
+
+        SocketChannel socketChannel = (SocketChannel) key.channel();
+
+        ByteBuffer buf = getBuffer();
+
+        int read = socketChannel.read(buf);
+
+        if (read == 0) {
+            // done. process stuff
+          //socketChannel.close();
+          this.response();
+
+        } else if (read != -1) {
+          this.flushBuffer();
+
+          try {
+            if (!socketChannel.isConnected()) {
+              Server.close(key);
+            }
+            // @todo report stalled
+          } finally {
+            //dataHandler.finish();
+          }
+          return;
+        } else {
+          socketChannel.close();
+          this.processError();
+        }
+
+        this.touch();
+      }
+
+    } finally {
+      this.getLock().unlock();
+    }
+  }
+
   public void processError() {
-    
+
   }
 
   public void processRequest() {
@@ -134,7 +179,7 @@ public class DataHandler {
   }
 
   private void onInvalidMethod() {
-    
+
   }
 
   private List<Handler> hasHandlersForPath() {
@@ -142,7 +187,7 @@ public class DataHandler {
   }
 
   private void onInvalidPath() {
-    
+
   }
 
   /**
@@ -155,49 +200,49 @@ public class DataHandler {
   protected synchronized void flushBuffer() throws UnsupportedEncodingException {
     byte previous = -1;
     buffer.flip();
-    
+
     if (!this.headersReady) {
-      
+
       while (buffer.hasRemaining()) {
-          
-          byte current = buffer.get();
-          
-          if (current == '\n' && previous == '\r') {
-            
-            previous = -1;
-            this.processHeaderLine();
-            
-            if (this.headersReady) {
-              if (this.bodyRequired) {
-                try {
-                  this.contentLength = 
-                        Long.parseLong(this.headers.get("Content-Length"));
-                } catch (NullPointerException | NumberFormatException ex) {
-                  this.processError(); // bad headers
-                  return;
-                }
-                this.response();
+
+        byte current = buffer.get();
+
+        if (current == '\n' && previous == '\r') {
+
+          previous = -1;
+          this.processHeaderLine();
+
+          if (this.headersReady) {
+            if (this.bodyRequired) {
+              try {
+                this.contentLength
+                        = Long.parseLong(this.headers.get("Content-Length"));
+              } catch (NullPointerException | NumberFormatException ex) {
+                this.processError(); // bad headers
+                return;
               }
-              break;
+              this.response();
             }
-          } else {
-            if (previous != -1){
-              currentLine.append((char)previous);
-            }
-            
-            previous = current;
+            break;
           }
+        } else {
+          if (previous != -1) {
+            currentLine.append((char) previous);
+          }
+
+          previous = current;
+        }
       }
     }
-    
+
     if (this.headersReady) {
-      
+
       if (this.contentLength > 0) {
         if (buffer.hasRemaining()) {
-          
+
           int pos = buffer.position();
           int amount = buffer.limit() - pos;
-          
+
           this.contentLengthCounter += amount;
 
           bodyBuffer.write(
@@ -205,11 +250,11 @@ public class DataHandler {
                   pos,
                   amount);
         }
-        
+
         if (this.contentLengthCounter >= this.contentLength) {
           this.response();
         }
-        
+
       } else {
         // ignore rest of request if content length is unset!
         this.response();
@@ -225,28 +270,27 @@ public class DataHandler {
 
     if (firstLine) {
       firstLine = false;
-      
-      bodyRequired = line.startsWith("POST ") || line.startsWith("PUT ") ||
-              line.startsWith("PATCH ");
+
+      bodyRequired = line.startsWith("POST ") || line.startsWith("PUT ")
+              || line.startsWith("PATCH ");
       // two birds as one
       if (bodyRequired
-          || line.startsWith("GET ")
-          || line.startsWith("OPTIONS ") // @todo review
-          || line.startsWith("DELETE ")) {
+              || line.startsWith("GET ")
+              || line.startsWith("OPTIONS ") // @todo review
+              || line.startsWith("DELETE ")) {
 
-        
         this.setMethodAndPath(line);
 
         List<Handler> handlers = this.hasHandlersForPath();
 
         if (handlers == null || handlers.isEmpty()) {
           this.onInvalidPath();
-         /// return;
+          /// return;
         }
 
         if (!this.hasHandlersForMethod(handlers)) {
           this.onInvalidMethod();
-         /// return;
+          /// return;
         }
 
         // method and path is fine
@@ -291,7 +335,7 @@ public class DataHandler {
   }
 
   void response() {
-    
+
   }
 
   /**
