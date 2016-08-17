@@ -64,10 +64,10 @@ public class Server {
   }
 
   public void stop() throws IOException {
-    HandlingThread.keepRunning = false;
+    MainPreparatorThread.keepRunning = false;
     
     // wait for all to finish
-    while (HandlingThread.counter > 0);
+    while (!MainPreparatorThread.handlingThreads.isEmpty());
     
     serverChannel.close();
   }

@@ -8,10 +8,12 @@ package com.qubit.qurricane;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -21,28 +23,27 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 class MainPreparatorThread extends Thread {
 
-  public static volatile int counter;
   public static volatile boolean keepRunning;
-  public static final List<HandlingThread> handlers;
+  public static final List<HandlingThread> handlingThreads;
+
+  public static final ConcurrentLinkedQueue<SelectionKey> keysQueue
+          = new ConcurrentLinkedQueue<>();
 
   static {
-    handlers = new LinkedList<>();
-    counter = 0;
+    handlingThreads = new ArrayList<>();
     keepRunning = true;
   }
 
   private final Selector serverChannelSelector;
-  public final int threadNum;
   private Lock lock = new ReentrantLock();
 
   MainPreparatorThread(final Selector serverChannelSelector) {
     this.serverChannelSelector = serverChannelSelector;
-    this.threadNum = counter;
   }
 
   @Override
   public void run() {
-    counter++;
+    
 
     try {
 
@@ -65,40 +66,40 @@ class MainPreparatorThread extends Thread {
         Iterator<SelectionKey> keysIterator = selectionKeys.iterator();
 
         while (keysIterator.hasNext()) {
-          
-          for (HandlingThread handler : handlers) {
-            
-            if (keysIterator.hasNext()) {
-              
-              SelectionKey key = keysIterator.next();
+          if (keysIterator.hasNext()) {
+            SelectionKey key = keysIterator.next();
 
-              if (key.isValid()) {
-                if (key.isAcceptable()) {
-                  
-                  try {
-                    // maybe move to handlers too?
-                    Server.accept(key, this.getServerChannelSelector());
+            if (key.isValid()) {
+              if (key.isAcceptable()) {
 
-                  } catch (IOException ex) {
-                    // @todo metrics?
-                  }
-                  
-                } else if (key.isReadable()) {
-                  // reads will be handler by handlers
-                  if (key.attachment() == null) {
-                    key.attach(new DataHandler());
-                    handler.addKey(key);
-                  }
-                  
+                try {
+                  // maybe move to handlingThreads too?
+                  Server.accept(key, this.getServerChannelSelector());
+                } catch (IOException ex) {
+                  // @todo metrics?
+                }
+
+              } else if (key.isReadable()) {
+                  // reads will be handler by handlingThreads
+                // @todo consider queueing data handlers instead
+                DataHandler dataHandler = (DataHandler) key.attachment();
+                if (dataHandler == null) {
+                  dataHandler = new DataHandler();
+                  key.attach(dataHandler);
+                }
+
+                if (!dataHandler.isQueued()) {
+                  dataHandler.setQueued(true);
+                  keysQueue.add(key);
                 }
               }
             }
           }
         }
+        selectionKeys.clear();
       }
 
     } finally {
-      counter--;
     }
   }
 

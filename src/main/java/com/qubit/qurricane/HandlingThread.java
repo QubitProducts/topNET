@@ -5,6 +5,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.MainPreparatorThread.keysQueue;
 import static com.qubit.qurricane.Server.MAX_SIZE;
 import static com.qubit.qurricane.Server.TOUT;
 import java.io.IOException;
@@ -21,30 +22,24 @@ class HandlingThread extends Thread {
   public HandlingThread(Selector serverChannelSelector) {
   }
 
-  private LinkedList<SelectionKey> keys = new LinkedList<>();
-  
-  public void addKey(SelectionKey key) {
-    if (key != null) {
-      keys.addFirst(key);
-    }
-  }
-  
   @Override
   public void run() {
-    
+
     try {
-      
-      MainPreparatorThread.handlers.add(this);
-      
+
+      MainPreparatorThread.handlingThreads.add(this);
+
       {
         
-        while(MainPreparatorThread.keepRunning) {
-          
-          while(!keys.isEmpty()) {
-            SelectionKey key = keys.getLast();
+        
+        while (MainPreparatorThread.keepRunning) {
+
+          SelectionKey key;
+
+          while ((key = keysQueue.poll()) != null) {
             //selectionKeys.remove(key);
             DataHandler dataHandler = (DataHandler) key.attachment();
-
+            
             if (dataHandler != null) {
               //check if connection is not open too long! Prevent DDoS
               if (dataHandler.getTouch() < System.currentTimeMillis() - TOUT) {
@@ -54,28 +49,31 @@ class HandlingThread extends Thread {
               if (dataHandler.getSize() > MAX_SIZE) {
                 ///Server.close(key);
               }
+              
               try {
                 this.processKey(key, dataHandler);
               } catch (IOException es) {
                 // @todo metrics
               }
+              // important moment - selector loop will know to add again theis key
+              // to queue by setting it
+              dataHandler.setQueued(false);
             }
-            
-            keys.remove(key);
           }
         }
+        
         
       }
       
     } finally {
-      MainPreparatorThread.handlers.remove(this);
+      MainPreparatorThread.handlingThreads.remove(this);
     }
   }
 
   public volatile boolean busy = false;
-  
-  protected boolean processKey(SelectionKey key, DataHandler dataHandler) 
-          throws IOException {    
+
+  protected boolean processKey(SelectionKey key, DataHandler dataHandler)
+          throws IOException {
     if (key.isValid()) {
       try {
         busy = true;
@@ -89,9 +87,8 @@ class HandlingThread extends Thread {
         busy = false;
       }
     }
-    
+
     return false;
   }
 
 }
-

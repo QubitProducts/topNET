@@ -40,7 +40,9 @@ public class DataHandler {
   private final ByteArrayOutputStream bodyBuffer = new ByteArrayOutputStream();
   private final StringBuffer currentLine = new StringBuffer();
   private int contentLengthCounter = 0;
-  private long contentLength = 0;
+  private long contentLength = 0; // -1 is used to distinguish cases when no 
+                                   // body is used, see comparison to counter
+  private boolean queued;
 
   public DataHandler() {
     touch = System.currentTimeMillis();
@@ -169,7 +171,7 @@ public class DataHandler {
               if (this.bodyRequired) {
                 try {
                   this.contentLength = 
-                        Long.parseLong(this.headers.get("content-length"));
+                        Long.parseLong(this.headers.get("Content-Length"));
                 } catch (NullPointerException | NumberFormatException ex) {
                   this.processError(); // bad headers
                   return;
@@ -188,24 +190,33 @@ public class DataHandler {
       }
     }
     
-    if (this.contentLength > 0) {
-      if (buffer.hasRemaining()) {
-        int pos = buffer.position();
-        int amount = buffer.limit() - pos;
-        this.contentLengthCounter += amount;
+    if (this.headersReady) {
+      
+      if (this.contentLength > 0) {
+        if (buffer.hasRemaining()) {
+          
+          int pos = buffer.position();
+          int amount = buffer.limit() - pos;
+          
+          this.contentLengthCounter += amount;
 
-        bodyBuffer.write(
-                buffer.array(),
-                pos, 
-                amount);
+          bodyBuffer.write(
+                  buffer.array(),
+                  pos,
+                  amount);
+        }
+        
+        if (this.contentLengthCounter >= this.contentLength) {
+          this.response();
+        }
+        
+      } else {
+        // ignore rest of request if content length is unset!
+        this.response();
       }
     }
-    
+
     buffer.clear();
-    
-    if (this.contentLength <= this.contentLengthCounter) {
-      this.response();/// x x x
-    }
   }
 
   private void processHeaderLine() {
@@ -254,8 +265,8 @@ public class DataHandler {
           if (line.startsWith("\t")) {
             // multiline header, yuck! check if any header was read!
             if (lastHeaderName != null) {
-              String tmp = getHeaders().get(lastHeaderName);
-              getHeaders().put(lastHeaderName.toLowerCase(), tmp + "\n" + line);
+              String tmp = this.headers.get(lastHeaderName);
+              this.headers.put(lastHeaderName, tmp + "\n" + line);
             } else {
               this.processError();
               return; // yuck! headers malformed!! not even started and multiline ?
@@ -288,5 +299,19 @@ public class DataHandler {
    */
   public ReentrantLock getLock() {
     return lock;
+  }
+
+  /**
+   * @return the queued
+   */
+  public boolean isQueued() {
+    return queued;
+  }
+
+  /**
+   * @param queued the queued to set
+   */
+  public void setQueued(boolean queued) {
+    this.queued = queued;
   }
 }
