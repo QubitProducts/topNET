@@ -69,7 +69,6 @@ class MainAcceptAndDispatchThread extends Thread {
 
             if (key.isValid()) {
               if (key.isAcceptable()) {
-
                 try {
                   // maybe move to handlingThreads too?
                   Server.accept(key, this.getServerChannelSelector());
@@ -87,8 +86,8 @@ class MainAcceptAndDispatchThread extends Thread {
                   key.attach(dataHandler);
                 }
 
-                if (!dataHandler.isQueued()) {
-                  dataHandler.setQueued(true);
+                if (!dataHandler.canNotAddToQueue) {
+                  dataHandler.canNotAddToQueue = true;
                   keysQueue.add(key);
                 }
               }
@@ -98,18 +97,6 @@ class MainAcceptAndDispatchThread extends Thread {
         selectionKeys.clear();
       }
 
-  }
-
-  /**
-   *
-   * @param key
-   * @return true only if key was processed.
-   * @throws IOException
-   */
-  protected boolean processKey(SelectionKey key)
-          throws IOException {
-
-    return true;
   }
 
   /**

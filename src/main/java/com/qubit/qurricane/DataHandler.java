@@ -10,7 +10,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
@@ -24,7 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class DataHandler {
 
-  private ReentrantLock lock = new ReentrantLock();
+  private final ReentrantLock lock = new ReentrantLock();
 
   private volatile long touch; // check if its needed volatile
   private volatile long size = 0; // check if its needed volatile
@@ -45,7 +44,7 @@ public class DataHandler {
   private int contentLengthCounter = 0;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
   // body is used, see comparison to counter
-  private boolean queued;
+  public volatile boolean canNotAddToQueue = false;
 
   public DataHandler() {
     touch = System.currentTimeMillis();
@@ -54,30 +53,21 @@ public class DataHandler {
   // returns true if should listen for write
   public boolean read(SelectionKey key) throws IOException {
     boolean ret = false;
-    
-    try {
 
-      if (this.getLock().tryLock()) { // important step! skip those busy
+    SocketChannel socketChannel = (SocketChannel) key.channel();
+    ByteBuffer buf = getBuffer();
 
-        SocketChannel socketChannel = (SocketChannel) key.channel();
-        ByteBuffer buf = getBuffer();
-        
-        int read = socketChannel.read(buf);
+    int read = socketChannel.read(buf);
 
-        if (read != -1) {
-          ret = this.flushReads(key);
-        } else {
-          socketChannel.close();
-          this.processError();
-        }
-
-        this.touch();
-      }
-
-    } finally {
-      this.getLock().unlock();
+    if (read != -1) {
+      ret = this.flushReads(key);
+    } else {
+      socketChannel.close();
+      this.processError();
     }
-    
+
+    this.touch();
+
     return ret;
   }
 
@@ -328,33 +318,15 @@ public class DataHandler {
     return lock;
   }
 
-  /**
-   * @return the queued
-   */
-  public boolean isQueued() {
-    return queued;
-  }
-
-  /**
-   * @param queued the queued to set
-   */
-  public void setQueued(boolean queued) {
-    this.queued = queued;
-  }
-
   String defaultHeaders = 
-          "HTTP/1.1 200 OK\r\nCache-control: no-cache\r\n";
+          "HTTP/1.1 200 OK\r\nCache-control: no-cache\r\n\r\n";
   int i = 0;
   byte[] str = null;
-  boolean write(SelectionKey key) throws UnsupportedEncodingException, IOException {
-    
-    if (buffer.hasRemaining()) {
-      this.flushReads(key);
-    }
+  boolean write(SelectionKey key) 
+          throws UnsupportedEncodingException, IOException {
     
     SocketChannel channel = (SocketChannel) key.channel();
-    
-    buffer.flip();
+    buffer.clear();
     
     if (str == null) {
       str = (defaultHeaders + bodyBuffer.toString()).getBytes();
@@ -365,9 +337,8 @@ public class DataHandler {
       i++;
     }
     
+    buffer.flip();
     channel.write(buffer);
-    
-    buffer.clear();
     
     if (i == str.length) {
       return true;

@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import static java.nio.channels.SelectionKey.OP_READ;
+import static java.nio.channels.SelectionKey.OP_WRITE;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -97,7 +99,8 @@ public class Server {
   protected static void accept(SelectionKey key, Selector selector)
           throws IOException {
     // pick socketChannel channel
-    ServerSocketChannel serverSocketChannel = (ServerSocketChannel) key.channel();
+    ServerSocketChannel serverSocketChannel = 
+            (ServerSocketChannel) key.channel();
     // trigger accept
     SocketChannel channel = serverSocketChannel.accept();
 
@@ -105,7 +108,7 @@ public class Server {
       channel.configureBlocking(false);
       // now register selector for new event type (notice 
       // in loop accept and reading events)
-      channel.register(selector, SelectionKey.OP_READ);
+      channel.register(selector, OP_READ);
     }
   }
 
