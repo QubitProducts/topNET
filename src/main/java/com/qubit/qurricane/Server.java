@@ -24,7 +24,7 @@ public class Server {
 
   public static void main(String[] args) throws IOException {
 
-    new Server("localhost", 1234).start();
+    new Server("localhost", 3456).start();
   }
 
   public static final int BUF_SIZE = 8 * 128; // miliseconds
@@ -55,11 +55,24 @@ public class Server {
     serverChannel.socket().bind(listenAddress);
 
     // @todo move to cfg
-    Selector selector = Selector.open();
-    serverChannel.register(selector, SelectionKey.OP_ACCEPT);
     
-    for (int i = 0; i < 10; i++) {
-      this.addHandler(selector);
+    
+    if (!this.readPreparatorSet) {
+      this.readPreparatorSet = true;
+      
+      Selector s1 = Selector.open();
+      serverChannel.register(s1, SelectionKey.OP_ACCEPT);
+      MainAcceptAndDispatchThread t1 = new MainAcceptAndDispatchThread(s1);
+      t1.start();
+      
+//      Selector s2 = Selector.open();
+//      serverChannel.register(s2, SelectionKey.OP_ACCEPT);
+//      MainAcceptAndDispatchThread t2 = new MainAcceptAndDispatchThread(s2);
+//      t2.start();
+    }
+    
+    for (int i = 0; i < 64; i++) {
+      this.addHandler();
     }
 
     log.info("Server starting at " + listenAddress.getHostName() + " at " + port);
@@ -96,7 +109,7 @@ public class Server {
   }
 
 
-  protected static void accept(SelectionKey key, Selector selector)
+  protected static boolean accept(SelectionKey key, Selector readSelector)
           throws IOException {
     // pick socketChannel channel
     ServerSocketChannel serverSocketChannel = 
@@ -106,10 +119,12 @@ public class Server {
 
     if (channel != null) {
       channel.configureBlocking(false);
-      // now register selector for new event type (notice 
+      // now register readSelector for new event type (notice 
       // in loop accept and reading events)
-      channel.register(selector, OP_READ);
+      channel.register(readSelector, OP_READ);
+      return true;
     }
+    return false;
   }
 
   protected static void close(SelectionKey key) {
@@ -124,16 +139,10 @@ public class Server {
   }
 
   // heart of processing 
-  private Thread addHandler(final Selector selector) {
+  private Thread addHandler() {
     
-    if (!this.readPreparatorSet) {
-      this.readPreparatorSet = true;
-      MainAcceptAndDispatchThread t = new MainAcceptAndDispatchThread(selector);
-      t.start();
-    }
-      
     // @todo create separate class and encapsulate this
-    HandlingThread t = new HandlingThread(selector);
+    HandlingThread t = new HandlingThread();
 
     t.start();
 

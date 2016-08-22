@@ -6,13 +6,12 @@
 package com.qubit.qurricane;
 
 import java.io.IOException;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,83 +24,87 @@ class MainAcceptAndDispatchThread extends Thread {
   public static volatile boolean keepRunning;
   public static final List<HandlingThread> handlingThreads;
 
-  public static final ConcurrentLinkedQueue<SelectionKey> keysQueue
-          = new ConcurrentLinkedQueue<>();
-
   static {
     handlingThreads = new ArrayList<>();
     keepRunning = true;
   }
 
-  private final Selector serverChannelSelector;
+  private final Selector acceptSelector;
   private Lock lock = new ReentrantLock();
 
-  MainAcceptAndDispatchThread(final Selector serverChannelSelector) {
-    this.serverChannelSelector = serverChannelSelector;
+  MainAcceptAndDispatchThread(final Selector acceptSelector) {
+    this.acceptSelector = acceptSelector;
   }
 
   @Override
   public void run() {
-    
-      while (keepRunning) {
+
+    while (keepRunning) {
+      try {
+        // pick current events list:
+        getAcceptSelector().select();
+      } catch (IOException ex) {
         try {
-          // pick current events list:
-          getServerChannelSelector().select();
-        } catch (IOException ex) {
-          try {
-            // some trouble, metrics???
-            getServerChannelSelector().close();
-          } catch (IOException ex1) {
-            // try to close 
-          }
-          continue;
+          // some trouble, metrics???
+          getAcceptSelector().close();
+        } catch (IOException ex1) {
+          // try to close 
         }
+      }
 
-        Set<SelectionKey> selectionKeys = 
-                getServerChannelSelector().selectedKeys();
+      Set<SelectionKey> selectionKeys
+              = getAcceptSelector().selectedKeys();
 
-        Iterator<SelectionKey> keysIterator = selectionKeys.iterator();
+      for (SelectionKey key : selectionKeys) {
+        if (key.isValid()) {
+          try {
+            if (key.isAcceptable()) {
 
-        while (keysIterator.hasNext()) {
-          if (keysIterator.hasNext()) {
-            SelectionKey key = keysIterator.next();
+              Server.accept(key, acceptSelector);
 
-            if (key.isValid()) {
-              if (key.isAcceptable()) {
-                try {
-                  // maybe move to handlingThreads too?
-                  Server.accept(key, this.getServerChannelSelector());
-                } catch (IOException ex) {
-                  // @todo metrics?
-                }
+            } else {
+              DataHandler dataHandler = (DataHandler) key.attachment();
 
-              } else if (key.isReadable()) {
-                // reads will be handler by handlingThreads
-                // @todo consider queueing data handlers instead
-                DataHandler dataHandler = (DataHandler) key.attachment();
-                
-                if (dataHandler == null) {
-                  dataHandler = new DataHandler();
-                  key.attach(dataHandler);
-                }
+              if (dataHandler == null) {
+                dataHandler = new DataHandler();
+                key.attach(dataHandler);
+              }
 
-                if (!dataHandler.canNotAddToQueue) {
-                  dataHandler.canNotAddToQueue = true;
-                  keysQueue.add(key);
+              // add to worker
+              if (!dataHandler.locked) {
+                for (HandlingThread handlingThread : handlingThreads) {
+                  if (handlingThread.addJob(key)) {
+                    dataHandler.locked = true;
+                    
+                    synchronized (handlingThread) {
+                      handlingThread.notifyAll();
+                    }
+                    
+                    break;
+                  }
                 }
               }
             }
+          } catch (CancelledKeyException | IOException ex) {
+            try {
+
+              key.channel().close();
+              key.cancel();
+            } catch (IOException ex1) {
+            }
           }
         }
-        selectionKeys.clear();
       }
+      
+      //selectionKeys.clear();
+    }
 
   }
 
   /**
-   * @return the serverChannelSelector
+   * @return the acceptSelector
    */
-  public Selector getServerChannelSelector() {
-    return serverChannelSelector;
+  public Selector getAcceptSelector() {
+    return acceptSelector;
   }
 }

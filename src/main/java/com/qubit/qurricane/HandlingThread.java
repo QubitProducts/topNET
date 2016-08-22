@@ -5,14 +5,13 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.MainAcceptAndDispatchThread.keysQueue;
+import static com.qubit.qurricane.Server.BUF_SIZE;
 import static com.qubit.qurricane.Server.MAX_SIZE;
 import static com.qubit.qurricane.Server.TOUT;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import static java.nio.channels.SelectionKey.OP_WRITE;
 import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
 
 /**
  *
@@ -20,11 +19,12 @@ import java.nio.channels.SocketChannel;
  */
 class HandlingThread extends Thread {
 
-  private final Selector serverChannelSelector;
+  private volatile SelectionKey currentJob = null;
 
-  public HandlingThread(Selector serverChannelSelector) {
-    this.serverChannelSelector = serverChannelSelector;
+  public HandlingThread() {
   }
+
+  private final ByteBuffer buffer = ByteBuffer.allocate(BUF_SIZE);
 
   @Override
   public void run() {
@@ -34,45 +34,55 @@ class HandlingThread extends Thread {
       MainAcceptAndDispatchThread.handlingThreads.add(this);
 
       {
+        synchronized (this) {
+          while (MainAcceptAndDispatchThread.keepRunning) {
 
-        while (MainAcceptAndDispatchThread.keepRunning) {
+            while (currentJob != null) {
 
-          SelectionKey key;
+              DataHandler dataHandler = (DataHandler) currentJob.attachment();
 
-          while ((key = keysQueue.peek()) != null) {
-            //selectionKeys.remove(key);
-            DataHandler dataHandler = (DataHandler) key.attachment();
-
-            if (dataHandler == null) {
-              keysQueue.remove(key);
-            } else if (dataHandler.getLock().tryLock()) {
-              // important step! skip those busy
               try {
-                keysQueue.remove(key);
+                // important step! skip those busy
+                if (dataHandler != null) {
 
-                //check if connection is not open too long! Prevent DDoS
-                if (dataHandler.getTouch() < System.currentTimeMillis() - TOUT) {
-                  ///Server.close(key);
-                }
-                // check if not too large
-                if (dataHandler.getSize() > MAX_SIZE) {
-                  ///Server.close(key);
-                }
+                  //check if connection is not open too long! Prevent DDoS
+                  if (dataHandler.getTouch() < System.currentTimeMillis() - TOUT) {
+                    ///Server.close(key);
+                  }
+                  // check if not too large
+                  if (dataHandler.getSize() > MAX_SIZE) {
+                    ///Server.close(key);
+                  }
 
-                try {
-                  this.processKey(key, dataHandler);
-                } catch (IOException es) {
-                  // @todo metrics
+                  try {
+                    if (this.processKey(currentJob, dataHandler)) {
+                      // key not necessary anymore
+                    }
+                  } catch (IOException es) {
+                    // @todo metrics
+                  }
                 }
               } finally {
-                dataHandler.getLock().unlock();
-                dataHandler.canNotAddToQueue = false;
+                currentJob = null;
+                if (dataHandler != null) {
+                  dataHandler.locked = false;
+                }
               }
-            } else {
+            }
+
+            try {
+
+              if (currentJob == null) {
+                this.wait(100);
+              }
+
+            } catch (InterruptedException ex) {
+
             }
           }
         }
       }
+
     } finally {
       MainAcceptAndDispatchThread.handlingThreads.remove(this);
     }
@@ -80,28 +90,50 @@ class HandlingThread extends Thread {
 
   public volatile boolean busy = false;
 
-  private void processKey(SelectionKey key, DataHandler dataHandler)
+  private boolean processKey(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (key.isValid()) {
+
       try {
         busy = true;
         if (key.isReadable()) {
-          if (dataHandler.read(key)) { // if finished reading
-            while(!dataHandler.write(key));
-            Server.close(key); 
+          int many = dataHandler.read(key, buffer);
+          if (many < 0) { // if finished reading
+            if (many == -2) {
+              while (!dataHandler.write(key, buffer));
+            }
+            Server.close(key);
+            return true; // can close key
+          } else {
+            return false;
           }
-        } else if (key.isWritable()) {
-          if (dataHandler.write(key)) {
-            key.cancel();
-            key.channel().close(); // done
-          }
+        } else {
+          return true;
         }
+
       } catch (IOException ex) {
-        // some trouble, metrics???
+        return true;
       } finally {
         busy = false;
       }
+    } else {
+      return true;
     }
+  }
+
+  /**
+   *
+   * @param key
+   * @return
+   */
+  public boolean addJob(SelectionKey key) {
+    if (this.currentJob != null) {
+      return false;
+    }
+
+    this.currentJob = key;
+
+    return true;
   }
 
 }

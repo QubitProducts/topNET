@@ -23,14 +23,10 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class DataHandler {
 
-  private final ReentrantLock lock = new ReentrantLock();
-
   private volatile long touch; // check if its needed volatile
   private volatile long size = 0; // check if its needed volatile
 
   private final Map<String, String> headers = new HashMap<>();
-
-  private final ByteBuffer buffer = ByteBuffer.allocate(BUF_SIZE);
 
   private String method;
   private String path;
@@ -43,32 +39,35 @@ public class DataHandler {
   private final StringBuffer currentLine = new StringBuffer();
   private int contentLengthCounter = 0;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
-  // body is used, see comparison to counter
-  public volatile boolean canNotAddToQueue = false;
 
+  public volatile boolean locked = false;
+  
   public DataHandler() {
     touch = System.currentTimeMillis();
   }
 
   // returns true if should listen for write
-  public boolean read(SelectionKey key) throws IOException {
-    boolean ret = false;
+  public int read(SelectionKey key, ByteBuffer buf) throws IOException {
 
     SocketChannel socketChannel = (SocketChannel) key.channel();
-    ByteBuffer buf = getBuffer();
 
-    int read = socketChannel.read(buf);
+    buf.clear();
+    int read;
 
-    if (read != -1) {
-      ret = this.flushReads(key);
-    } else {
+    if ((read = socketChannel.read(buf)) > 0) {
+      if (this.flushReads(key, buf)) {
+        read = -2; // -1: reading is finished
+      }
+    }
+    
+    if (read == -1) {
       socketChannel.close();
       this.processError();
     }
 
     this.touch();
 
-    return ret;
+    return read;
   }
 
   public void processError() {
@@ -161,15 +160,8 @@ public class DataHandler {
 
   }
 
-  /**
-   * @return the buffer
-   */
-  protected ByteBuffer getBuffer() {
-    return buffer;
-  }
-
   // returns true if write listening should be enabled
-  protected synchronized boolean flushReads(SelectionKey key) 
+  protected synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer) 
           throws UnsupportedEncodingException {
     byte previous = -1;
     buffer.flip();
@@ -307,22 +299,11 @@ public class DataHandler {
     }
   }
 
-  void response(SelectionKey key) {
-    
-  }
-
-  /**
-   * @return the lock
-   */
-  public ReentrantLock getLock() {
-    return lock;
-  }
-
   String defaultHeaders = 
           "HTTP/1.1 200 OK\r\nCache-control: no-cache\r\n\r\n";
   int i = 0;
   byte[] str = null;
-  boolean write(SelectionKey key) 
+  boolean write(SelectionKey key, ByteBuffer buffer) 
           throws UnsupportedEncodingException, IOException {
     
     SocketChannel channel = (SocketChannel) key.channel();
