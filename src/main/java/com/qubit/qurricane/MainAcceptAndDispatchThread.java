@@ -74,12 +74,10 @@ class MainAcceptAndDispatchThread extends Thread {
               if (!dataHandler.locked) {
                 for (HandlingThread handlingThread : handlingThreads) {
                   if (handlingThread.addJob(key)) {
-                    dataHandler.locked = true;
-                    
                     synchronized (handlingThread) {
+                      dataHandler.locked = true;
                       handlingThread.notifyAll();
                     }
-                    
                     break;
                   }
                 }
@@ -95,7 +93,7 @@ class MainAcceptAndDispatchThread extends Thread {
           }
         }
       }
-      
+
       //selectionKeys.clear();
     }
 

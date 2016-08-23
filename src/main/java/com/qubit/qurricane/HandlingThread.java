@@ -11,7 +11,7 @@ import static com.qubit.qurricane.Server.TOUT;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  *
@@ -19,7 +19,9 @@ import java.nio.channels.Selector;
  */
 class HandlingThread extends Thread {
 
-  private volatile SelectionKey currentJob = null;
+//  private volatile SelectionKey[] jobs = new SelectionKey[16];
+  private AtomicReferenceArray<SelectionKey> jobs = 
+          new AtomicReferenceArray<SelectionKey>(16);
 
   public HandlingThread() {
   }
@@ -34,51 +36,54 @@ class HandlingThread extends Thread {
       MainAcceptAndDispatchThread.handlingThreads.add(this);
 
       {
-        synchronized (this) {
-          while (MainAcceptAndDispatchThread.keepRunning) {
 
-            while (currentJob != null) {
+        while (MainAcceptAndDispatchThread.keepRunning) {
 
-              DataHandler dataHandler = (DataHandler) currentJob.attachment();
+          while (this.hasJobs()) {
+            for (int i = 0; i < this.jobs.length(); i++) {
+              SelectionKey job = this.jobs.get(i);
+              if (job != null) {
+                DataHandler dataHandler = (DataHandler) job.attachment();
 
-              try {
-                // important step! skip those busy
-                if (dataHandler != null) {
+                try {
+                  // important step! skip those busy
+                  if (dataHandler != null) {
 
-                  //check if connection is not open too long! Prevent DDoS
-                  if (dataHandler.getTouch() < System.currentTimeMillis() - TOUT) {
-                    ///Server.close(key);
-                  }
-                  // check if not too large
-                  if (dataHandler.getSize() > MAX_SIZE) {
-                    ///Server.close(key);
-                  }
-
-                  try {
-                    if (this.processKey(currentJob, dataHandler)) {
-                      // key not necessary anymore
+                    //check if connection is not open too long! Prevent DDoS
+                    if (dataHandler.getTouch() < System.currentTimeMillis() - TOUT) {
+                      ///Server.close(key);
                     }
-                  } catch (IOException es) {
-                    // @todo metrics
+                    // check if not too large
+                    if (dataHandler.getSize() > MAX_SIZE) {
+                      ///Server.close(key);
+                    }
+
+                    try {
+                      if (this.processKey(job, dataHandler)) {
+                        // key not necessary anymore
+                      }
+                    } catch (IOException es) {
+                      // @todo metrics
+                    }
                   }
-                }
-              } finally {
-                currentJob = null;
-                if (dataHandler != null) {
-                  dataHandler.locked = false;
+                } finally {
+                  this.jobs.set(i, null);
+                  if (dataHandler != null) {
+                    dataHandler.locked = false;
+                  }
                 }
               }
             }
-
-            try {
-
-              if (currentJob == null) {
+          }
+          
+          try {
+            synchronized (this) {
+              if (!this.hasJobs()) {
                 this.wait(100);
               }
-
-            } catch (InterruptedException ex) {
-
             }
+          } catch (InterruptedException ex) {
+
           }
         }
       }
@@ -127,13 +132,24 @@ class HandlingThread extends Thread {
    * @return
    */
   public boolean addJob(SelectionKey key) {
-    if (this.currentJob != null) {
-      return false;
+    for (int i = 0; i < this.jobs.length(); i++) {
+      SelectionKey job = this.jobs.get(i);
+      if (job == null) {
+        this.jobs.set(i, key);
+        return true;
+      }
     }
 
-    this.currentJob = key;
+    return false;
+  }
 
-    return true;
+  private boolean hasJobs() {
+    for (int i = 0; i < this.jobs.length(); i++) {
+      if (this.jobs.get(i) != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
 }
