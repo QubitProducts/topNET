@@ -19,9 +19,10 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  */
 class HandlingThread extends Thread {
 
-//  private volatile SelectionKey[] jobs = new SelectionKey[16];
-  private AtomicReferenceArray<SelectionKey> jobs = 
-          new AtomicReferenceArray<SelectionKey>(16);
+  static final public int PROC_JOBS_SIZE = 1024;
+  
+  private AtomicReferenceArray<SelectionKey> jobs
+          = new AtomicReferenceArray<>(PROC_JOBS_SIZE);
 
   public HandlingThread() {
   }
@@ -40,9 +41,12 @@ class HandlingThread extends Thread {
         while (MainAcceptAndDispatchThread.keepRunning) {
 
           while (this.hasJobs()) {
+
             for (int i = 0; i < this.jobs.length(); i++) {
               SelectionKey job = this.jobs.get(i);
+
               if (job != null) {
+                boolean remove = true;
                 DataHandler dataHandler = (DataHandler) job.attachment();
 
                 try {
@@ -58,24 +62,34 @@ class HandlingThread extends Thread {
                       ///Server.close(key);
                     }
 
-                    try {
-                      if (this.processKey(job, dataHandler)) {
-                        // key not necessary anymore
-                      }
-                    } catch (IOException es) {
-                      // @todo metrics
+                    if (this.processKey(job, dataHandler)) {
+                      // key not necessary anymore
+                    } else {
+                      remove = false;
                     }
                   }
-                } finally {
+                } catch (IOException es) {
+                  // @todo metrics
                   this.jobs.set(i, null);
+
                   if (dataHandler != null) {
                     dataHandler.locked = false;
+                  }
+
+                  Server.close(job);
+                } finally {
+                  if (remove) {
+                    this.jobs.set(i, null);
+
+                    if (dataHandler != null) {
+                      dataHandler.locked = false;
+                    }
                   }
                 }
               }
             }
           }
-          
+
           try {
             synchronized (this) {
               if (!this.hasJobs()) {
@@ -101,14 +115,28 @@ class HandlingThread extends Thread {
 
       try {
         busy = true;
-        if (key.isReadable()) {
+        if (dataHandler.writingResponse) {
+          if (this.writeResponse(key, dataHandler)) {
+            dataHandler.writingResponse = false;
+            return true;
+          } else {
+            return false;
+          }
+        } else if (key.isReadable()) {
           int many = dataHandler.read(key, buffer);
           if (many < 0) { // if finished reading
             if (many == -2) {
-              while (!dataHandler.write(key, buffer));
+              dataHandler.writingResponse = true;
+              if (this.writeResponse(key, dataHandler)) {
+                dataHandler.writingResponse = false;
+                return true;
+              } else {
+                return false;
+              }
             }
+            // fail, can close key
             Server.close(key);
-            return true; // can close key
+            return true;
           } else {
             return false;
           }
@@ -148,6 +176,14 @@ class HandlingThread extends Thread {
       if (this.jobs.get(i) != null) {
         return true;
       }
+    }
+    return false;
+  }
+
+  private boolean writeResponse(SelectionKey key, DataHandler dataHandler) throws IOException {
+    if (dataHandler.write(key, buffer)) {
+      Server.close(key);
+      return true;
     }
     return false;
   }

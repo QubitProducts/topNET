@@ -27,7 +27,7 @@ public class Server {
     new Server("localhost", 3456).start();
   }
 
-  public static final int BUF_SIZE = 8 * 128; // miliseconds
+  public static final int BUF_SIZE = 32 * 1024;
   public static final long TOUT = 30 * 1000; // miliseconds
   public static final long MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 

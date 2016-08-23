@@ -75,7 +75,7 @@ class MainAcceptAndDispatchThread extends Thread {
                 for (HandlingThread handlingThread : handlingThreads) {
                   if (handlingThread.addJob(key)) {
                     synchronized (handlingThread) {
-                      dataHandler.locked = true;
+                      dataHandler.locked = true; //single thread is deciding on this
                       handlingThread.notifyAll();
                     }
                     break;

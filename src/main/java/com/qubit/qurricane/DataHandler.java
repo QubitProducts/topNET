@@ -31,6 +31,7 @@ public class DataHandler {
   private String method;
   private String path;
   private boolean headersReady;
+  public volatile boolean writingResponse = false;
   private boolean bodyRequired = false;
 
   private boolean firstLine = true;
@@ -159,11 +160,13 @@ public class DataHandler {
   private void onInvalidPath() {
 
   }
-
+  
+  private byte previous = -1;
+  
   // returns true if write listening should be enabled
   protected synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer) 
           throws UnsupportedEncodingException {
-    byte previous = -1;
+    
     buffer.flip();
 
     if (!this.headersReady) {
@@ -201,6 +204,10 @@ public class DataHandler {
 
     if (this.headersReady) {
 
+      if (previous != -1) { // append last possible character
+        currentLine.append((char) previous);
+      }
+      
       if (this.contentLength > 0) {
         if (buffer.hasRemaining()) {
 
