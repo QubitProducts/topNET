@@ -5,17 +5,16 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Server.BUF_SIZE;
-import java.io.ByteArrayOutputStream;
+import com.qubit.qurricane.errors.ErrorTypes;
+import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  *
@@ -36,20 +35,25 @@ public class DataHandler {
 
   private boolean firstLine = true;
   private String lastHeaderName = null;
-  private final ByteArrayOutputStream bodyBuffer = new ByteArrayOutputStream();
+  
   private final StringBuffer currentLine = new StringBuffer();
   private int contentLengthCounter = 0;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
 
   public volatile boolean locked = false;
   
+  private Request request;
+  private Response response;
+  private ErrorTypes errorOccured = null;
+  private Throwable errorException;
+  
   public DataHandler() {
     touch = System.currentTimeMillis();
   }
 
   // returns true if should listen for write
-  public int read(SelectionKey key, ByteBuffer buf) throws IOException {
-
+  public synchronized int read(SelectionKey key, ByteBuffer buf) 
+          throws IOException {
     SocketChannel socketChannel = (SocketChannel) key.channel();
 
     buf.clear();
@@ -57,13 +61,12 @@ public class DataHandler {
 
     if ((read = socketChannel.read(buf)) > 0) {
       if (this.flushReads(key, buf)) {
-        read = -2; // -1: reading is finished
+        read = -2; // -1: reading is finished, -2 means done
       }
     }
     
     if (read == -1) {
       socketChannel.close();
-      this.processError();
     }
 
     this.touch();
@@ -71,21 +74,14 @@ public class DataHandler {
     return read;
   }
 
-  public void processError() {
-
-  }
-
-  public void processRequest() {
-  }
-
-  protected void finish() {
+  private void processsError() {
   }
 
   public long getTouch() {
     return touch;
   }
 
-  public void touch() {
+  protected void touch() {
     this.touch = System.currentTimeMillis();
   }
 
@@ -120,7 +116,6 @@ public class DataHandler {
 
   private String[] parseHeader(String line) {
     int idx = line.indexOf(":");
-
     if (idx > 0) {
       return new String[]{
         line.substring(0, idx),
@@ -132,38 +127,29 @@ public class DataHandler {
   }
 
   /**
-   * @return the headers
-   */
-  public Map<String, String> getHeaders() {
-    return headers;
-  }
-
-  /**
    * @return the path
    */
   public String getPath() {
     return path;
   }
 
-  private boolean hasHandlersForMethod(List<Handler> handlers) {
-    return true;
+  static final Map<String, Handler> handlers;
+  
+  static {
+    handlers = new HashMap<>();
   }
-
-  private void onInvalidMethod() {
-
-  }
-
-  private List<Handler> hasHandlersForPath() {
-    return null;
+  
+  private static Handler getHandlerForPath(String path) {
+    return handlers.get(path);
   }
 
   private void onInvalidPath() {
-
+    
   }
   
   private byte previous = -1;
   
-  // returns true if write listening should be enabled
+  // returns true if reading is finished
   protected synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer) 
           throws UnsupportedEncodingException {
     
@@ -178,7 +164,10 @@ public class DataHandler {
         if (current == '\n' && previous == '\r') {
 
           previous = -1;
-          this.processHeaderLine();
+          if (this.processHeaderLine()) {
+            this.errorOccured = BAD_CONTENT_HEADER;
+            return true; // finish now!
+          }
 
           if (this.headersReady) {
             if (this.bodyRequired) {
@@ -186,8 +175,8 @@ public class DataHandler {
                 this.contentLength
                         = Long.parseLong(this.headers.get("Content-Length"));
               } catch (NullPointerException | NumberFormatException ex) {
-                this.processError(); // bad headers
-                return false;
+                this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
+                return true;
               }
             }
             break;
@@ -203,12 +192,16 @@ public class DataHandler {
     }
 
     if (this.headersReady) {
-
+      // request can be processed
+      if (this.headersAreReadySoProcessReqAndRes(key) != null) {
+        return true;
+      }
+      
       if (previous != -1) { // append last possible character
         currentLine.append((char) previous);
       }
       
-      if (this.contentLength > 0) {
+      if (this.contentLength > 0) { // this also validates this.bodyRequired
         if (buffer.hasRemaining()) {
 
           int pos = buffer.position();
@@ -216,10 +209,16 @@ public class DataHandler {
 
           this.contentLengthCounter += amount;
 
-          bodyBuffer.write(
-                  buffer.array(),
-                  pos,
-                  amount);
+          try {
+            request.getOutputStream().write(
+                                        buffer.array(),
+                                        pos,
+                                        amount);
+          } catch (IOException ex) {
+            this.errorOccured = ErrorTypes.IO_ERROR;
+            this.errorException = ex;
+            return true;
+          }
         }
 
         if (this.contentLengthCounter >= this.contentLength) {
@@ -236,7 +235,7 @@ public class DataHandler {
     return false;
   }
 
-  private void processHeaderLine() {
+  private boolean processHeaderLine() {
     String line = currentLine.toString();
     currentLine.setLength(0); // reset
 
@@ -253,21 +252,9 @@ public class DataHandler {
 
         this.setMethodAndPath(line);
 
-        List<Handler> handlers = this.hasHandlersForPath();
-
-        if (handlers == null || handlers.isEmpty()) {
-          this.onInvalidPath();
-          /// return;
-        }
-
-        if (!this.hasHandlersForMethod(handlers)) {
-          this.onInvalidMethod();
-          /// return;
-        }
-
-        // method and path is fine
       } else {
-        this.processError();
+        this.errorOccured = ErrorTypes.HTTP_UNKNOWN_METHOD;
+        return true;
       }
     } else {
 
@@ -284,19 +271,17 @@ public class DataHandler {
               String tmp = this.headers.get(lastHeaderName);
               this.headers.put(lastHeaderName, tmp + "\n" + line);
             } else {
-              this.processError();
-              return; // yuck! headers malformed!! not even started and multiline ?
+              this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
+              return true; // yuck! headers malformed!! not even started and multiline ?
             }
-
           } else {
-
             String[] twoStrings = this.parseHeader(line);
             if (twoStrings != null) {
-              getHeaders().put(twoStrings[0], twoStrings[1]);
+              headers.put(twoStrings[0], twoStrings[1]);
               lastHeaderName = twoStrings[0];
             } else {
-              this.processError();
-              return; // yuck! header malformed!
+              this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
+              return true; // yuck! header malformed!
             }
           }
         } else {
@@ -304,34 +289,58 @@ public class DataHandler {
         }
       }
     }
+    
+    return false;
   }
-
-  String defaultHeaders = 
-          "HTTP/1.1 200 OK\r\nCache-control: no-cache\r\n\r\n";
-  int i = 0;
-  byte[] str = null;
-  boolean write(SelectionKey key, ByteBuffer buffer) 
+  
+  public synchronized boolean write(
+          SelectionKey key,
+          ByteBuffer buffer) 
           throws UnsupportedEncodingException, IOException {
     
     SocketChannel channel = (SocketChannel) key.channel();
     buffer.clear();
     
-    if (str == null) {
-      str = (defaultHeaders + bodyBuffer.toString()).getBytes();
-    }
+    InputStream currentSource = this.response.getInputStream();
     
-    while(buffer.hasRemaining() && i < str.length) {
-      buffer.put(str[i]);
-      i++;
+    int ch = 0;
+    while(buffer.hasRemaining() && (ch = currentSource.read()) != -1) {
+      buffer.putInt(ch);
     }
     
     buffer.flip();
     channel.write(buffer);
     
-    if (i == str.length) {
-      return true;
+    return ch == -1;
+  }
+
+  // returns true if writing should be stopped function using it should reply 
+  // asap - typically its used to repoly unsupported path 
+  private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
+    this.response = new Response();
+    
+    if (handlers == null || handlers.isEmpty()) {
+      this.onInvalidPath();
+      return ErrorTypes.HTTP_NOT_FOUND;
+    }
+
+    Handler handler = getHandlerForPath(this.path);
+    
+    if (handler == null) {
+      return ErrorTypes.HTTP_NOT_FOUND;
     }
     
-    return false;
+    if (handler.supports(this.method)) {
+      this.request = new Request(key, headers, null);
+      handler.init(this.request, this.response);
+      this.request.setStreamSet(true);
+      request.setMethod(this.method);
+      request.setPath(this.path);
+      handler.process(request, response);
+    } else {
+      return ErrorTypes.HTTP_NOT_FOUND;
+    }
+    
+    return null;
   }
 }

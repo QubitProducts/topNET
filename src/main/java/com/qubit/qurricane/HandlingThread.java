@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 class HandlingThread extends Thread {
 
   static final public int PROC_JOBS_SIZE = 1024;
-  
+
   private AtomicReferenceArray<SelectionKey> jobs
           = new AtomicReferenceArray<>(PROC_JOBS_SIZE);
 
@@ -107,14 +107,10 @@ class HandlingThread extends Thread {
     }
   }
 
-  public volatile boolean busy = false;
-
   private boolean processKey(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (key.isValid()) {
-
       try {
-        busy = true;
         if (dataHandler.writingResponse) {
           if (this.writeResponse(key, dataHandler)) {
             dataHandler.writingResponse = false;
@@ -124,7 +120,7 @@ class HandlingThread extends Thread {
           }
         } else if (key.isReadable()) {
           int many = dataHandler.read(key, buffer);
-          if (many < 0) { // if finished reading
+          if (many < 0) { // finished reading
             if (many == -2) {
               dataHandler.writingResponse = true;
               if (this.writeResponse(key, dataHandler)) {
@@ -134,7 +130,7 @@ class HandlingThread extends Thread {
                 return false;
               }
             }
-            // fail, can close key
+            // fail, can close 
             Server.close(key);
             return true;
           } else {
@@ -143,11 +139,9 @@ class HandlingThread extends Thread {
         } else {
           return true;
         }
-
       } catch (IOException ex) {
         return true;
       } finally {
-        busy = false;
       }
     } else {
       return true;
@@ -180,7 +174,8 @@ class HandlingThread extends Thread {
     return false;
   }
 
-  private boolean writeResponse(SelectionKey key, DataHandler dataHandler) throws IOException {
+  private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
+          throws IOException {
     if (dataHandler.write(key, buffer)) {
       Server.close(key);
       return true;
