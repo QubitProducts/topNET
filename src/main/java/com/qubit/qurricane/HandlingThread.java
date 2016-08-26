@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  */
 class HandlingThread extends Thread {
 
-  static final public int PROC_JOBS_SIZE = 512;
+  static final public int PROC_JOBS_SIZE = 64;
 
   private AtomicReferenceArray<SelectionKey> jobs
           = new AtomicReferenceArray<>(PROC_JOBS_SIZE);
