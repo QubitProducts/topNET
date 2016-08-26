@@ -5,7 +5,6 @@
  */
 package com.qubit.qurricane;
 
-import com.qubit.opentag.log.Log;
 import static com.qubit.qurricane.Handler.registerHandlerByPath;
 import com.qubit.qurricane.examples.EchoHandler;
 import java.io.IOException;
@@ -35,7 +34,7 @@ public class Server {
   public static final long MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
   public static final long MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-  public static Log log = new Log(Server.class);
+//  public static Log log = new Log(Server.class);
 
   private final int port;
 
@@ -84,9 +83,7 @@ public class Server {
 //      t2.start();
     }
     
-    
-
-    log.info("Server starting at " + listenAddress.getHostName() + " at " + port);
+    System.out.println("Server starting at " + listenAddress.getHostName() + " at " + port);
   }
 
   public void stop() throws IOException {
