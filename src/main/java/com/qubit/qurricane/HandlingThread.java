@@ -5,9 +5,8 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Server.BUF_SIZE;
-import static com.qubit.qurricane.Server.MAX_SIZE;
-import static com.qubit.qurricane.Server.TOUT;
+import static com.qubit.qurricane.Server.MAX_MESSAGE_SIZE;
+import static com.qubit.qurricane.Server.MAX_IDLE_TOUT;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -19,15 +18,13 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  */
 class HandlingThread extends Thread {
 
-  static final public int PROC_JOBS_SIZE = 64;
+  private AtomicReferenceArray<SelectionKey> jobs;
+  private final ByteBuffer buffer;
 
-  private AtomicReferenceArray<SelectionKey> jobs
-          = new AtomicReferenceArray<>(PROC_JOBS_SIZE);
-
-  public HandlingThread() {
+  public HandlingThread(int jobsSize, int bufSize) {
+    jobs = new AtomicReferenceArray<>(jobsSize);
+    buffer = ByteBuffer.allocate(bufSize);
   }
-
-  private final ByteBuffer buffer = ByteBuffer.allocate(BUF_SIZE);
 
   @Override
   public void run() {
@@ -50,12 +47,12 @@ class HandlingThread extends Thread {
                 if (dataHandler != null) {
                   
                   //check if connection is not open too long! Prevent DDoS
-                  if ( (System.currentTimeMillis() - dataHandler.getTouch()) > TOUT) {
+                  if ( (System.currentTimeMillis() - dataHandler.getTouch()) > MAX_IDLE_TOUT) {
                     Server.close(job); // jiust close - timedout
                   }
                   
                   // check if not too large
-                  if (dataHandler.getSize() > MAX_SIZE) {
+                  if (dataHandler.getSize() > MAX_MESSAGE_SIZE) {
                     Server.close(job);
                   }
 

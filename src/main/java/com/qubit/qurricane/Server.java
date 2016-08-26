@@ -29,10 +29,11 @@ public class Server {
     registerHandlerByPath("/hello", new EchoHandler());
 
   }
-
-  public static final int BUF_SIZE = 32 * 1024;
-  public static final long TOUT = 5000 * 1000; // miliseconds
-  public static final long MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+  
+  private static final int THREAD_JOBS_SIZE = 256;
+  private static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
+  public static final long MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
+  public static final long MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
   public static Log log = new Log(Server.class);
 
@@ -52,6 +53,8 @@ public class Server {
 
   public void start() throws IOException {
 
+    ResponseStream.RESPONSE_BUF_SIZE = DEFAULT_BUFFER_SIZE;
+    
     this.serverChannel = ServerSocketChannel.open();
     serverChannel.configureBlocking(false);
 
@@ -60,8 +63,12 @@ public class Server {
     // @todo move to cfg
     
     MainAcceptAndDispatchThread.keepRunning = true;
+    
     int threadsAmount = 64;
-    MainAcceptAndDispatchThread.setupThreadsList(threadsAmount);
+    MainAcceptAndDispatchThread.setupThreadsList(
+            threadsAmount,
+            THREAD_JOBS_SIZE,
+            DEFAULT_BUFFER_SIZE);
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
