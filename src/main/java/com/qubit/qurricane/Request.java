@@ -18,7 +18,7 @@ import java.util.Set;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-class Request {
+public class Request {
   private final Map<String, String> headers;
   private OutputStream outputStream;
   private final SelectionKey key;
@@ -26,21 +26,20 @@ class Request {
   
   private String path;
   private String method;
+  private String pathParameters;
+  private String fullPath;
+  private Throwable passedException;
+  private Throwable associatedException;
   
-  protected Request (SelectionKey key, Map<String, String> headers, OutputStream os) {
+  protected Request (SelectionKey key, Map<String, String> headers) {
     this.headers = headers;
     this.key = key;
-    if (os == null) {
-      outputStream = new ByteArrayOutputStream();
-    } else {
-      outputStream = os;
-    }
   }
   
   byte[] byteArray = null;
   
-  byte[] getBodyBytes() throws OutputStreamAlreadySetException {
-    if (this.isStreamSet()) {
+  public byte[] getBodyBytes() throws OutputStreamAlreadySetException {
+    if (!(this.outputStream instanceof ByteArrayOutputStream)) {
       throw new OutputStreamAlreadySetException();
     }
     
@@ -51,7 +50,7 @@ class Request {
     return byteArray;
   }
   
-  String getBodyString() throws OutputStreamAlreadySetException {
+  public String getBodyString() throws OutputStreamAlreadySetException {
     if (this.bodyStringCache == null) {
       Charset charset = null;
       try {
@@ -71,11 +70,11 @@ class Request {
     return this.bodyStringCache;
   }
   
-  String getHeader(String name) {
+  public String getHeader(String name) {
     return headers.get(name);
   }
 
-  Set<String> getHeadersKeySet() {
+  public Set<String> getHeadersKeySet() {
     return headers.keySet();
   }
   
@@ -85,21 +84,14 @@ class Request {
   protected OutputStream getOutputStream() {
     return outputStream;
   }
-  
-  private boolean streamSet = false;
-
-  /**
-   * @return the streamSet
-   */
-  public boolean isStreamSet() {
-    return streamSet;
-  }
 
   /**
    * @param streamSet the streamSet to set
    */
-  protected void setStreamSet(boolean streamSet) {
-    this.streamSet = streamSet;
+  protected void makeSureOutputStreamIsReady() {
+    if (this.outputStream == null) {
+      this.outputStream = new ByteArrayOutputStream();
+    }
   }
 
   /**
@@ -107,17 +99,9 @@ class Request {
    */
   public void setOutputStream(OutputStream outputStream) 
           throws OutputStreamAlreadySetException {
-    if (outputStream == null) {
+    if (outputStream != null) {
       // ignore nonsense, or throw...
-      return;
-    }
-    
-    if (this.isStreamSet()) {
       throw new OutputStreamAlreadySetException();
-    }
-    
-    if (this.outputStream != outputStream) {
-      this.setStreamSet(true);
     }
     
     this.outputStream = outputStream;
@@ -142,13 +126,6 @@ class Request {
   }
 
   /**
-   * @param path the path to set
-   */
-  protected void setPath(String path) {
-    this.path = path;
-  }
-
-  /**
    * @return the method
    */
   public String getMethod() {
@@ -160,6 +137,52 @@ class Request {
    */
   protected void setMethod(String method) {
     this.method = method;
+  }
+
+  /**
+   * @return the pathParameters
+   */
+  public String getPathParameters() {
+    return pathParameters;
+  }
+
+  /**
+   * @return the fullPath
+   */
+  public String getFullPath() {
+    return fullPath;
+  }
+
+  /**
+   * @param pathParameters the pathParameters to set
+   */
+  protected void setPathParameters(String pathParameters) {
+    this.pathParameters = pathParameters;
+  }
+
+  /**
+   * @param fullPath the fullPath to set
+   */
+  protected void setFullPath(String fullPath) {
+    this.fullPath = fullPath;
+  }
+  
+  protected void setPath(String fullPath) {
+    this.fullPath = fullPath;
+  }
+
+  /**
+   * @return the associatedException
+   */
+  public Throwable getAssociatedException() {
+    return associatedException;
+  }
+
+  /**
+   * @param associatedException the associatedException to set
+   */
+  protected void setAssociatedException(Throwable associatedException) {
+    this.associatedException = associatedException;
   }
   
 }

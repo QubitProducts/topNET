@@ -6,12 +6,12 @@
 package com.qubit.qurricane;
 
 import com.qubit.opentag.log.Log;
+import static com.qubit.qurricane.Handler.registerHandlerByPath;
+import com.qubit.qurricane.examples.EchoHandler;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import static java.nio.channels.SelectionKey.OP_READ;
-import static java.nio.channels.SelectionKey.OP_WRITE;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -25,10 +25,13 @@ public class Server {
   public static void main(String[] args) throws IOException {
 
     new Server("localhost", 3456).start();
+    
+    registerHandlerByPath("/hello", new EchoHandler());
+
   }
 
   public static final int BUF_SIZE = 32 * 1024;
-  public static final long TOUT = 30 * 1000; // miliseconds
+  public static final long TOUT = 5000 * 1000; // miliseconds
   public static final long MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
   public static Log log = new Log(Server.class);
@@ -56,6 +59,9 @@ public class Server {
 
     // @todo move to cfg
     
+    MainAcceptAndDispatchThread.keepRunning = true;
+    int threadsAmount = 64;
+    MainAcceptAndDispatchThread.setupThreadsList(threadsAmount);
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
@@ -64,16 +70,14 @@ public class Server {
       serverChannel.register(s1, SelectionKey.OP_ACCEPT);
       MainAcceptAndDispatchThread t1 = new MainAcceptAndDispatchThread(s1);
       t1.start();
-      
+
 //      Selector s2 = Selector.open();
 //      serverChannel.register(s2, SelectionKey.OP_ACCEPT);
 //      MainAcceptAndDispatchThread t2 = new MainAcceptAndDispatchThread(s2);
 //      t2.start();
     }
     
-    for (int i = 0; i < 64; i++) {
-      this.addHandler();
-    }
+    
 
     log.info("Server starting at " + listenAddress.getHostName() + " at " + port);
   }
@@ -82,7 +86,11 @@ public class Server {
     MainAcceptAndDispatchThread.keepRunning = false;
     
     // wait for all to finish
-    while (!MainAcceptAndDispatchThread.handlingThreads.isEmpty());
+    while (MainAcceptAndDispatchThread.hasThreads()) {
+      try {
+        Thread.sleep(5);
+      } catch (InterruptedException ex) {}
+    }
     
     serverChannel.close();
   }
@@ -131,22 +139,10 @@ public class Server {
     try {
       // this method is used on "bad occurence - to cleanup any stuff left
       // cleaning will be reviewed again
-      key.channel().close();
       key.cancel();
+      key.channel().close();
     } catch (IOException ex) {
       // metrics???
     }
   }
-
-  // heart of processing 
-  private Thread addHandler() {
-    
-    // @todo create separate class and encapsulate this
-    HandlingThread t = new HandlingThread();
-
-    t.start();
-
-    return t;
-  }
-  
 }

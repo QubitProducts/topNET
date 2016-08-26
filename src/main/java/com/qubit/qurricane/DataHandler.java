@@ -5,6 +5,8 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.Handler.getHandlerForPath;
+import static com.qubit.qurricane.errors.ErrorHandlingConfig.getDefaultErrorHandler;
 import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
 import java.io.IOException;
@@ -28,6 +30,7 @@ public class DataHandler {
   private final Map<String, String> headers = new HashMap<>();
 
   private String method;
+  private String fullPath;
   private String path;
   private boolean headersReady;
   public volatile boolean writingResponse = false;
@@ -44,8 +47,36 @@ public class DataHandler {
   
   private Request request;
   private Response response;
-  private ErrorTypes errorOccured = null;
+  private ErrorTypes errorOccured;
   private Throwable errorException;
+  private Handler handlerUsed;
+  
+  static final String utfTextHtmlHeader = 
+          "Content-Type: text/html; charset=utf-8\n\r";
+  static final String EOL = "\n";
+  private String params;
+
+  public void reset() {
+    size = 0;
+    headers.clear();
+    method = null;
+    fullPath = null;
+    path = null;
+    headersReady = false;
+    writingResponse = false;
+    bodyRequired = false;
+    firstLine = true;
+    lastHeaderName = null;
+    currentLine.setLength(0);
+    contentLengthCounter = 0;
+    contentLength = 0;
+    locked = false;
+    request = null;
+    response = null;
+    errorOccured = null;
+    errorException = null;
+    handlerUsed = null;
+  }
   
   public DataHandler() {
     touch = System.currentTimeMillis();
@@ -60,21 +91,18 @@ public class DataHandler {
     int read;
 
     if ((read = socketChannel.read(buf)) > 0) {
+      size += read;
       if (this.flushReads(key, buf)) {
         read = -2; // -1: reading is finished, -2 means done
+        this.handleData();
       }
     }
     
-    if (read == -1) {
-      socketChannel.close();
+    if (read > 0) {
+      this.touch();
     }
 
-    this.touch();
-
     return read;
-  }
-
-  private void processsError() {
   }
 
   public long getTouch() {
@@ -96,14 +124,15 @@ public class DataHandler {
     return "UTF-8";
   }
 
-  private void setMethodAndPath(String line) {
+  private void setMethodAndPathFromLine(String line) {
     int idx = line.indexOf(" ");
+    if (idx < 1) return;
     this.method = line.substring(0, idx);
     int sec_idx = line.indexOf(" ", idx + 1);
     if (sec_idx != -1) {
-      this.path = line.substring(idx + 1, sec_idx);
+      this.fullPath = line.substring(idx + 1, sec_idx);
     } else {
-      this.path = line.substring(idx + 1);
+      this.fullPath = line.substring(idx + 1);
     }
   }
 
@@ -127,30 +156,29 @@ public class DataHandler {
   }
 
   /**
-   * @return the path
+   * @return the fullPath
    */
-  public String getPath() {
-    return path;
+  public String getFullPath() {
+    return fullPath;
   }
 
-  static final Map<String, Handler> handlers;
-  
-  static {
-    handlers = new HashMap<>();
-  }
-  
-  private static Handler getHandlerForPath(String path) {
-    return handlers.get(path);
-  }
-
-  private void onInvalidPath() {
-    
+  private String analyzePathAndSplit() {
+    if (this.path == null && this.fullPath != null) {
+      int idx = this.fullPath.indexOf("?");
+      if (idx == -1) {
+        this.path = this.fullPath;
+      } else {
+        this.path = this.fullPath.substring(0, idx);
+        this.params = this.fullPath.substring(idx + 1);
+      }
+    }
+    return this.path;
   }
   
   private byte previous = -1;
   
-  // returns true if reading is finished
-  protected synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer) 
+  // returns true if reading is finished. any error handling should happend after reading foinished.
+  private synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer) 
           throws UnsupportedEncodingException {
     
     buffer.flip();
@@ -193,8 +221,9 @@ public class DataHandler {
 
     if (this.headersReady) {
       // request can be processed
-      if (this.headersAreReadySoProcessReqAndRes(key) != null) {
-        return true;
+      if ((this.errorOccured = this.headersAreReadySoProcessReqAndRes(key))
+              != null) {
+        return true; // stop reading now because of errors! 
       }
       
       if (previous != -1) { // append last possible character
@@ -217,6 +246,7 @@ public class DataHandler {
           } catch (IOException ex) {
             this.errorOccured = ErrorTypes.IO_ERROR;
             this.errorException = ex;
+            // some problem - just stop
             return true;
           }
         }
@@ -226,7 +256,7 @@ public class DataHandler {
         }
 
       } else {
-        // ignore rest of request if content length is unset!
+        // stop reading now coz there is nothing to read (not bcoz of error)
         return true;
       }
     }
@@ -242,18 +272,18 @@ public class DataHandler {
     if (firstLine) {
       firstLine = false;
 
-      bodyRequired = line.startsWith("POST ") || line.startsWith("PUT ")
-              || line.startsWith("PATCH ");
+      bodyRequired = !(
+                 line.startsWith("GET ")
+              || line.startsWith("HEAD ")
+              || line.startsWith("DELETE ")
+              || line.startsWith("TRACE "));
       // two birds as one
-      if (bodyRequired
-              || line.startsWith("GET ")
-              || line.startsWith("OPTIONS ") // @todo review
-              || line.startsWith("DELETE ")) {
+      
+      this.setMethodAndPathFromLine(line);
+      this.analyzePathAndSplit();
 
-        this.setMethodAndPath(line);
-
-      } else {
-        this.errorOccured = ErrorTypes.HTTP_UNKNOWN_METHOD;
+      if (this.method == null) {
+        this.errorOccured = ErrorTypes.HTTP_UNSET_METHOD;
         return true;
       }
     } else {
@@ -296,51 +326,148 @@ public class DataHandler {
   public synchronized boolean write(
           SelectionKey key,
           ByteBuffer buffer) 
-          throws UnsupportedEncodingException, IOException {
+          throws IOException {
     
     SocketChannel channel = (SocketChannel) key.channel();
     buffer.clear();
     
-    InputStream currentSource = this.response.getInputStream();
+    InputStream currentSource = this.getInputStreamForResponse();
     
     int ch = 0;
     while(buffer.hasRemaining() && (ch = currentSource.read()) != -1) {
-      buffer.putInt(ch);
+      buffer.put((byte)ch);
     }
     
     buffer.flip();
-    channel.write(buffer);
+    int written = channel.write(buffer);
+    
+    if (written > 0) {
+      this.touch();
+    }
     
     return ch == -1;
   }
 
   // returns true if writing should be stopped function using it should reply 
-  // asap - typically its used to repoly unsupported path 
+  // asap - typically its used to repoly unsupported fullPath 
   private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
     this.response = new Response();
+    this.request = new Request(key, headers);
     
-    if (handlers == null || handlers.isEmpty()) {
-      this.onInvalidPath();
-      return ErrorTypes.HTTP_NOT_FOUND;
+    if (this.errorOccured != null) {
+      return this.errorOccured;
     }
-
-    Handler handler = getHandlerForPath(this.path);
+    
+    // paths must be ready by headers setup
+    Handler handler = getHandlerForPath(this.fullPath, this.path);
+    this.handlerUsed = handler;
     
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
+    } else {
+      this.request.setPath(this.path);
+      this.request.setFullPath(this.fullPath);
+      this.request.setPathParameters(this.params);
+      this.request.setMethod(this.method);
+      this.handlerUsed.init(this.request, this.response);
+      this.request.makeSureOutputStreamIsReady();
+      
     }
     
-    if (handler.supports(this.method)) {
-      this.request = new Request(key, headers, null);
-      handler.init(this.request, this.response);
-      this.request.setStreamSet(true);
-      request.setMethod(this.method);
-      request.setPath(this.path);
-      handler.process(request, response);
-    } else {
+    if (!handler.supports(this.method)) {
       return ErrorTypes.HTTP_NOT_FOUND;
     }
     
     return null;
   }
+  
+  private Handler getErrorHandler(Handler handler) {
+    Handler errorHandler = getDefaultErrorHandler(getErrorCode());
+    request.setAssociatedException(this.errorException);
+    if (handler != null) {
+      Handler tmp = handler.getErrorHandler();
+      if (tmp != null) {
+        errorHandler = tmp;
+      }
+    }
+    return errorHandler;
+  }
+  
+  public ErrorTypes handleData() {
+    Handler handler = this.handlerUsed;
+    
+    if (handler == null && this.errorOccured == null) {
+      this.errorOccured = ErrorTypes.HTTP_NOT_FOUND;
+    }
+    
+    if (this.errorOccured != null) {
+      handler = getErrorHandler(handler);
+      
+    }
+    
+    if (handler != null) {
+    
+      try {
+        handler.process(request, response);
+      } catch (Throwable t) {
+        this.errorException = t;
+        return ErrorTypes.HTTP_UNKNOWN_ERROR;
+      }
+    }
+    
+    return null;
+  }
+  
+  private InputStream getInputStreamForResponse() {
+      return this.response.getInputStream();
+  }
+
+  private int getErrorCode() {
+    if (this.errorOccured != null) {
+      switch(this.errorOccured) {
+      case HTTP_NOT_FOUND:
+          return 404;
+       case BAD_CONTENT_HEADER:
+       case BAD_CONTENT_LENGTH:
+       case HTTP_MALFORMED_HEADERS:
+       case HTTP_UNSET_METHOD:
+          return 400;
+        default:
+          return 503;
+      }
+    }
+    return 200;
+  }
+
+  boolean canClose(boolean finishedWriting) {
+    if (this.response != null && this.response.isForcingNotKeepingAlive()) {
+      return true;
+    }
+    
+    boolean close = false;
+    String connection = this.headers.get("Connection");
+    
+    if (connection != null) {
+      switch (connection) {
+        case "keep-alive":
+          close = false;
+          break;
+        case "close":
+          close = true;
+          break;
+      }
+    }
+    
+    if (finishedWriting &&  this.response != null) {
+      int cl = this.response.getContentLength();
+      if (cl == -1) {
+        close = true; // close unknown contents once finished reading
+      }
+    }
+    
+    return close;
+  }
+
+  
+  
 }

@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  */
 class HandlingThread extends Thread {
 
-  static final public int PROC_JOBS_SIZE = 1024;
+  static final public int PROC_JOBS_SIZE = 512;
 
   private AtomicReferenceArray<SelectionKey> jobs
           = new AtomicReferenceArray<>(PROC_JOBS_SIZE);
@@ -34,76 +34,73 @@ class HandlingThread extends Thread {
 
     try {
 
-      MainAcceptAndDispatchThread.handlingThreads.add(this);
+      while (MainAcceptAndDispatchThread.keepRunning) {
 
-      {
+        while (this.hasJobs()) {
 
-        while (MainAcceptAndDispatchThread.keepRunning) {
+          for (int i = 0; i < this.jobs.length(); i++) {
+            SelectionKey job = this.jobs.get(i);
 
-          while (this.hasJobs()) {
+            if (job != null) {
+              boolean remove = true;
+              DataHandler dataHandler = (DataHandler) job.attachment();
 
-            for (int i = 0; i < this.jobs.length(); i++) {
-              SelectionKey job = this.jobs.get(i);
-
-              if (job != null) {
-                boolean remove = true;
-                DataHandler dataHandler = (DataHandler) job.attachment();
-
-                try {
-                  // important step! skip those busy
-                  if (dataHandler != null) {
-
-                    //check if connection is not open too long! Prevent DDoS
-                    if (dataHandler.getTouch() < System.currentTimeMillis() - TOUT) {
-                      ///Server.close(key);
-                    }
-                    // check if not too large
-                    if (dataHandler.getSize() > MAX_SIZE) {
-                      ///Server.close(key);
-                    }
-
-                    if (this.processKey(job, dataHandler)) {
-                      // key not necessary anymore
-                    } else {
-                      remove = false;
-                    }
+              try {
+                // important step! skip those busy
+                if (dataHandler != null) {
+                  
+                  //check if connection is not open too long! Prevent DDoS
+                  if ( (System.currentTimeMillis() - dataHandler.getTouch()) > TOUT) {
+                    Server.close(job); // jiust close - timedout
                   }
-                } catch (IOException es) {
-                  // @todo metrics
+                  
+                  // check if not too large
+                  if (dataHandler.getSize() > MAX_SIZE) {
+                    Server.close(job);
+                  }
+
+                  if (this.processKey(job, dataHandler)) {
+                    // key not necessary anymore
+                    // remove = true;
+                  } else {
+                    remove = false;
+                  }
+                }
+              } catch (IOException es) {
+                // @todo metrics
+                this.jobs.set(i, null);
+
+                if (dataHandler != null) {
+                  dataHandler.locked = false;
+                }
+
+                Server.close(job);
+              } finally {
+                if (remove) {
                   this.jobs.set(i, null);
 
                   if (dataHandler != null) {
                     dataHandler.locked = false;
                   }
-
-                  Server.close(job);
-                } finally {
-                  if (remove) {
-                    this.jobs.set(i, null);
-
-                    if (dataHandler != null) {
-                      dataHandler.locked = false;
-                    }
-                  }
                 }
               }
             }
           }
+        }
 
-          try {
-            synchronized (this) {
-              if (!this.hasJobs()) {
-                this.wait(100);
-              }
+        try {
+          synchronized (this) {
+            if (!this.hasJobs()) {
+              this.wait(100);
             }
-          } catch (InterruptedException ex) {
-
           }
+        } catch (InterruptedException ex) {
+
         }
       }
 
     } finally {
-      MainAcceptAndDispatchThread.handlingThreads.remove(this);
+      MainAcceptAndDispatchThread.removeThread(this);
     }
   }
 
@@ -124,14 +121,16 @@ class HandlingThread extends Thread {
             if (many == -2) {
               dataHandler.writingResponse = true;
               if (this.writeResponse(key, dataHandler)) {
-                dataHandler.writingResponse = false;
-                return true;
+                return this.closeIfNecessary(key, dataHandler, true);
               } else {
                 return false;
               }
             }
-            // fail, can close 
-            Server.close(key);
+            // connection is closed - just close socket
+            if (many == -1) {
+              Server.close(key);
+            }
+            
             return true;
           } else {
             return false;
@@ -146,6 +145,21 @@ class HandlingThread extends Thread {
     } else {
       return true;
     }
+  }
+
+  private boolean 
+        closeIfNecessary(SelectionKey key, DataHandler dataHandler, boolean finishedWriting) {
+    try {
+      if (dataHandler.canClose(finishedWriting)) {
+        Server.close(key);
+        return true;
+      } else {
+        dataHandler.reset();
+      }
+    } finally {
+    }
+    
+    return false;
   }
 
   /**
@@ -177,8 +191,8 @@ class HandlingThread extends Thread {
   private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (dataHandler.write(key, buffer)) {
-      Server.close(key);
-      return true;
+      dataHandler.writingResponse = false;
+      return this.closeIfNecessary(key, dataHandler, true);
     }
     return false;
   }
