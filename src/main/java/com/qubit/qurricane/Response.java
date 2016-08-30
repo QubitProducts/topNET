@@ -256,6 +256,7 @@ public class Response {
       
       this.responseStream = new ResponseReader();
       this.responseStream.setHeadersStream(getHeadersToSend());
+      this.responseStream.setBodyStream(bodyStream);
     } else {
       this.responseStream = new ResponseReader();
       this.responseStream.setHeadersStream(getHeadersToSend());
