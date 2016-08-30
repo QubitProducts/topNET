@@ -25,9 +25,9 @@ public class Response {
   static final String CRLF = "\r\n";
   static final String OK_200 = "HTTP/1.x 200 OK" + CRLF;
   static final String OK_204 = "HTTP/1.x 204 No Content" + CRLF;
-  
+
   private static final ThreadLocal<ServerTime> serverTime;
-  
+
   static {
     serverTime = new ThreadLocal<ServerTime>() {
       @Override
@@ -36,8 +36,7 @@ public class Response {
       }
     };
   }
-  
-  
+
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
   private ResponseReader responseReader;
@@ -55,6 +54,7 @@ public class Response {
 
   /**
    * Called just before starting reading to output.
+   *
    * @return ResponseReader reader object for this response
    */
   protected final ResponseReader getResponseReaderReadyToRead() {
@@ -62,14 +62,14 @@ public class Response {
     return this.responseReader;
   }
 
-  public void setResponseReader(ResponseReader responseStream) 
+  public void setResponseReader(ResponseReader responseStream)
           throws ResponseBuildingStartedException {
     if (this.responseReader != null) {
       throw new ResponseBuildingStartedException();
     }
     this.responseReader = responseStream;
   }
-  
+
   public ByteArrayInputStream getHeadersToSend() {
 
     StringBuffer buffer = getHeadersBuffer(this.customHttpCode());
@@ -77,14 +77,14 @@ public class Response {
     ByteArrayInputStream stream
             = new ByteArrayInputStream(
                     buffer.toString().getBytes(StandardCharsets.ISO_8859_1));
-    
+
     return stream;
   }
 
   public StringBuffer getHeadersBuffer(String customFirstHttpLine) {
-    StringBuffer buffer = 
-            getHeadersBufferWithoutEOL(customFirstHttpLine, this.httpCode);
-    
+    StringBuffer buffer
+            = getHeadersBufferWithoutEOL(customFirstHttpLine, this.httpCode);
+
     try {
       this.addHeaders(buffer);
     } catch (TooLateToChangeHeadersException ex) {
@@ -92,29 +92,29 @@ public class Response {
               Response.class.getName())
               .log(Level.SEVERE, "This should never happen.", ex);
     }
-    
-    if (this.getContentLength() >= 0 &&
-            !this.headers.containsKey("Content-Length")) {
+
+    if (this.getContentLength() >= 0
+            && !this.headers.containsKey("Content-Length")) {
       buffer.append("Content-Length: ");
       buffer.append(this.getContentLength());
       buffer.append(CRLF);
     }
 
     buffer.append(CRLF); // headers are done\
-    
+
     return buffer;
   }
-  
+
   public static StringBuffer getHeadersBufferWithoutEOL(int httpCode) {
     return getHeadersBufferWithoutEOL(null, httpCode);
   }
-  
+
   public static StringBuffer getHeadersBufferWithoutEOL(
-            String customFirstHttpLine, int httpCode) {
+          String customFirstHttpLine, int httpCode) {
 
     StringBuffer buffer = new StringBuffer();
     int httpCodeNum = httpCode;
-    
+
     if (customFirstHttpLine != null) {
       buffer.append(customFirstHttpLine);
       buffer.append(CRLF);
@@ -136,17 +136,17 @@ public class Response {
       buffer.append(httpCodeNum);
       buffer.append(CRLF);
     }
-    
+
     buffer.append("Date: ");
     buffer.append(serverTime.get().getTime());
     buffer.append(CRLF);
-    
+
     buffer.append("Server: Qurricane");
     buffer.append(CRLF);
-    
+
     return buffer;
   }
-  
+
   private void addHeaders(StringBuffer buffer)
           throws TooLateToChangeHeadersException {
     for (Map.Entry<String, String> entrySet : headers.entrySet()) {
@@ -164,7 +164,7 @@ public class Response {
     }
     this.headers.put(name, value);
   }
-  
+
   public void removeHeader(String name)
           throws TooLateToChangeHeadersException {
     if (this.tooLateToChangeHeaders) {
@@ -172,11 +172,11 @@ public class Response {
     }
     this.headers.remove(name);
   }
-  
+
   public String getHeader(String name) {
     return this.headers.get(name);
   }
-  
+
   /**
    * Function returning suffix to first line of HTTP message, suffix to:
    * "HTTP/1.1 "
@@ -200,10 +200,11 @@ public class Response {
 
   /**
    * To print to response output - use this function - note this is textual
-   * method of sending response. To send binary data, preapare input stream 
- to read and attach here.
+   * method of sending response. To send binary data, preapare input stream to
+   * read and attach here.
+   *
    * @param str
-   * @throws ResponseBuildingStartedException 
+   * @throws ResponseBuildingStartedException
    */
   public void print(String str) throws ResponseBuildingStartedException {
     if (this.responseReader != null) {
@@ -216,59 +217,57 @@ public class Response {
   }
 
   protected void prepareResponseReader() {
-    if (this.responseReader != null) {
-      if (this.responseReader.getHeadersStream() == null) {
-        this.responseReader.setHeadersStream(getHeadersToSend());
+    if (this.responseReader == null) {
+      if (this.responseBuilder != null) {
+        String charsetString = this.getCharset();
+
+        Charset _charset = Charset.defaultCharset();
+
+        if (charsetString != null) {
+          _charset = Charset.forName(getCharset());
+        }
+
+        charsetString = _charset.name();
+
+        byte[] bytes = this.responseBuilder.toString().getBytes(_charset);
+        // @todo its copying... lets do that without it
+        this.setContentLength(bytes.length);
+        ByteArrayInputStream bodyStream = new ByteArrayInputStream(bytes);
+
+        try {
+
+          if (this.isSuggestingClosing()) {
+            this.addHeader("Connection", "close");
+          }
+
+          if (this.getHeader("Content-Type") == null) {
+            this.addHeader(
+                    "Content-Type",
+                    this.getContentType() + "; charset=" + charsetString);
+          }
+        } catch (TooLateToChangeHeadersException ex) {
+          Logger.getLogger(Response.class.getName())
+                  .log(Level.SEVERE,
+                          "This should never happen - bad implementation.", ex);
+        }
+
+        this.responseBuilder.setLength(0);
+
+        this.responseReader = new ResponseReader();
+        this.responseReader.setBodyStream(bodyStream);
+      } else {
+        this.responseReader = new ResponseReader();
+        this.responseReader.setBodyStream(this.inputStreamForBody);
       }
-      return;
     }
     
-    if (this.responseBuilder != null) {
-      String charsetString = this.getCharset();
-      
-      Charset _charset = Charset.defaultCharset();
-      
-      if (charsetString != null) {
-        _charset = Charset.forName(getCharset());
-      }
-      
-      charsetString = _charset.name();
-      
-      byte[] bytes = this.responseBuilder.toString().getBytes(_charset);
-      // @todo its copying... lets do that without it
-      // this.responseBuilder.setLength(0);
-      this.setContentLength(bytes.length);
-      ByteArrayInputStream bodyStream = new ByteArrayInputStream(bytes);
-      
-      try {
-        
-        if (this.isSuggestingClosing()) {
-          this.addHeader("Connection", "close");
-        }
-        
-        if (this.getHeader("Content-Type") == null) {
-          this.addHeader(
-                  "Content-Type", 
-                  this.getContentType() + "; charset=" + charsetString);
-        }
-      } catch (TooLateToChangeHeadersException ex) {
-        Logger.getLogger(Response.class.getName())
-          .log(Level.SEVERE,
-               "This should never happen - bad implementation.", ex);
-      }
-      
-      this.responseReader = new ResponseReader();
+    if (this.responseReader.getHeadersStream() == null) { // only once
       this.responseReader.setHeadersStream(getHeadersToSend());
-      this.responseReader.setBodyStream(bodyStream);
-    } else {
-      this.responseReader = new ResponseReader();
-      this.responseReader.setHeadersStream(getHeadersToSend());
-      this.responseReader.setBodyStream(this.inputStreamForBody);
     }
-    
+
     this.tooLateToChangeHeaders = true;
   }
-  
+
   /**
    * @return the contentLength
    */
@@ -343,18 +342,18 @@ public class Response {
    * @param inputStream the inputStreamForBody to set
    * @throws com.qubit.qurricane.exceptions.ResponseBuildingStartedException
    */
-  public void setStreamToReadFrom(InputStream inputStream) 
+  public void setStreamToReadFrom(InputStream inputStream)
           throws ResponseBuildingStartedException {
     if (this.responseBuilder != null) {
       throw new ResponseBuildingStartedException();
     }
-    
+
     this.inputStreamForBody = inputStream;
     if (this.responseReader != null) {
       this.responseReader.setBodyStream(this.inputStreamForBody);
     }
   }
-  
+
   public boolean waitForData() {
     return false;
   }
@@ -386,5 +385,5 @@ public class Response {
   public void setAttachment(Object attachment) {
     this.attachment = attachment;
   }
-  
+
 }
