@@ -51,13 +51,8 @@ public class ResponseStream {
    * @param bodyStream the bodyStream to set
    * @return 
    */
-  public boolean setBodyStream(InputStream bodyStream) {
-    if (this.bodyStream != null) {
-      this.bodyStream = bodyStream;
-      return true;
-    }
-    
-    return false;
+  public void setBodyStream(InputStream bodyStream) {
+    this.bodyStream = bodyStream;
   }
 
   public int readBody() throws IOException {
