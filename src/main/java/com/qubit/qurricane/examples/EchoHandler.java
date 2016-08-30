@@ -8,6 +8,7 @@ package com.qubit.qurricane.examples;
 import com.qubit.qurricane.Handler;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
+import java.io.ByteArrayInputStream;
 
 /**
  *
@@ -16,8 +17,15 @@ import com.qubit.qurricane.Response;
 public class EchoHandler extends Handler {
 
   @Override
+  public void init(Request request, Response response) {
+    // happens before processing and preparing any response. 
+  }
+
+  @Override
   public void process(Request request, Response response) throws Exception {
-    response.print("Hello World! Echo:\n" + request.getBodyString());
+    //response.print("Hello World! Echo:\n" + request.getBodyString());
+    ByteArrayInputStream is = new ByteArrayInputStream(request.getBodyString().getBytes());
+    response.setInputStream(is);
   }
   
 }
