@@ -376,7 +376,7 @@ public class DataHandler {
       this.request.setFullPath(this.fullPath);
       this.request.setPathParameters(this.params);
       this.request.setMethod(this.method);
-      this.handlerUsed.init(this.request, this.response);
+      this.handlerUsed.prepare(this.request, this.response);
       this.request.makeSureOutputStreamIsReady();
       
     }

@@ -60,7 +60,7 @@ public abstract class Handler {
     return null;
   }
   
-  public void init(Request request, Response response) {
+  public void prepare(Request request, Response response) {
     // optional moment to put own output stream to request
   }
   

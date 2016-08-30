@@ -24,7 +24,7 @@ public class AsyncAppenderHandler extends Handler {
   }
 
   @Override
-  public void init(Request request, Response response) {
+  public void prepare(Request request, Response response) {
     try {
       response.setResponseStream(new ResponseAppendableReader());
       response.setMoreDataComing(true);

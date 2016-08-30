@@ -17,7 +17,7 @@ import java.io.ByteArrayInputStream;
 public class EchoHandler extends Handler {
 
   @Override
-  public void init(Request request, Response response) {
+  public void prepare(Request request, Response response) {
     // happens before processing and preparing any response. 
   }
 
