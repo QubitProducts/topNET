@@ -1,59 +1,109 @@
-//
-// This file is to be applied to every subproject.
-//
-
 apply plugin: 'java'
 apply plugin: 'maven'
 
 String mavenGroupId = 'com.qubit'
-String mavenVersion = '1.0-SNAPSHOT'
-
-sourceCompatibility = '1.8'
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-
-repositories {
-    maven {
-      url = "http://opentag-test.qubitproducts.com/mvn/repository/snapshots"
-    }
-    mavenCentral()
-    // You may define additional repositories, or even remove "mavenCentral()".
-    // Read more about repositories here:
-    //   http://www.gradle.org/docs/current/userguide/dependency_management.html#sec:repositories
-}
-
-dependencies {
-    // Adding dependencies here will add the dependencies to each subproject.
-    testCompile group: 'junit', name: 'junit', version: '4.10'
-}
-
-String mavenArtifactId = name
+String mavenVersion = '3.0.1'
+String mavenArtifactId = name.replace("modules/", "")
 
 group = mavenGroupId
 version = mavenVersion
 
-task sourcesJar(type: Jar, dependsOn: classes, description: 'Creates a jar from the source files.') {
-    classifier = 'sources'
-    from sourceSets.main.allSource
+task sourcesJar(type: Jar, 
+  dependsOn: classes, 
+  description: 'Creates a jar from the source files.') {
+  classifier = 'sources'
+  from sourceSets.main.allSource
 }
 
 artifacts {
-    archives jar
-    archives sourcesJar
+  archives jar
+  archives sourcesJar
 }
 
 configure(install.repositories.mavenInstaller) {
-    pom.project {
-        groupId = mavenGroupId
-        artifactId = mavenArtifactId
-        version = mavenVersion
-    }
+  pom.project {
+    groupId = mavenGroupId
+    artifactId = mavenArtifactId
+    version = mavenVersion
+  }
 }
 
-task createFolders(description: 'Creates the source folders if they do not exist.') doLast {
-    sourceSets*.allSource*.srcDirs*.each { File srcDir ->
-        if (!srcDir.isDirectory()) {
-            println "Creating source folder: ${srcDir}"
-            srcDir.mkdirs()
+def installRemoteAll = false
+def installRemoteAllSnapshots = true
+
+uploadArchives {
+  //logger.warn "installRemoteAll: "+ installRemoteAll +", installRemoteAllSnapshots: " + installRemoteAllSnapsots
+  if (installRemoteAll) {
+    repositories.mavenDeployer {
+        repository(
+          url: "http://opentag-test.qubitproducts.com/mvn/repository/internal") {
+            authentication(userName: "maven", password: "...")
+            pom.groupId = mavenGroupId
+            pom.artifactId = mavenArtifactId
+            pom.version = mavenVersion
         }
     }
+  }
+  if (installRemoteAllSnapshots) {
+    repositories.mavenDeployer {
+        repository(
+          url: "http://opentag-test.qubitproducts.com/mvn/repository/snapshots") {
+            authentication(userName: "maven", password: "...")
+            pom.groupId = mavenGroupId
+            pom.artifactId = mavenArtifactId
+            pom.version = mavenVersion
+        }
+    }
+  }
 }
+
+uploadArchives.dependsOn install
+
+// doesnt work, fix it man
+task uploadArchivesSnapshot << {
+  installRemoteAllSnapshots = true
+  tasks.uploadArchives.execute()
+}
+
+task uploadArchivesRelease << {
+  installRemoteAll = true
+  tasks.uploadArchives.execute()
+}
+
+sourceCompatibility = '1.7'
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+  mavenCentral()
+  mavenLocal()
+}
+
+dependencies {
+  // Adding dependencies here will add the dependencies to each subproject.
+  testCompile group: 'junit', name: 'junit', version: '4.10'
+}
+
+
+task createFolders(
+  description: 'Creates the source folders if they do not exist.') doLast {
+  sourceSets*.allSource*.srcDirs*.each { File srcDir ->
+    if (!srcDir.isDirectory()) {
+      println "Creating source folder: ${srcDir}"
+      srcDir.mkdirs()
+    }
+  }
+}
+
+def isWindows () {
+  return (Os.isFamily(Os.FAMILY_WINDOWS))
+}
+
+//this will make sure all jars are locally installed
+allprojects {
+  jar.finalizedBy install
+}
+
+allprojects {
+  install.finalizedBy uploadArchives
+}
+
