@@ -11,13 +11,8 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,15 +26,17 @@ public class Response {
   static final String OK_200 = "HTTP/1.x 200 OK" + CRLF;
   static final String OK_204 = "HTTP/1.x 204 No Content" + CRLF;
   
-  final static DateFormat dateFormat;
-  final static Calendar calendar;
-
+  private static ThreadLocal<ServerTime> serverTime;
+  
   static {
-    calendar = Calendar.getInstance();
-    dateFormat = new SimpleDateFormat(
-            "EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
-    dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+    new ThreadLocal<ServerTime>() {
+      @Override
+      protected ServerTime initialValue() {
+        return new ServerTime();
+      }
+    };
   }
+  
   
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
@@ -52,8 +49,9 @@ public class Response {
   private boolean suggestingClosing = true;
   
   private StringBuffer responseBuilder = null;
+  private InputStream inputStream;
 
-  protected InputStream getInputStream() {
+  protected final ResponseStream getResponseStream() {
     this.prepareResponseStream();
     return this.responseStream;
   }
@@ -108,7 +106,7 @@ public class Response {
       buffer.append(CRLF);
     } else if (httpCodeNum == 200) {
       buffer.append(OK_200);
-    } else if (httpCodeNum == 200) {
+    } else if (httpCodeNum == 204) {
       buffer.append(OK_204);
     } else if (httpCodeNum == 404) {
       buffer.append("HTTP/1.x 404 Not Found");
@@ -126,7 +124,7 @@ public class Response {
     }
     
     buffer.append("Date: ");
-    buffer.append(dateFormat.format(calendar.getTime()));
+    buffer.append(serverTime.get().getTime());
     buffer.append(CRLF);
     
     buffer.append("Server: Qurricane");
@@ -186,7 +184,7 @@ public class Response {
     this.httpCode = httpCode;
   }
 
-  public void setResponseStream(InputStream is)
+  public void setBodyResponseStream(InputStream is)
           throws ResponseBuildingStartedException {
     if (this.responseBuilder != null) {
       throw new ResponseBuildingStartedException();
@@ -326,5 +324,22 @@ public class Response {
    */
   public void setSuggestingClosing(boolean suggestingClosing) {
     this.suggestingClosing = suggestingClosing;
+  }
+
+  private InputStream getInputStream() {
+    return this.inputStream;
+  }
+
+  /**
+   * @param inputStream the inputStream to set
+   * @throws com.qubit.qurricane.exceptions.ResponseBuildingStartedException
+   */
+  protected void setInputStream(InputStream inputStream) 
+          throws ResponseBuildingStartedException {
+    if (this.responseBuilder != null || this.inputStream != null) {
+      throw new ResponseBuildingStartedException();
+    }
+    
+    this.inputStream = inputStream;
   }
 }

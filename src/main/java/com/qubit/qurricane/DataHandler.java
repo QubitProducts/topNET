@@ -419,7 +419,7 @@ public class DataHandler {
   }
   
   private InputStream getInputStreamForResponse() {
-      return this.response.getInputStream();
+      return this.response.getResponseStream();
   }
 
   private int getErrorCode() {
