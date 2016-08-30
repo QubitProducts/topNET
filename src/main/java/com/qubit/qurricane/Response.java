@@ -40,7 +40,7 @@ public class Response {
   
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
-  private ResponseStream responseStream;
+  private ResponseReader responseStream;
   private boolean tooLateToChangeHeaders;
   private int contentLength = -1;
   private String contentType = "text/html";
@@ -51,7 +51,7 @@ public class Response {
   private StringBuffer responseBuilder = null;
   private InputStream inputStream;
 
-  protected final ResponseStream getResponseStreamReadyToRead() {
+  protected final ResponseReader getResponseStreamReadyToRead() {
     this.prepareResponseStream();
     return this.responseStream;
   }
@@ -238,11 +238,11 @@ public class Response {
                "This should never happen - bad implementation.", ex);
       }
       
-      this.responseStream = new ResponseStream(getHeadersToSend());
+      this.responseStream = new ResponseReader(getHeadersToSend());
       
     } else {
       this.responseStream = 
-              new ResponseStream(getHeadersToSend());
+              new ResponseReader(getHeadersToSend());
       this.responseStream.setBodyStream(this.getInputStream());
     }
     

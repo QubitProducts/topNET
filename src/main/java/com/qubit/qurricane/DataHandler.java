@@ -331,7 +331,7 @@ public class DataHandler {
     SocketChannel channel = (SocketChannel) key.channel();
     buffer.clear();
     
-    ResponseStream responseReader = this.getInputStreamForResponse();
+    ResponseReader responseReader = this.getInputStreamForResponse();
     
     int ch = 0;
     while(buffer.hasRemaining() && (ch = responseReader.read()) != -1) {
@@ -420,7 +420,7 @@ public class DataHandler {
     return null;
   }
   
-  private ResponseStream getInputStreamForResponse() {
+  private ResponseReader getInputStreamForResponse() {
       return this.response.getResponseStreamReadyToRead();
   }
 

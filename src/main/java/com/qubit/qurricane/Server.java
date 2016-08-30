@@ -52,7 +52,7 @@ public class Server {
 
   public void start() throws IOException {
 
-    ResponseStream.RESPONSE_BUF_SIZE = DEFAULT_BUFFER_SIZE;
+    ResponseReader.RESPONSE_BUF_SIZE = DEFAULT_BUFFER_SIZE;
     
     this.serverChannel = ServerSocketChannel.open();
     serverChannel.configureBlocking(false);
