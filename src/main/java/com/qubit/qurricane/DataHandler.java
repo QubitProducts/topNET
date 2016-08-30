@@ -417,8 +417,9 @@ public class DataHandler {
       try {
         handler.process(request, response);
       } catch (Throwable t) {
+        this.errorOccured = ErrorTypes.HTTP_SERVER_ERROR;
         this.errorException = t;
-        return ErrorTypes.HTTP_UNKNOWN_ERROR;
+        return this.errorOccured;
       }
     }
     
@@ -431,13 +432,16 @@ public class DataHandler {
 
   private int getErrorCode() {
     if (this.errorOccured != null) {
-      switch(this.errorOccured) {
-      case HTTP_NOT_FOUND:
+      // @todo clean this up
+      switch (this.errorOccured) {
+        case HTTP_NOT_FOUND:
           return 404;
-       case BAD_CONTENT_HEADER:
-       case BAD_CONTENT_LENGTH:
-       case HTTP_MALFORMED_HEADERS:
-       case HTTP_UNSET_METHOD:
+        case HTTP_SERVER_ERROR:
+          return 503;
+        case BAD_CONTENT_HEADER:
+        case BAD_CONTENT_LENGTH:
+        case HTTP_MALFORMED_HEADERS:
+        case HTTP_UNSET_METHOD:
           return 400;
         default:
           return 503;
