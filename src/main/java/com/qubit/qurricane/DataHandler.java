@@ -412,7 +412,8 @@ public class DataHandler {
     
     if (this.errorOccured != null) {
       handler = getErrorHandler(handler);
-      handler.prepare(request, response);
+      handler.prepare(request, response); 
+          // @todo review error handling and refactor to nicer form
     }
     
     if (handler != null) {
@@ -429,6 +430,8 @@ public class DataHandler {
         try {
           response = new Response();
           handler.prepare(request, response);
+          // @todo review error handling and refactor to nicer form.
+          // prepare not really needed
           handler.process(request, response);
         } catch (Exception ex) {
           Logger.getLogger(DataHandler.class.getName())
