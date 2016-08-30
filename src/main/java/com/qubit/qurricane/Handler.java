@@ -6,19 +6,31 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class Handler {
+public abstract class Handler {
   
   static private final Map<String, Handler> plainPathHandlers;
   static private final List<Handler> matchingHandlersAfterPlainHandlers;
-  
+    
   static {
     plainPathHandlers = new HashMap<>();
     matchingHandlersAfterPlainHandlers = new ArrayList<>();
+  }
+  
+  public Handler getInstance() {
+    return this;
+//    try {
+//      return this.getClass().newInstance();
+//    } catch (InstantiationException | IllegalAccessException ex) {
+//      Logger.getLogger(Handler.class.getName()).log(Level.SEVERE, null, ex);
+//    }
+//    return null;
   }
   
   public static void registerHandlerByPath(String path, Handler handler) {
@@ -38,22 +50,22 @@ public class Handler {
     if (handler == null) {
       for (Handler matchingHandler : matchingHandlersAfterPlainHandlers) {
         if (matchingHandler.matches(fullPath)) {
-          return matchingHandler;
+          return matchingHandler.getInstance();
         }
       }
+    } else {
+      return handler.getInstance();
     }
     
-    return handler;
+    return null;
   }
   
   public void init(Request request, Response response) {
-    // moment to put own output stream to request
+    // optional moment to put own output stream to request
   }
   
   // request is ready, with full body, unless different stream been passed
-  public void process(Request request, Response response) throws Exception {
-    
-  }
+  public abstract void process(Request request, Response response) throws Exception;
 
   public boolean supports(String method) {
     return true;
@@ -70,5 +82,4 @@ public class Handler {
   protected Handler getErrorHandler() {
     return null;
   }
-
 }

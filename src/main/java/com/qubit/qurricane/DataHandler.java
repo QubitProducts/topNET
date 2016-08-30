@@ -334,6 +334,10 @@ public class DataHandler {
     
     ResponseReader responseReader = this.getInputStreamForResponse();
     
+    if (responseReader == null) {
+      return !this.response.isMoreDataComing();
+    }
+    
     int ch = 0;
     while(buffer.hasRemaining() && (ch = responseReader.read()) != -1) {
       buffer.put((byte)ch);
