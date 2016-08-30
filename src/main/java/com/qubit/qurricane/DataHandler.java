@@ -331,10 +331,10 @@ public class DataHandler {
     SocketChannel channel = (SocketChannel) key.channel();
     buffer.clear();
     
-    InputStream currentSource = this.getInputStreamForResponse();
+    ResponseStream responseReader = this.getInputStreamForResponse();
     
     int ch = 0;
-    while(buffer.hasRemaining() && (ch = currentSource.read()) != -1) {
+    while(buffer.hasRemaining() && (ch = responseReader.read()) != -1) {
       buffer.put((byte)ch);
     }
     
@@ -345,7 +345,9 @@ public class DataHandler {
       this.touch();
     }
     
-    return ch == -1;
+    // finished?
+    
+    return ch == -1 && !responseReader.isWaitingForMoreOnEmptyInput();
   }
 
   // returns true if writing should be stopped function using it should reply 
@@ -418,8 +420,8 @@ public class DataHandler {
     return null;
   }
   
-  private InputStream getInputStreamForResponse() {
-      return this.response.getResponseStream();
+  private ResponseStream getInputStreamForResponse() {
+      return this.response.getResponseStreamReadyToRead();
   }
 
   private int getErrorCode() {

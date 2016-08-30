@@ -13,32 +13,30 @@ import java.nio.ByteBuffer;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class ResponseStream extends InputStream {
+public class ResponseStream {
   private final InputStream headersStream;
   
-  public static int RESPONSE_BUF_SIZE = 4096;
-
-  volatile boolean closed = false;
+  public static int RESPONSE_BUF_SIZE = 4096;  
+  private volatile boolean waitingForMoreOnEmptyInput = false;
   
   ByteBuffer buffer = ByteBuffer.allocate(RESPONSE_BUF_SIZE);
   private InputStream bodyStream;
   
-  ResponseStream(InputStream headersToSend, InputStream stream) {
+  ResponseStream(InputStream headersToSend) {
     this.headersStream = headersToSend;
-    this.bodyStream = stream;
   }
 
-  @Override
+  /**
+   * Main reading function. It returns integer != -1 if there is anything to read.
+   * @return
+   * @throws IOException 
+   */
   public int read() throws IOException {
     int ch;
     if ((ch = headersStream.read()) != -1) {
       return ch;
     } else {
-      if (this.getBodyStream() != null) {
-        return getBodyStream().read();
-      } else {
-        return -1;
-      }
+      return readBody();
     }
   }
 
@@ -51,6 +49,7 @@ public class ResponseStream extends InputStream {
 
   /**
    * @param bodyStream the bodyStream to set
+   * @return 
    */
   public boolean setBodyStream(InputStream bodyStream) {
     if (this.bodyStream != null) {
@@ -60,6 +59,27 @@ public class ResponseStream extends InputStream {
     
     return false;
   }
-  
+
+  public int readBody() throws IOException {
+    if (this.getBodyStream() != null) {
+      return getBodyStream().read();
+    } else {
+      return -1;
+    }
+  }
+
+  /**
+   * @return the waitingForMoreOnEmptyInput
+   */
+  public boolean isWaitingForMoreOnEmptyInput() {
+    return waitingForMoreOnEmptyInput;
+  }
+
+  /**
+   * @param waitingForMoreOnEmptyInput the waitingForMoreOnEmptyInput to set
+   */
+  public void setWaitingForMoreOnEmptyInput(boolean waitingForMoreOnEmptyInput) {
+    this.waitingForMoreOnEmptyInput = waitingForMoreOnEmptyInput;
+  }
   
 }

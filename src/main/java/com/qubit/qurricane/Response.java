@@ -26,10 +26,10 @@ public class Response {
   static final String OK_200 = "HTTP/1.x 200 OK" + CRLF;
   static final String OK_204 = "HTTP/1.x 204 No Content" + CRLF;
   
-  private static ThreadLocal<ServerTime> serverTime;
+  private static final ThreadLocal<ServerTime> serverTime;
   
   static {
-    new ThreadLocal<ServerTime>() {
+    serverTime = new ThreadLocal<ServerTime>() {
       @Override
       protected ServerTime initialValue() {
         return new ServerTime();
@@ -51,7 +51,7 @@ public class Response {
   private StringBuffer responseBuilder = null;
   private InputStream inputStream;
 
-  protected final ResponseStream getResponseStream() {
+  protected final ResponseStream getResponseStreamReadyToRead() {
     this.prepareResponseStream();
     return this.responseStream;
   }
@@ -184,19 +184,10 @@ public class Response {
     this.httpCode = httpCode;
   }
 
-  public void setBodyResponseStream(InputStream is)
-          throws ResponseBuildingStartedException {
-    if (this.responseBuilder != null) {
-      throw new ResponseBuildingStartedException();
-    } else {
-      this.responseStream.setBodyStream(is);
-    }
-  }
-
   /**
    * To print to response output - use this function - note this is textual
    * method of sending response. To send binary data, preapare input stream 
-   * to read and attach here.
+ to read and attach here.
    * @param str
    * @throws ResponseBuildingStartedException 
    */
@@ -247,10 +238,12 @@ public class Response {
                "This should never happen - bad implementation.", ex);
       }
       
-      this.responseStream = new ResponseStream(getHeadersToSend(), bodyStream);
+      this.responseStream = new ResponseStream(getHeadersToSend());
+      
     } else {
       this.responseStream = 
-              new ResponseStream(getHeadersToSend(), this.getInputStream());
+              new ResponseStream(getHeadersToSend());
+      this.responseStream.setBodyStream(this.getInputStream());
     }
     
     this.tooLateToChangeHeaders = true;
@@ -334,12 +327,20 @@ public class Response {
    * @param inputStream the inputStream to set
    * @throws com.qubit.qurricane.exceptions.ResponseBuildingStartedException
    */
-  protected void setInputStream(InputStream inputStream) 
+  public void setInputStream(InputStream inputStream) 
           throws ResponseBuildingStartedException {
-    if (this.responseBuilder != null || this.inputStream != null) {
+    if (this.responseBuilder != null) {
       throw new ResponseBuildingStartedException();
     }
     
     this.inputStream = inputStream;
+    if (this.responseStream != null) {
+      this.responseStream.setBodyStream(this.inputStream);
+    }
   }
+  
+  public boolean waitForData() {
+    return false;
+  }
+  
 }

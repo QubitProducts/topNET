@@ -27,7 +27,7 @@ class ServerTime {
     dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
   }
   
-  public Object getTime() {
+  public String getTime() {
     return dateFormat.format(calendar.getTime());
   }
   
