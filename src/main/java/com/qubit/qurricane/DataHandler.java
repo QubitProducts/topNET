@@ -348,7 +348,7 @@ public class DataHandler {
     
     // finished?
     
-    return ch == -1 && !responseReader.isWaitingForMoreOnEmptyInput();
+    return ch == -1 && !this.response.isMoreDataComing();
   }
 
   // returns true if writing should be stopped function using it should reply 
@@ -422,7 +422,7 @@ public class DataHandler {
   }
   
   private ResponseReader getInputStreamForResponse() {
-      return this.response.getResponseStreamReadyToRead();
+      return this.response.getResponseReaderReadyToRead();
   }
 
   private int getErrorCode() {

@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 
 String mavenGroupId = 'com.qubit'
-String mavenVersion = '3.0.1'
+String mavenVersion = '1.0.0'
 String mavenArtifactId = name.replace("modules/", "")
 
 group = mavenGroupId
@@ -37,7 +37,7 @@ uploadArchives {
     repositories.mavenDeployer {
         repository(
           url: "http://opentag-test.qubitproducts.com/mvn/repository/internal") {
-            authentication(userName: "maven", password: "...")
+            authentication(userName: "maven", password: "maven12345")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
             pom.version = mavenVersion
@@ -48,7 +48,7 @@ uploadArchives {
     repositories.mavenDeployer {
         repository(
           url: "http://opentag-test.qubitproducts.com/mvn/repository/snapshots") {
-            authentication(userName: "maven", password: "...")
+            authentication(userName: "maven", password: "maven12345")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
             pom.version = mavenVersion
@@ -76,6 +76,9 @@ sourceCompatibility = '1.7'
 repositories {
   mavenCentral()
   mavenLocal()
+  maven { 
+    url "http://opentag-test.qubitproducts.com/mvn/repository/snapshots"
+  }
 }
 
 dependencies {

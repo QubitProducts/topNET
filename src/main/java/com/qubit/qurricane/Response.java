@@ -47,15 +47,28 @@ public class Response {
   private String charset;
   private boolean forcingNotKeepingAlive = true;
   private boolean suggestingClosing = true;
-  
+  private volatile boolean moreDataComing = false;
+
   private StringBuffer responseBuilder = null;
   private InputStream inputStream;
 
-  protected final ResponseReader getResponseStreamReadyToRead() {
+  /**
+   * Called just before starting reading to output.
+   * @return ResponseReader reader object for this response
+   */
+  protected final ResponseReader getResponseReaderReadyToRead() {
     this.prepareResponseStream();
     return this.responseStream;
   }
 
+  public void setResponseReader(ResponseReader responseStream) 
+          throws ResponseBuildingStartedException {
+    if (this.responseStream != null) {
+      throw new ResponseBuildingStartedException();
+    }
+    this.responseStream = responseStream;
+  }
+  
   private ByteArrayInputStream getHeadersToSend() {
 
     StringBuffer buffer = getHeadersBuffer(this.customHttpCode());
@@ -327,7 +340,7 @@ public class Response {
    * @param inputStream the inputStream to set
    * @throws com.qubit.qurricane.exceptions.ResponseBuildingStartedException
    */
-  public void setInputStream(InputStream inputStream) 
+  public void setStreamToReadFrom(InputStream inputStream) 
           throws ResponseBuildingStartedException {
     if (this.responseBuilder != null) {
       throw new ResponseBuildingStartedException();
@@ -341,6 +354,20 @@ public class Response {
   
   public boolean waitForData() {
     return false;
+  }
+
+  /**
+   * @return the moreDataComing
+   */
+  public boolean isMoreDataComing() {
+    return moreDataComing;
+  }
+
+  /**
+   * @param moreDataComing the moreDataComing to set
+   */
+  public void setMoreDataComing(boolean moreDataComing) {
+    this.moreDataComing = moreDataComing;
   }
   
 }

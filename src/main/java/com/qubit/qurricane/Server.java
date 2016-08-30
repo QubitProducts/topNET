@@ -43,7 +43,7 @@ public class Server {
   private boolean readPreparatorSet;
   private ServerSocketChannel serverChannel;
 
-  Server(String address, int port) {
+  public Server(String address, int port) {
     this.port = port;
     this.address = address;
 

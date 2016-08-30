@@ -25,7 +25,7 @@ public class EchoHandler extends Handler {
   public void process(Request request, Response response) throws Exception {
     //response.print("Hello World! Echo:\n" + request.getBodyString());
     ByteArrayInputStream is = new ByteArrayInputStream(request.getBodyString().getBytes());
-    response.setInputStream(is);
+    response.setStreamToReadFrom(is);
   }
   
 }

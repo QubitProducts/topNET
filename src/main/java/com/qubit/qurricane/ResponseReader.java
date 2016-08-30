@@ -17,7 +17,6 @@ public class ResponseReader {
   private final InputStream headersStream;
   
   public static int RESPONSE_BUF_SIZE = 4096;  
-  private volatile boolean waitingForMoreOnEmptyInput = false;
   
   ByteBuffer buffer = ByteBuffer.allocate(RESPONSE_BUF_SIZE);
   private InputStream bodyStream;
@@ -62,19 +61,4 @@ public class ResponseReader {
       return -1;
     }
   }
-
-  /**
-   * @return the waitingForMoreOnEmptyInput
-   */
-  public boolean isWaitingForMoreOnEmptyInput() {
-    return waitingForMoreOnEmptyInput;
-  }
-
-  /**
-   * @param waitingForMoreOnEmptyInput the waitingForMoreOnEmptyInput to set
-   */
-  public void setWaitingForMoreOnEmptyInput(boolean waitingForMoreOnEmptyInput) {
-    this.waitingForMoreOnEmptyInput = waitingForMoreOnEmptyInput;
-  }
-  
 }
