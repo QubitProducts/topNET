@@ -7,7 +7,6 @@ package com.qubit.qurricane;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 
 /**
  *
@@ -15,15 +14,11 @@ import java.nio.ByteBuffer;
  */
 public class ResponseStream {
   private InputStream headersStream;
-  
-  public static int RESPONSE_BUF_SIZE = 4096;  
-  
-  private ByteBuffer buffer = ByteBuffer.allocate(RESPONSE_BUF_SIZE);
   private InputStream bodyStream;
   
   public ResponseStream() {
   }
-
+  
   /**
    * Main reading function. It returns integer != -1 if there is anything to read.
    * @return

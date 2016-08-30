@@ -22,16 +22,16 @@ import java.nio.channels.SocketChannel;
  */
 public class Server {
 
-  public static void main(String[] args) throws IOException {
-
-    new Server("localhost", 3456).start();
+  public static void main(String[] args) throws IOException {    
+    Server s = new Server("localhost", 3456);
+    s.start();
     
     registerHandlerByPath("/hello", new EchoHandler());
     registerHandlerByPath("/appender", new AsyncAppenderHandler());
-
   }
   
-  private static final int THREAD_JOBS_SIZE = 256;
+  private static final int THREAD_JOBS_SIZE = 64;
+  private static final int THREADS_POOL_SIZE = 16;
   private static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
   public static final long MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
   public static final long MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -40,36 +40,34 @@ public class Server {
 
   private final int port;
 
-  private InetSocketAddress listenAddress;
+  private final InetSocketAddress listenAddress;
   private final String address;
   private boolean readPreparatorSet;
   private ServerSocketChannel serverChannel;
-
+  private int jobsPerThread = THREAD_JOBS_SIZE;
+  private int threadsAmount = THREADS_POOL_SIZE;
+  private int requestBufferSize = DEFAULT_BUFFER_SIZE;
+ 
   public Server(String address, int port) {
     this.port = port;
     this.address = address;
-
     this.listenAddress = new InetSocketAddress(address, port);
   }
 
   public void start() throws IOException {
-
-    ResponseStream.RESPONSE_BUF_SIZE = DEFAULT_BUFFER_SIZE;
     
     this.serverChannel = ServerSocketChannel.open();
     serverChannel.configureBlocking(false);
-
     serverChannel.socket().bind(listenAddress);
 
     // @todo move to cfg
     
     MainAcceptAndDispatchThread.keepRunning = true;
     
-    int threadsAmount = 64;
     MainAcceptAndDispatchThread.setupThreadsList(
-            threadsAmount,
-            THREAD_JOBS_SIZE,
-            DEFAULT_BUFFER_SIZE);
+            this.getThreadsAmount(),
+            this.getJobsPerThread(),
+            this.getRequestBufferSize());
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
@@ -150,5 +148,47 @@ public class Server {
     } catch (IOException ex) {
       // metrics???
     }
+  }
+
+  /**
+   * @return the jobsPerThread
+   */
+  public int getJobsPerThread() {
+    return jobsPerThread;
+  }
+
+  /**
+   * @param jobsPerThread the jobsPerThread to set
+   */
+  public void setJobsPerThread(int jobsPerThread) {
+    this.jobsPerThread = jobsPerThread;
+  }
+
+  /**
+   * @return the threadsAmount
+   */
+  public int getThreadsAmount() {
+    return threadsAmount;
+  }
+
+  /**
+   * @param threadsAmount the threadsAmount to set
+   */
+  public void setThreadsAmount(int threadsAmount) {
+    this.threadsAmount = threadsAmount;
+  }
+
+  /**
+   * @return the requestBufferSize
+   */
+  public int getRequestBufferSize() {
+    return requestBufferSize;
+  }
+
+  /**
+   * @param bufferSize the requestBufferSize to set
+   */
+  public void setRequestBufferSize(int bufferSize) {
+    this.requestBufferSize = bufferSize;
   }
 }
