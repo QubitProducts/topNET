@@ -433,7 +433,7 @@ public class DataHandler {
           // @todo review error handling and refactor to nicer form.
           // prepare not really needed
           handler.process(request, response);
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
           Logger.getLogger(DataHandler.class.getName())
                   .log(Level.SEVERE, "Error prone error handler!", ex);
         } finally {

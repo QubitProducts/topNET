@@ -5,9 +5,12 @@
  */
 package com.qubit.qurricane.errors;
 
+import com.qubit.qurricane.DataHandler;
 import com.qubit.qurricane.Handler;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -25,7 +28,14 @@ public class DefaultErrorHandler extends Handler {
   @Override
   public void process(Request request, Response response) throws Exception {
     response.setHttpCode(code);
+    
+    if (request.getAssociatedException() != null) {
+      Logger.getLogger(DefaultErrorHandler.class.getName())
+                  .log(Level.SEVERE, null, request.getAssociatedException());
+    }
+    
     response.print("Qurricane says: " + code + ".\n");
+    
 //    response.print("Qurricane says: " + code + ".\n" + request.getAssociatedException().getMessage());
   }
 }
