@@ -6,6 +6,7 @@
 package com.qubit.qurricane;
 
 import static com.qubit.qurricane.Handler.registerHandlerByPath;
+import com.qubit.qurricane.examples.AsyncAppenderHandler;
 import com.qubit.qurricane.examples.EchoHandler;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -26,6 +27,7 @@ public class Server {
     new Server("localhost", 3456).start();
     
     registerHandlerByPath("/hello", new EchoHandler());
+    registerHandlerByPath("/appender", new AsyncAppenderHandler());
 
   }
   
@@ -52,7 +54,7 @@ public class Server {
 
   public void start() throws IOException {
 
-    ResponseReader.RESPONSE_BUF_SIZE = DEFAULT_BUFFER_SIZE;
+    ResponseStream.RESPONSE_BUF_SIZE = DEFAULT_BUFFER_SIZE;
     
     this.serverChannel = ServerSocketChannel.open();
     serverChannel.configureBlocking(false);

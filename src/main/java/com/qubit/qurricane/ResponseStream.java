@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class ResponseReader {
+public class ResponseStream {
   private InputStream headersStream;
   
   public static int RESPONSE_BUF_SIZE = 4096;  
@@ -21,7 +21,7 @@ public class ResponseReader {
   private ByteBuffer buffer = ByteBuffer.allocate(RESPONSE_BUF_SIZE);
   private InputStream bodyStream;
   
-  public ResponseReader() {
+  public ResponseStream() {
   }
 
   /**

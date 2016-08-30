@@ -39,13 +39,13 @@ public class Response {
 
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
-  private ResponseReader responseReader;
+  private ResponseStream responseStream;
   private boolean tooLateToChangeHeaders;
   private int contentLength = -1;
   private String contentType = "text/html";
   private String charset;
   private boolean forcingNotKeepingAlive = true;
-  private boolean suggestingClosing = true;
+  private boolean tellingConnectionClose = true;
   private volatile boolean moreDataComing = false;
 
   private StringBuffer responseBuilder = null;
@@ -55,19 +55,19 @@ public class Response {
   /**
    * Called just before starting reading to output.
    *
-   * @return ResponseReader reader object for this response
+   * @return ResponseStream reader object for this response
    */
-  protected final ResponseReader getResponseReaderReadyToRead() {
+  protected final ResponseStream getResponseReaderReadyToRead() {
     this.prepareResponseReader();
-    return this.responseReader;
+    return this.getResponseStream();
   }
 
-  public void setResponseReader(ResponseReader responseStream)
+  public void setResponseStream(ResponseStream responseStream)
           throws ResponseBuildingStartedException {
-    if (this.responseReader != null) {
+    if (this.responseStream != null) {
       throw new ResponseBuildingStartedException();
     }
-    this.responseReader = responseStream;
+    this.responseStream = responseStream;
   }
 
   public ByteArrayInputStream getHeadersToSend() {
@@ -207,7 +207,7 @@ public class Response {
    * @throws ResponseBuildingStartedException
    */
   public void print(String str) throws ResponseBuildingStartedException {
-    if (this.responseReader != null) {
+    if (this.getResponseStream() != null) {
       throw new ResponseBuildingStartedException();
     }
     if (this.responseBuilder == null) {
@@ -217,7 +217,7 @@ public class Response {
   }
 
   protected void prepareResponseReader() {
-    if (this.responseReader == null) {
+    if (this.getResponseStream() == null) {
       if (this.responseBuilder != null) {
         String charsetString = this.getCharset();
 
@@ -236,7 +236,7 @@ public class Response {
 
         try {
 
-          if (this.isSuggestingClosing()) {
+          if (this.isTellingConnectionClose()) {
             this.addHeader("Connection", "close");
           }
 
@@ -252,17 +252,17 @@ public class Response {
         }
 
         this.responseBuilder.setLength(0);
-
-        this.responseReader = new ResponseReader();
-        this.responseReader.setBodyStream(bodyStream);
+        // @todo setter may be a good idea here
+        this.responseStream = new ResponseStream();
+        this.responseStream.setBodyStream(bodyStream);
       } else {
-        this.responseReader = new ResponseReader();
-        this.responseReader.setBodyStream(this.inputStreamForBody);
+        this.responseStream = new ResponseStream();
+        this.responseStream.setBodyStream(this.inputStreamForBody);
       }
     }
     
-    if (this.responseReader.getHeadersStream() == null) { // only once
-      this.responseReader.setHeadersStream(getHeadersToSend());
+    if (this.getResponseStream().getHeadersStream() == null) { // only once
+      this.getResponseStream().setHeadersStream(getHeadersToSend());
     }
 
     this.tooLateToChangeHeaders = true;
@@ -325,18 +325,12 @@ public class Response {
   }
 
   /**
-   * @return the suggestingClosing
+   * @return the tellingConnectionClose
    */
-  public boolean isSuggestingClosing() {
-    return suggestingClosing;
+  public boolean isTellingConnectionClose() {
+    return tellingConnectionClose;
   }
 
-  /**
-   * @param suggestingClosing the suggestingClosing to set
-   */
-  public void setSuggestingClosing(boolean suggestingClosing) {
-    this.suggestingClosing = suggestingClosing;
-  }
 
   /**
    * @param inputStream the inputStreamForBody to set
@@ -349,8 +343,8 @@ public class Response {
     }
 
     this.inputStreamForBody = inputStream;
-    if (this.responseReader != null) {
-      this.responseReader.setBodyStream(this.inputStreamForBody);
+    if (this.getResponseStream() != null) {
+      this.getResponseStream().setBodyStream(this.inputStreamForBody);
     }
   }
 
@@ -384,6 +378,20 @@ public class Response {
    */
   public void setAttachment(Object attachment) {
     this.attachment = attachment;
+  }
+
+  /**
+   * @param tellingConnectionClose the tellingConnectionClose to set
+   */
+  public void setTellingConnectionClose(boolean tellingConnectionClose) {
+    this.tellingConnectionClose = tellingConnectionClose;
+  }
+
+  /**
+   * @return the responseStream
+   */
+  public ResponseStream getResponseStream() {
+    return responseStream;
   }
 
 }
