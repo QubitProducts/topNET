@@ -25,6 +25,7 @@ public class DefaultErrorHandler extends Handler {
   @Override
   public void process(Request request, Response response) throws Exception {
     response.setHttpCode(code);
-    response.print("Qurricane says: " + code + " Occured.\n");
+    response.print("Qurricane says: " + code + ".\n");
+//    response.print("Qurricane says: " + code + ".\n" + request.getAssociatedException().getMessage());
   }
 }

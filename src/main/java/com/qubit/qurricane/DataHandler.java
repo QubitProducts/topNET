@@ -17,6 +17,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -376,9 +378,10 @@ public class DataHandler {
       this.request.setFullPath(this.fullPath);
       this.request.setPathParameters(this.params);
       this.request.setMethod(this.method);
-      this.handlerUsed.prepare(this.request, this.response);
-      this.request.makeSureOutputStreamIsReady();
       
+      handler.prepare(this.request, this.response);
+      
+      this.request.makeSureOutputStreamIsReady();
     }
     
     if (!handler.supports(this.method)) {
@@ -409,7 +412,7 @@ public class DataHandler {
     
     if (this.errorOccured != null) {
       handler = getErrorHandler(handler);
-      
+      handler.prepare(request, response);
     }
     
     if (handler != null) {
@@ -417,8 +420,23 @@ public class DataHandler {
       try {
         handler.process(request, response);
       } catch (Throwable t) {
+        // handle processing error, be delicate:
         this.errorOccured = ErrorTypes.HTTP_SERVER_ERROR;
         this.errorException = t;
+        
+        handler = getErrorHandler(handler);
+        
+        try {
+          response = new Response();
+          handler.prepare(request, response);
+          handler.process(request, response);
+        } catch (Exception ex) {
+          Logger.getLogger(DataHandler.class.getName())
+                  .log(Level.SEVERE, "Error prone error handler!", ex);
+        } finally {
+          
+        }
+        
         return this.errorOccured;
       }
     }
