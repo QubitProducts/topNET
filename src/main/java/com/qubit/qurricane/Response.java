@@ -51,6 +51,7 @@ public class Response {
 
   private StringBuffer responseBuilder = null;
   private InputStream inputStreamForBody;
+  private Object attachment;
 
   /**
    * Called just before starting reading to output.
@@ -370,6 +371,20 @@ public class Response {
    */
   public void setMoreDataComing(boolean moreDataComing) {
     this.moreDataComing = moreDataComing;
+  }
+
+  /**
+   * @return the attachment
+   */
+  public Object getAttachment() {
+    return attachment;
+  }
+
+  /**
+   * @param attachment the attachment to set
+   */
+  public void setAttachment(Object attachment) {
+    this.attachment = attachment;
   }
   
 }

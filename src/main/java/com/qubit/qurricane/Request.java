@@ -30,6 +30,7 @@ public class Request {
   private String fullPath;
   private Throwable passedException;
   private Throwable associatedException;
+  private Object attachment;
   
   protected Request (SelectionKey key, Map<String, String> headers) {
     this.headers = headers;
@@ -183,6 +184,20 @@ public class Request {
    */
   protected void setAssociatedException(Throwable associatedException) {
     this.associatedException = associatedException;
+  }
+
+  /**
+   * @return the attachment
+   */
+  public Object getAttachment() {
+    return attachment;
+  }
+
+  /**
+   * @param attachment the attachment to set
+   */
+  public void setAttachment(Object attachment) {
+    this.attachment = attachment;
   }
   
 }
