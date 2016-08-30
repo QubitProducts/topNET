@@ -69,7 +69,7 @@ public class Response {
     this.responseStream = responseStream;
   }
   
-  private ByteArrayInputStream getHeadersToSend() {
+  public ByteArrayInputStream getHeadersToSend() {
 
     StringBuffer buffer = getHeadersBuffer(this.customHttpCode());
 
@@ -80,7 +80,7 @@ public class Response {
     return stream;
   }
 
-  private StringBuffer getHeadersBuffer(String customFirstHttpLine) {
+  public StringBuffer getHeadersBuffer(String customFirstHttpLine) {
     StringBuffer buffer = 
             getHeadersBufferWithoutEOL(customFirstHttpLine, this.httpCode);
     
@@ -216,6 +216,9 @@ public class Response {
 
   protected void prepareResponseStream() {
     if (this.responseStream != null) {
+      if (this.responseStream.getHeadersStream() == null) {
+        this.responseStream.setHeadersStream(getHeadersToSend());
+      }
       return;
     }
     
@@ -251,11 +254,11 @@ public class Response {
                "This should never happen - bad implementation.", ex);
       }
       
-      this.responseStream = new ResponseReader(getHeadersToSend());
-      
+      this.responseStream = new ResponseReader();
+      this.responseStream.setHeadersStream(getHeadersToSend());
     } else {
-      this.responseStream = 
-              new ResponseReader(getHeadersToSend());
+      this.responseStream = new ResponseReader();
+      this.responseStream.setHeadersStream(getHeadersToSend());
       this.responseStream.setBodyStream(this.getInputStream());
     }
     
