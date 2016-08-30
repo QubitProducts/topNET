@@ -56,7 +56,7 @@ public class DataHandler {
   static final String EOL = "\n";
   private String params;
 
-  public void reset() {
+  protected void reset() {
     size = 0;
     headers.clear();
     method = null;
@@ -146,6 +146,7 @@ public class DataHandler {
   private String[] parseHeader(String line) {
     int idx = line.indexOf(":");
     if (idx > 0) {
+      // 2 removes ": " part
       return new String[]{
         line.substring(0, idx),
         line.substring(idx + 2)
