@@ -23,9 +23,9 @@ public class EchoHandler extends Handler {
 
   @Override
   public void process(Request request, Response response) throws Exception {
-    //response.print("Hello World! Echo:\n" + request.getBodyString());
-    ByteArrayInputStream is = new ByteArrayInputStream(request.getBodyString().getBytes());
-    response.setStreamToReadFrom(is);
+    response.print("Hello World! Echo:\n" + request.getBodyString());
+//    ByteArrayInputStream is = new ByteArrayInputStream(request.getBodyString().getBytes());
+//    response.setStreamToReadFrom(is);
   }
   
 }

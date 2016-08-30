@@ -18,7 +18,7 @@ public class ResponseReader {
   
   public static int RESPONSE_BUF_SIZE = 4096;  
   
-  ByteBuffer buffer = ByteBuffer.allocate(RESPONSE_BUF_SIZE);
+  private ByteBuffer buffer = ByteBuffer.allocate(RESPONSE_BUF_SIZE);
   private InputStream bodyStream;
   
   public ResponseReader() {
@@ -74,4 +74,6 @@ public class ResponseReader {
   public void setHeadersStream(InputStream headersStream) {
     this.headersStream = headersStream;
   }
+  
+  
 }

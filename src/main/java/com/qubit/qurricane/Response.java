@@ -40,7 +40,7 @@ public class Response {
   
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
-  private ResponseReader responseStream;
+  private ResponseReader responseReader;
   private boolean tooLateToChangeHeaders;
   private int contentLength = -1;
   private String contentType = "text/html";
@@ -50,23 +50,23 @@ public class Response {
   private volatile boolean moreDataComing = false;
 
   private StringBuffer responseBuilder = null;
-  private InputStream inputStream;
+  private InputStream inputStreamForBody;
 
   /**
    * Called just before starting reading to output.
    * @return ResponseReader reader object for this response
    */
   protected final ResponseReader getResponseReaderReadyToRead() {
-    this.prepareResponseStream();
-    return this.responseStream;
+    this.prepareResponseReader();
+    return this.responseReader;
   }
 
   public void setResponseReader(ResponseReader responseStream) 
           throws ResponseBuildingStartedException {
-    if (this.responseStream != null) {
+    if (this.responseReader != null) {
       throw new ResponseBuildingStartedException();
     }
-    this.responseStream = responseStream;
+    this.responseReader = responseStream;
   }
   
   public ByteArrayInputStream getHeadersToSend() {
@@ -205,7 +205,7 @@ public class Response {
    * @throws ResponseBuildingStartedException 
    */
   public void print(String str) throws ResponseBuildingStartedException {
-    if (this.responseStream != null) {
+    if (this.responseReader != null) {
       throw new ResponseBuildingStartedException();
     }
     if (this.responseBuilder == null) {
@@ -214,10 +214,10 @@ public class Response {
     this.responseBuilder.append(str);
   }
 
-  protected void prepareResponseStream() {
-    if (this.responseStream != null) {
-      if (this.responseStream.getHeadersStream() == null) {
-        this.responseStream.setHeadersStream(getHeadersToSend());
+  protected void prepareResponseReader() {
+    if (this.responseReader != null) {
+      if (this.responseReader.getHeadersStream() == null) {
+        this.responseReader.setHeadersStream(getHeadersToSend());
       }
       return;
     }
@@ -234,6 +234,8 @@ public class Response {
       charsetString = _charset.name();
       
       byte[] bytes = this.responseBuilder.toString().getBytes(_charset);
+      // @todo its copying... lets do that without it
+      // this.responseBuilder.setLength(0);
       this.setContentLength(bytes.length);
       ByteArrayInputStream bodyStream = new ByteArrayInputStream(bytes);
       
@@ -254,13 +256,13 @@ public class Response {
                "This should never happen - bad implementation.", ex);
       }
       
-      this.responseStream = new ResponseReader();
-      this.responseStream.setHeadersStream(getHeadersToSend());
-      this.responseStream.setBodyStream(bodyStream);
+      this.responseReader = new ResponseReader();
+      this.responseReader.setHeadersStream(getHeadersToSend());
+      this.responseReader.setBodyStream(bodyStream);
     } else {
-      this.responseStream = new ResponseReader();
-      this.responseStream.setHeadersStream(getHeadersToSend());
-      this.responseStream.setBodyStream(this.getInputStream());
+      this.responseReader = new ResponseReader();
+      this.responseReader.setHeadersStream(getHeadersToSend());
+      this.responseReader.setBodyStream(this.inputStreamForBody);
     }
     
     this.tooLateToChangeHeaders = true;
@@ -336,12 +338,8 @@ public class Response {
     this.suggestingClosing = suggestingClosing;
   }
 
-  private InputStream getInputStream() {
-    return this.inputStream;
-  }
-
   /**
-   * @param inputStream the inputStream to set
+   * @param inputStream the inputStreamForBody to set
    * @throws com.qubit.qurricane.exceptions.ResponseBuildingStartedException
    */
   public void setStreamToReadFrom(InputStream inputStream) 
@@ -350,9 +348,9 @@ public class Response {
       throw new ResponseBuildingStartedException();
     }
     
-    this.inputStream = inputStream;
-    if (this.responseStream != null) {
-      this.responseStream.setBodyStream(this.inputStream);
+    this.inputStreamForBody = inputStream;
+    if (this.responseReader != null) {
+      this.responseReader.setBodyStream(this.inputStreamForBody);
     }
   }
   
