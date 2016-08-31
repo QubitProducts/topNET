@@ -16,26 +16,41 @@ import java.util.logging.Logger;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class DefaultErrorHandler extends Handler {
+public class ErrorHandler extends Handler {
   
   static public final Handler[] errorHandlers = new Handler[1024];
   
-  private final int code;
-  public DefaultErrorHandler(int httpCode) {
+  private int code;
+  public ErrorHandler(int httpCode) {
     this.code = httpCode;
   }
 
   @Override
   public void process(Request request, Response response) throws Exception {
-    response.setHttpCode(code);
+    response.setHttpCode(getCode());
     
     if (request.getAssociatedException() != null) {
-      Logger.getLogger(DefaultErrorHandler.class.getName())
+      Logger.getLogger(ErrorHandler.class.getName())
                   .log(Level.SEVERE, null, request.getAssociatedException());
     }
     
-    response.print("Qurricane says: " + code + ".\n");
+    response.print("Qurricane says: " + getCode() + ".\n");
     
 //    response.print("Qurricane says: " + code + ".\n" + request.getAssociatedException().getMessage());
   }
+
+  /**
+   * @return the code
+   */
+  public int getCode() {
+    return code;
+  }
+
+  /**
+   * @param code the code to set
+   */
+  public void setCode(int code) {
+    this.code = code;
+  }
+  
 }
