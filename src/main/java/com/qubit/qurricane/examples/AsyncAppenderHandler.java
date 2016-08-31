@@ -44,9 +44,9 @@ public class AsyncAppenderHandler extends Handler {
           ResponseAppendableReader stream = 
                   (ResponseAppendableReader) response.getResponseStream();
           Thread.sleep(1000);
-          stream.print("Hello after 1 sec!");
+          stream.print("Hello after 1 sec!\n\n");
           Thread.sleep(2000);
-          stream.print("Hello after 3 sec!");
+          stream.print("Hello after 3 sec!\n");
           
         } catch (InterruptedException ex) {
           Logger.getLogger(AsyncAppenderHandler.class.getName()).log(Level.SEVERE, null, ex);

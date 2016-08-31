@@ -22,11 +22,21 @@ import java.nio.channels.SocketChannel;
  */
 public class Server {
 
+  /**
+   * Example main.
+   * @param args
+   * @throws IOException 
+   */
   public static void main(String[] args) throws IOException {    
     Server s = new Server("localhost", 3456);
+    
+    s.setJobsPerThread(4);
+    // one byte buffer!
+    s.setRequestBufferSize(DEFAULT_BUFFER_SIZE); // check on single byte
+    s.setThreadsAmount(16);
     s.start();
     
-    registerHandlerByPath("/hello", new EchoHandler());
+    registerHandlerByPath("/echo", new EchoHandler());
     registerHandlerByPath("/appender", new AsyncAppenderHandler());
   }
   

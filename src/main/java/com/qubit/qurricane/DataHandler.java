@@ -71,7 +71,7 @@ public class DataHandler {
     currentLine.setLength(0);
     contentLengthCounter = 0;
     contentLength = 0;
-    locked = false;
+//    locked = false;
     request = null;
     response = null;
     errorOccured = null;
@@ -230,6 +230,7 @@ public class DataHandler {
       
       if (previous != -1) { // append last possible character
         currentLine.append((char) previous);
+        previous = -1;
       }
       
       if (this.contentLength > 0) { // this also validates this.bodyRequired
@@ -356,9 +357,15 @@ public class DataHandler {
     return ch == -1 && !this.response.isMoreDataComing();
   }
 
+  
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
   private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
+    
+    if (this.request != null) {
+      return this.errorOccured;
+    }
+    
     this.response = new Response();
     this.request = new Request(key, headers);
     
@@ -396,12 +403,14 @@ public class DataHandler {
                     .getDefaultErrorHandler(getErrorCode());
     
     request.setAssociatedException(this.errorException);
+    
     if (handler != null) {
       Handler tmp = handler.getErrorHandler();
       if (tmp != null) {
         errorHandler = tmp;
       }
     }
+    
     return errorHandler;
   }
   
