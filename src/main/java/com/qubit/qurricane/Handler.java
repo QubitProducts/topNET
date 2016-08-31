@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -82,4 +80,30 @@ public abstract class Handler {
   protected Handler getErrorHandler() {
     return null;
   }
+
+  /**
+   * Returns -2 by default - which means that this handler lets server 
+   * default value to be used.
+   * To set no size limit - set -1. 
+   * Any 0+ value will cause incoming data size limit to be applied.
+   * @return the maxIncomingDataSize
+   */
+  public int getMaxIncomingDataSize() {
+    return -2;
+  }
+
+  /**
+   * Max idle defines maximum miliseconds amount for peer to not to return 
+   * any reads.
+   * 
+   * Return -1 to let the server to decide on max idle times.
+   * 
+   * Default value is -1
+   * 
+   * @return the maxIdle
+   */
+  public int getMaxIdle() {
+    return -1;
+  }
+
 }

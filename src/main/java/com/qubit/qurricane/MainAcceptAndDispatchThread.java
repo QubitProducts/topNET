@@ -22,10 +22,19 @@ class MainAcceptAndDispatchThread extends Thread {
   public static volatile boolean keepRunning = true;
   private static HandlingThread[] handlingThreads;
 
-  public static void setupThreadsList(int many, int jobsSize, int bufSize) {
+  public static void setupThreadsList(
+          int many,
+          int jobsSize,
+          int bufSize,
+          int defaultMaxMessage,
+          int defaultIdleTime) {
     handlingThreads = new HandlingThread[many];
     for (int i = 0; i < many; i++) {
-      HandlingThread t = new HandlingThread(jobsSize, bufSize);
+      HandlingThread t = new HandlingThread(
+              jobsSize,
+              bufSize,
+              defaultMaxMessage,
+              defaultIdleTime);
       t.start();
       handlingThreads[i] = t;
     }

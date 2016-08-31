@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 public class DataHandler {
 
   private volatile long touch; // check if its needed volatile
-  private volatile long size = 0; // check if its needed volatile
+  private volatile int size = 0; // check if its needed volatile
 
   private final Map<String, String> headers = new HashMap<>();
 
@@ -117,7 +117,7 @@ public class DataHandler {
   /**
    * @return the size
    */
-  public long getSize() {
+  public int getSize() {
     return size;
   }
 
@@ -509,6 +509,28 @@ public class DataHandler {
     }
     
     return close;
+  }
+
+  int getMaxMessageSize(int defaultMaxMessageSize) {
+    if (this.handlerUsed != null) {
+      int maxSize = this.handlerUsed.getMaxIncomingDataSize();
+      if (maxSize > -2) {
+        return maxSize;
+      }
+    }
+    
+    return defaultMaxMessageSize;
+  }
+
+  long getMaxIdle(int defaultMaxIdle) {
+    if (this.handlerUsed != null) {
+      int maxIdle = this.handlerUsed.getMaxIdle();
+      if (maxIdle > -1) {
+        return maxIdle;
+      }
+    }
+    
+    return defaultMaxIdle;
   }
 
   

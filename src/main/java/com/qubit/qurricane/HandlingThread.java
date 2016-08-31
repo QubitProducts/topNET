@@ -5,8 +5,6 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Server.MAX_MESSAGE_SIZE;
-import static com.qubit.qurricane.Server.MAX_IDLE_TOUT;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -20,10 +18,15 @@ class HandlingThread extends Thread {
 
   private AtomicReferenceArray<SelectionKey> jobs;
   private final ByteBuffer buffer;
+  private final int defaultMaxMessageSize;
+  private final int maxIdle;
 
-  public HandlingThread(int jobsSize, int bufSize) {
+  public HandlingThread(
+          int jobsSize, int bufSize, int defaultMaxMessageSize, int maxIdle) {
     jobs = new AtomicReferenceArray<>(jobsSize);
     buffer = ByteBuffer.allocate(bufSize);
+    this.defaultMaxMessageSize = defaultMaxMessageSize;
+    this.maxIdle = maxIdle;
   }
 
   @Override
@@ -47,12 +50,14 @@ class HandlingThread extends Thread {
                 if (dataHandler != null) {
                   
                   //check if connection is not open too long! Prevent DDoS
-                  if ( (System.currentTimeMillis() - dataHandler.getTouch()) > MAX_IDLE_TOUT) {
+                  if ( (System.currentTimeMillis() - dataHandler.getTouch()) > 
+                          dataHandler.getMaxIdle(maxIdle)) {
                     Server.close(job); // jiust close - timedout
                   }
                   
                   // check if not too large
-                  if (dataHandler.getSize() > MAX_MESSAGE_SIZE) {
+                  int maxSize = dataHandler.getMaxMessageSize(defaultMaxMessageSize);
+                  if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
                     Server.close(job);
                   }
 
