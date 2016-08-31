@@ -13,25 +13,44 @@ import com.qubit.qurricane.Handler;
  */
 public class ErrorHandlingConfig {
   
-  static Handler[] handlers = new Handler[1024];
+  private Handler[] handlers = new Handler[1024];
   
-  private static Handler defaultGlobalErrorHandler;
+  private Handler defaultGlobalErrorHandler;
   
-  public static void setDefaultErrorHandler(int code, Handler handler) {
-    handlers[code] = handler;
+  private static ErrorHandlingConfig errorHandlingConfig;
+
+  static {
+    errorHandlingConfig = new ErrorHandlingConfig();
   }
   
-  public static Handler getDefaultErrorHandler(int code) {
-    
+  /**
+   * @return the errorHandlingConfig
+   */
+  public static ErrorHandlingConfig getErrorHandlingConfig() {
+    return errorHandlingConfig;
+  }
+
+  /**
+   * @param aErrorHandlingConfig the errorHandlingConfig to set
+   */
+  public static void setErrorHandlingConfig(ErrorHandlingConfig aErrorHandlingConfig) {
+    errorHandlingConfig = aErrorHandlingConfig;
+  }
+  
+  public void setDefaultErrorHandler(int code, Handler handler) {
+    getHandlers()[code] = handler;
+  }
+  
+  public Handler getDefaultErrorHandler(int code) {
     if (defaultGlobalErrorHandler != null) {
       return defaultGlobalErrorHandler.getInstance();
     }
     
-    Handler handler = handlers[code];
+    Handler handler = getHandlers()[code];
     
     if (handler == null) {
       handler = new ErrorHandler(code);
-      handlers[code] = handler;
+      getHandlers()[code] = handler;
     }
     
     return handler.getInstance();
@@ -41,13 +60,27 @@ public class ErrorHandlingConfig {
    * @return the defaultGlobalErrorHandler
    */
   public Handler getDefaultGlobalErrorHandler() {
-    return ErrorHandlingConfig.defaultGlobalErrorHandler;
+    return this.defaultGlobalErrorHandler;
   }
 
   /**
    * @param defaultGlobalErrorHandler the defaultGlobalErrorHandler to set
    */
   public void setDefaultGlobalErrorHandler(Handler defaultGlobalErrorHandler) {
-    ErrorHandlingConfig.defaultGlobalErrorHandler = defaultGlobalErrorHandler;
+    this.defaultGlobalErrorHandler = defaultGlobalErrorHandler;
+  }
+
+  /**
+   * @return the handlers
+   */
+  public Handler[] getHandlers() {
+    return handlers;
+  }
+
+  /**
+   * @param handlers the handlers to set
+   */
+  public void setHandlers(Handler[] handlers) {
+    this.handlers = handlers;
   }
 }

@@ -6,11 +6,10 @@
 package com.qubit.qurricane;
 
 import static com.qubit.qurricane.Handler.getHandlerForPath;
-import static com.qubit.qurricane.errors.ErrorHandlingConfig.getDefaultErrorHandler;
+import com.qubit.qurricane.errors.ErrorHandlingConfig;
 import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -392,7 +391,10 @@ public class DataHandler {
   }
   
   private Handler getErrorHandler(Handler handler) {
-    Handler errorHandler = getDefaultErrorHandler(getErrorCode());
+    Handler errorHandler = 
+            ErrorHandlingConfig.getErrorHandlingConfig()
+                    .getDefaultErrorHandler(getErrorCode());
+    
     request.setAssociatedException(this.errorException);
     if (handler != null) {
       Handler tmp = handler.getErrorHandler();

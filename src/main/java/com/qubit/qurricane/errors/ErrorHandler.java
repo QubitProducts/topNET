@@ -33,10 +33,12 @@ public class ErrorHandler extends Handler {
       Logger.getLogger(ErrorHandler.class.getName())
                   .log(Level.SEVERE, null, request.getAssociatedException());
     }
-    
-    response.print("Qurricane says: " + getCode() + ".\n");
-    
-//    response.print("Qurricane says: " + code + ".\n" + request.getAssociatedException().getMessage());
+    if (request.getAssociatedException() == null) {
+      response.print("Qurricane says: " + getCode() + ".\n");
+    } else {
+      response.print("Qurricane says: " + code + ".\n" + 
+            request.getAssociatedException().getMessage());
+    }
   }
 
   /**
