@@ -263,9 +263,8 @@ public class Response {
     
     if (this.getResponseStream().getHeadersStream() == null) { // only once
       this.getResponseStream().setHeadersStream(getHeadersToSend());
+      this.tooLateToChangeHeaders = true;
     }
-
-    this.tooLateToChangeHeaders = true;
   }
 
   /**
