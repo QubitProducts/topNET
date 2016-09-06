@@ -68,7 +68,7 @@ class HandlingThread extends Thread {
                     remove = false;
                   }
                 }
-              } catch (IOException es) {
+              } catch (Exception es) {
                 // @todo metrics
                 this.jobs.set(i, null);
 

@@ -39,21 +39,21 @@ public class DataHandler {
 
   private boolean firstLine = true;
   private String lastHeaderName = null;
-  
+
   private final StringBuffer currentLine = new StringBuffer();
   private int contentLengthCounter = 0;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
 
   public volatile boolean locked = false;
-  
+
   private Request request;
   private Response response;
   private ErrorTypes errorOccured;
   private Throwable errorException;
   private Handler handlerUsed;
-  
-  static final String utfTextHtmlHeader = 
-          "Content-Type: text/html; charset=utf-8\n\r";
+
+  static final String utfTextHtmlHeader
+          = "Content-Type: text/html; charset=utf-8\n\r";
   static final String EOL = "\n";
   private String params;
 
@@ -78,13 +78,13 @@ public class DataHandler {
     errorException = null;
     handlerUsed = null;
   }
-  
+
   public DataHandler() {
     touch = System.currentTimeMillis();
   }
 
   // returns true if should listen for write
-  public synchronized int read(SelectionKey key, ByteBuffer buf) 
+  public synchronized int read(SelectionKey key, ByteBuffer buf)
           throws IOException {
     SocketChannel socketChannel = (SocketChannel) key.channel();
 
@@ -98,7 +98,7 @@ public class DataHandler {
         this.handleData();
       }
     }
-    
+
     if (read > 0) {
       this.touch();
     }
@@ -127,7 +127,9 @@ public class DataHandler {
 
   private void setMethodAndPathFromLine(String line) {
     int idx = line.indexOf(" ");
-    if (idx < 1) return;
+    if (idx < 1) {
+      return;
+    }
     this.method = line.substring(0, idx);
     int sec_idx = line.indexOf(" ", idx + 1);
     if (sec_idx != -1) {
@@ -176,13 +178,13 @@ public class DataHandler {
     }
     return this.path;
   }
-  
+
   private byte previous = -1;
-  
+
   // returns true if reading is finished. any error handling should happend after reading foinished.
-  private synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer) 
+  private synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer)
           throws UnsupportedEncodingException {
-    
+
     buffer.flip();
 
     if (!this.headersReady) {
@@ -200,15 +202,6 @@ public class DataHandler {
           }
 
           if (this.headersReady) {
-            if (this.bodyRequired) {
-              try {
-                this.contentLength
-                        = Long.parseLong(this.headers.get("Content-Length"));
-              } catch (NullPointerException | NumberFormatException ex) {
-                this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
-                return true;
-              }
-            }
             break;
           }
         } else {
@@ -228,11 +221,18 @@ public class DataHandler {
         return true; // stop reading now because of errors! 
       }
       
+      if (this.bodyRequired) {
+        if (this.contentLength < 0) {
+          this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
+          return true;
+        }
+      }
+      
       if (previous != -1) { // append last possible character
         currentLine.append((char) previous);
         previous = -1;
       }
-      
+
       if (this.contentLength > 0) { // this also validates this.bodyRequired
         if (buffer.hasRemaining()) {
 
@@ -243,9 +243,9 @@ public class DataHandler {
 
           try {
             request.getOutputStream().write(
-                                        buffer.array(),
-                                        pos,
-                                        amount);
+                    buffer.array(),
+                    pos,
+                    amount);
           } catch (IOException ex) {
             this.errorOccured = ErrorTypes.IO_ERROR;
             this.errorException = ex;
@@ -275,13 +275,12 @@ public class DataHandler {
     if (firstLine) {
       firstLine = false;
 
-      bodyRequired = !(
-                 line.startsWith("GET ")
+      bodyRequired = !(line.startsWith("GET ")
               || line.startsWith("HEAD ")
               || line.startsWith("DELETE ")
               || line.startsWith("TRACE "));
       // two birds as one
-      
+
       this.setMethodAndPathFromLine(line);
       this.analyzePathAndSplit();
 
@@ -309,9 +308,21 @@ public class DataHandler {
             }
           } else {
             String[] twoStrings = this.parseHeader(line);
+
             if (twoStrings != null) {
-              headers.put(twoStrings[0], twoStrings[1]);
               lastHeaderName = twoStrings[0];
+              if (!lastHeaderName.isEmpty()) {
+                if (lastHeaderName.length() == 14) {
+                  if (lastHeaderName.toLowerCase().equals("content-length")) {
+                    try {
+                      this.contentLength = Long.parseLong(twoStrings[1]);
+                    } catch (NullPointerException | NumberFormatException ex) {
+                      // just try, weird stuff ignore in this case...
+                    }
+                  }
+                }
+                headers.put(lastHeaderName, twoStrings[1]);
+              }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
               return true; // yuck! header malformed!
@@ -322,61 +333,59 @@ public class DataHandler {
         }
       }
     }
-    
+
     return false;
   }
-  
+
   public synchronized boolean write(
           SelectionKey key,
-          ByteBuffer buffer) 
+          ByteBuffer buffer)
           throws IOException {
-    
+
     SocketChannel channel = (SocketChannel) key.channel();
     buffer.clear();
-    
+
     ResponseStream responseReader = this.getInputStreamForResponse();
-    
+
     if (responseReader == null) {
       return !this.response.isMoreDataComing();
     }
-    
+
     int ch = 0;
-    while(buffer.hasRemaining() && (ch = responseReader.read()) != -1) {
-      buffer.put((byte)ch);
+    while (buffer.hasRemaining() && (ch = responseReader.read()) != -1) {
+      buffer.put((byte) ch);
     }
-    
+
     buffer.flip();
     int written = channel.write(buffer);
-    
+
     if (written > 0) {
       this.touch();
     }
-    
+
     // finished?
-    
     return ch == -1 && !this.response.isMoreDataComing();
   }
 
-  
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
   private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
-    
+
     if (this.request != null) {
       return this.errorOccured;
     }
-    
+
     this.response = new Response();
     this.request = new Request(key, headers);
-    
+
     if (this.errorOccured != null) {
       return this.errorOccured;
     }
-    
+
     // paths must be ready by headers setup
     Handler handler = getHandlerForPath(this.fullPath, this.path);
     this.handlerUsed = handler;
-    
+
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
     } else {
@@ -384,60 +393,60 @@ public class DataHandler {
       this.request.setFullPath(this.fullPath);
       this.request.setPathParameters(this.params);
       this.request.setMethod(this.method);
-      
+
       handler.prepare(this.request, this.response);
-      
+
       this.request.makeSureOutputStreamIsReady();
     }
-    
+
     if (!handler.supports(this.method)) {
       return ErrorTypes.HTTP_NOT_FOUND;
     }
-    
+
     return null;
   }
-  
+
   private Handler getErrorHandler(Handler handler) {
-    Handler errorHandler = 
-            ErrorHandlingConfig.getErrorHandlingConfig()
-                    .getDefaultErrorHandler(getErrorCode());
-    
+    Handler errorHandler
+            = ErrorHandlingConfig.getErrorHandlingConfig()
+            .getDefaultErrorHandler(getErrorCode());
+
     request.setAssociatedException(this.errorException);
-    
+
     if (handler != null) {
       Handler tmp = handler.getErrorHandler();
       if (tmp != null) {
         errorHandler = tmp;
       }
     }
-    
+
     return errorHandler;
   }
-  
+
   public ErrorTypes handleData() {
     Handler handler = this.handlerUsed;
-    
+
     if (handler == null && this.errorOccured == null) {
       this.errorOccured = ErrorTypes.HTTP_NOT_FOUND;
     }
-    
+
     if (this.errorOccured != null) {
       handler = getErrorHandler(handler);
-      handler.prepare(request, response); 
-          // @todo review error handling and refactor to nicer form
+      handler.prepare(request, response);
+      // @todo review error handling and refactor to nicer form
     }
-    
+
     if (handler != null) {
-    
+
       try {
         handler.process(request, response);
       } catch (Throwable t) {
         // handle processing error, be delicate:
         this.errorOccured = ErrorTypes.HTTP_SERVER_ERROR;
         this.errorException = t;
-        
+
         handler = getErrorHandler(handler);
-        
+
         try {
           response = new Response();
           handler.prepare(request, response);
@@ -448,18 +457,18 @@ public class DataHandler {
           Logger.getLogger(DataHandler.class.getName())
                   .log(Level.SEVERE, "Error prone error handler!", ex);
         } finally {
-          
+
         }
-        
+
         return this.errorOccured;
       }
     }
-    
+
     return null;
   }
-  
+
   private ResponseStream getInputStreamForResponse() {
-      return this.response.getResponseReaderReadyToRead();
+    return this.response.getResponseReaderReadyToRead();
   }
 
   private int getErrorCode() {
@@ -486,10 +495,10 @@ public class DataHandler {
     if (this.response != null && this.response.isForcingNotKeepingAlive()) {
       return true;
     }
-    
+
     boolean close = false;
     String connection = this.headers.get("Connection");
-    
+
     if (connection != null) {
       switch (connection) {
         case "keep-alive":
@@ -500,14 +509,14 @@ public class DataHandler {
           break;
       }
     }
-    
-    if (finishedWriting &&  this.response != null) {
+
+    if (finishedWriting && this.response != null) {
       int cl = this.response.getContentLength();
       if (cl == -1) {
         close = true; // close unknown contents once finished reading
       }
     }
-    
+
     return close;
   }
 
@@ -518,7 +527,7 @@ public class DataHandler {
         return maxSize;
       }
     }
-    
+
     return defaultMaxMessageSize;
   }
 
@@ -529,10 +538,8 @@ public class DataHandler {
         return maxIdle;
       }
     }
-    
+
     return defaultMaxIdle;
   }
 
-  
-  
 }
