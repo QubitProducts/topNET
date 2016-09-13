@@ -8,6 +8,46 @@ String mavenArtifactId = name.replace("modules/", "")
 group = mavenGroupId
 version = mavenVersion
 
+//jar {
+//    manifest {
+//        attributes 'Main-Class': 'com.qubit.opentag.ping.PingServer'
+//    }
+//}
+
+def fatJarBaseName = project.name + '-all';
+
+task fatJar(type: Jar) {
+  classifier = 'all'
+  baseName = fatJarBaseName
+  from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+  with jar
+  manifest {
+      attributes 'Main-Class': 'com.qubit.opentag.ping.PingServer'
+  }
+}
+
+task debug (type: JavaExec) {
+  if (project.hasProperty("mainClass")){
+    main = mainClass
+  }
+  classpath = sourceSets.main.runtimeClasspath
+  jvmArgs = ["-Xdebug","-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005"]
+  if (project.hasProperty("mainArgs")){
+      args Eval.me(mainArgs)
+  }
+}
+
+task run (type: JavaExec) {
+  if (project.hasProperty("mainClass")){
+    main = mainClass
+  }
+  classpath = sourceSets.main.runtimeClasspath
+  jvmArgs = []
+  if (project.hasProperty("mainArgs")){
+      args Eval.me(mainArgs)
+  }
+}
+
 task sourcesJar(type: Jar, 
   dependsOn: classes, 
   description: 'Creates a jar from the source files.') {
@@ -18,6 +58,7 @@ task sourcesJar(type: Jar,
 artifacts {
   archives jar
   archives sourcesJar
+  archives fatJar
 }
 
 configure(install.repositories.mavenInstaller) {
@@ -28,8 +69,38 @@ configure(install.repositories.mavenInstaller) {
   }
 }
 
+sourceCompatibility = '1.7'
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+  mavenCentral()
+  mavenLocal()
+  maven { 
+    url "http://opentag-test.qubitproducts.com/mvn/repository/snapshots"
+  }
+}
+
+dependencies {
+  // Adding dependencies here will add the dependencies to each subproject.
+  testCompile group: 'junit', name: 'junit', version: '4.10'
+}
+
+task createFolders(
+  description: 'Creates the source folders if they do not exist.') doLast {
+  sourceSets*.allSource*.srcDirs*.each { File srcDir ->
+    if (!srcDir.isDirectory()) {
+      println "Creating source folder: ${srcDir}"
+      srcDir.mkdirs()
+    }
+  }
+}
+
+def isWindows () {
+  return (Os.isFamily(Os.FAMILY_WINDOWS))
+}
+
 def installRemoteAll = false
-def installRemoteAllSnapshots = true
+def installRemoteAllSnapshots = false
 
 uploadArchives {
   //logger.warn "installRemoteAll: "+ installRemoteAll +", installRemoteAllSnapshots: " + installRemoteAllSnapsots
@@ -70,40 +141,10 @@ task uploadArchivesRelease << {
   tasks.uploadArchives.execute()
 }
 
-sourceCompatibility = '1.7'
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-
-repositories {
-  mavenCentral()
-  mavenLocal()
-  maven { 
-    url "http://opentag-test.qubitproducts.com/mvn/repository/snapshots"
-  }
-}
-
-dependencies {
-  // Adding dependencies here will add the dependencies to each subproject.
-  testCompile group: 'junit', name: 'junit', version: '4.10'
-}
-
-
-task createFolders(
-  description: 'Creates the source folders if they do not exist.') doLast {
-  sourceSets*.allSource*.srcDirs*.each { File srcDir ->
-    if (!srcDir.isDirectory()) {
-      println "Creating source folder: ${srcDir}"
-      srcDir.mkdirs()
-    }
-  }
-}
-
-def isWindows () {
-  return (Os.isFamily(Os.FAMILY_WINDOWS))
-}
-
 //this will make sure all jars are locally installed
 allprojects {
   jar.finalizedBy install
+  fatJar.finalizedBy install
 }
 
 allprojects {
