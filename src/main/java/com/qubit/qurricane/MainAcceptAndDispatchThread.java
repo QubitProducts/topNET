@@ -58,7 +58,7 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private final Selector acceptSelector;
-  private Lock lock = new ReentrantLock();
+//  private Lock lock = new ReentrantLock();
 
   MainAcceptAndDispatchThread(final Selector acceptSelector) {
     this.acceptSelector = acceptSelector;

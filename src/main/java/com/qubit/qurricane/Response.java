@@ -260,7 +260,7 @@ public class Response {
         this.responseStream.setBodyStream(this.inputStreamForBody);
       }
     }
-    
+
     if (this.getResponseStream().getHeadersStream() == null) { // only once
       this.getResponseStream().setHeadersStream(getHeadersToSend());
       this.tooLateToChangeHeaders = true;
@@ -329,7 +329,6 @@ public class Response {
   public boolean isTellingConnectionClose() {
     return tellingConnectionClose;
   }
-
 
   /**
    * @param inputStream the inputStreamForBody to set

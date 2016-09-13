@@ -48,15 +48,17 @@ class HandlingThread extends Thread {
               try {
                 // important step! skip those busy
                 if (dataHandler != null) {
-                  
+
                   //check if connection is not open too long! Prevent DDoS
-                  if ( (System.currentTimeMillis() - dataHandler.getTouch()) > 
-                          dataHandler.getMaxIdle(maxIdle)) {
+                  if ((System.currentTimeMillis() - dataHandler.getTouch())
+                          > dataHandler.getMaxIdle(maxIdle)) {
                     Server.close(job); // jiust close - timedout
                   }
-                  
+
                   // check if not too large
-                  int maxSize = dataHandler.getMaxMessageSize(defaultMaxMessageSize);
+                  int maxSize = dataHandler
+                          .getMaxMessageSize(defaultMaxMessageSize);
+
                   if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
                     Server.close(job);
                   }
@@ -132,7 +134,7 @@ class HandlingThread extends Thread {
             if (many == -1) {
               Server.close(key);
             }
-            
+
             return true;
           } else {
             return false;
@@ -149,8 +151,8 @@ class HandlingThread extends Thread {
     }
   }
 
-  private boolean 
-        closeIfNecessary(SelectionKey key, DataHandler dataHandler, boolean finishedWriting) {
+  private boolean
+          closeIfNecessary(SelectionKey key, DataHandler dataHandler, boolean finishedWriting) {
     try {
       if (dataHandler.canClose(finishedWriting)) {
         Server.close(key);
@@ -160,7 +162,7 @@ class HandlingThread extends Thread {
       }
     } finally {
     }
-    
+
     return false;
   }
 

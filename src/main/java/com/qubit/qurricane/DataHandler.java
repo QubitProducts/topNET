@@ -220,14 +220,14 @@ public class DataHandler {
               != null) {
         return true; // stop reading now because of errors! 
       }
-      
+
       if (this.bodyRequired) {
         if (this.contentLength < 0) {
           this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
           return true;
         }
       }
-      
+
       if (previous != -1) { // append last possible character
         currentLine.append((char) previous);
         previous = -1;

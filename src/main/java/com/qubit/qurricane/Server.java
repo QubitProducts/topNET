@@ -5,9 +5,6 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Handler.registerHandlerByPath;
-import com.qubit.qurricane.examples.AsyncAppenderHandler;
-import com.qubit.qurricane.examples.EchoHandler;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
@@ -15,12 +12,15 @@ import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.logging.Logger;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class Server {
+  
+  final static Logger log = Logger.getLogger(Server.class.getName());
   
   private static final int THREAD_JOBS_SIZE = 64;
   private static final int THREADS_POOL_SIZE = 16;
@@ -79,7 +79,8 @@ public class Server {
 //      t2.start();
     }
     
-    System.out.println("Server starting at " + listenAddress.getHostName() + " at " + port);
+    log.info("Server starting at " + listenAddress.getHostName() +
+            " on port " + port);
   }
 
   public void stop() throws IOException {

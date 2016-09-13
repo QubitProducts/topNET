@@ -12,17 +12,17 @@ import com.qubit.qurricane.Handler;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class ErrorHandlingConfig {
-  
+
   private Handler[] handlers = new Handler[1024];
-  
+
   private Handler defaultGlobalErrorHandler;
-  
+
   private static ErrorHandlingConfig errorHandlingConfig;
 
   static {
     errorHandlingConfig = new ErrorHandlingConfig();
   }
-  
+
   /**
    * @return the errorHandlingConfig
    */
@@ -31,28 +31,28 @@ public class ErrorHandlingConfig {
   }
 
   /**
-   * @param aErrorHandlingConfig the errorHandlingConfig to set
+   * @param cfg the errorHandlingConfig to set
    */
-  public static void setErrorHandlingConfig(ErrorHandlingConfig aErrorHandlingConfig) {
-    errorHandlingConfig = aErrorHandlingConfig;
+  public static void setErrorHandlingConfig(ErrorHandlingConfig cfg) {
+    errorHandlingConfig = cfg;
   }
-  
+
   public void setDefaultErrorHandler(int code, Handler handler) {
     getHandlers()[code] = handler;
   }
-  
+
   public Handler getDefaultErrorHandler(int code) {
     if (defaultGlobalErrorHandler != null) {
       return defaultGlobalErrorHandler.getInstance();
     }
-    
+
     Handler handler = getHandlers()[code];
-    
+
     if (handler == null) {
       handler = new ErrorHandler(code);
       getHandlers()[code] = handler;
     }
-    
+
     return handler.getInstance();
   }
 

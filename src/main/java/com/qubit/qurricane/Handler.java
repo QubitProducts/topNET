@@ -12,15 +12,15 @@ import java.util.Map;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public abstract class Handler {
-  
+
   static private final Map<String, Handler> plainPathHandlers;
   static private final List<Handler> matchingHandlersAfterPlainHandlers;
-    
+
   static {
     plainPathHandlers = new HashMap<>();
     matchingHandlersAfterPlainHandlers = new ArrayList<>();
   }
-  
+
   public Handler getInstance() {
     return this;
 //    try {
@@ -30,21 +30,21 @@ public abstract class Handler {
 //    }
 //    return null;
   }
-  
+
   public static void registerHandlerByPath(String path, Handler handler) {
     plainPathHandlers.put(path, handler);
   }
-  
+
   public static void registerHandlerForMatching(Handler handler) {
     matchingHandlersAfterPlainHandlers.add(handler);
   }
-    
+
   public Handler() {
   }
-  
+
   public static Handler getHandlerForPath(String fullPath, String path) {
     Handler handler = plainPathHandlers.get(path);
-    
+
     if (handler == null) {
       for (Handler matchingHandler : matchingHandlersAfterPlainHandlers) {
         if (matchingHandler.matches(fullPath)) {
@@ -54,21 +54,21 @@ public abstract class Handler {
     } else {
       return handler.getInstance();
     }
-    
+
     return null;
   }
-  
+
   public void prepare(Request request, Response response) {
     // optional moment to put own output stream to request
   }
-  
+
   // request is ready, with full body, unless different stream been passed
   public abstract void process(Request request, Response response) throws Exception;
 
   public boolean supports(String method) {
     return true;
   }
-  
+
   public boolean matches(String fullPathIncludingQuery) {
     return false;
   }
@@ -82,10 +82,10 @@ public abstract class Handler {
   }
 
   /**
-   * Returns -2 by default - which means that this handler lets server 
-   * default value to be used.
-   * To set no size limit - set -1. 
-   * Any 0+ value will cause incoming data size limit to be applied.
+   * Returns -2 by default - which means that this handler lets server default
+   * value to be used. To set no size limit - set -1. Any 0+ value will cause
+   * incoming data size limit to be applied.
+   *
    * @return the maxIncomingDataSize
    */
   public int getMaxIncomingDataSize() {
@@ -93,13 +93,13 @@ public abstract class Handler {
   }
 
   /**
-   * Max idle defines maximum miliseconds amount for peer to not to return 
-   * any reads.
-   * 
+   * Max idle defines maximum miliseconds amount for peer to not to return any
+   * reads.
+   *
    * Return -1 to let the server to decide on max idle times.
-   * 
+   *
    * Default value is -1
-   * 
+   *
    * @return the maxIdle
    */
   public int getMaxIdle() {

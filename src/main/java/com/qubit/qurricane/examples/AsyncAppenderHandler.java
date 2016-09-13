@@ -30,26 +30,29 @@ public class AsyncAppenderHandler extends Handler {
       response.setMoreDataComing(true);
       response.setForcingNotKeepingAlive(true);
     } catch (ResponseBuildingStartedException ex) {
-      Logger.getLogger(AsyncAppenderHandler.class.getName()).log(Level.SEVERE, null, ex);
+      Logger.getLogger(AsyncAppenderHandler.class.getName())
+              .log(Level.SEVERE, null, ex);
     }
   }
 
   @Override
-  public void process(final Request request, final Response response) throws Exception {
+  public void process(final Request request, final Response response) 
+          throws Exception {
 
     Thread t = new Thread(new Runnable() {
       @Override
       public void run() {
         try {
-          ResponseAppendableReader stream = 
-                  (ResponseAppendableReader) response.getResponseStream();
+          ResponseAppendableReader stream
+                  = (ResponseAppendableReader) response.getResponseStream();
           Thread.sleep(1000);
           stream.print("Hello after 1 sec!\n\n");
           Thread.sleep(2000);
           stream.print("Hello after 3 sec!\n");
-          
+
         } catch (InterruptedException ex) {
-          Logger.getLogger(AsyncAppenderHandler.class.getName()).log(Level.SEVERE, null, ex);
+          Logger.getLogger(AsyncAppenderHandler.class.getName())
+                  .log(Level.SEVERE, null, ex);
         } finally {
           response.setMoreDataComing(false);
         }
@@ -65,7 +68,7 @@ class ResponseAppendableReader extends ResponseStream {
 
   StringBuffer buffer = new StringBuffer();
   int current = 0;
-  
+
   @Override
   public int readBody() throws IOException {
     if (buffer.length() <= current) {

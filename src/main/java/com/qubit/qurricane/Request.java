@@ -19,58 +19,59 @@ import java.util.Set;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class Request {
+
   private final Map<String, String> headers;
   private OutputStream outputStream;
   private final SelectionKey key;
   private String bodyStringCache;
-  
+
   private String path;
   private String method;
   private String pathParameters;
   private String fullPath;
-  private Throwable passedException;
   private Throwable associatedException;
   private Object attachment;
-  
-  protected Request (SelectionKey key, Map<String, String> headers) {
+
+  protected Request(SelectionKey key, Map<String, String> headers) {
     this.headers = headers;
     this.key = key;
   }
-  
+
   byte[] byteArray = null;
-  
+
   public byte[] getBodyBytes() throws OutputStreamAlreadySetException {
     if (!(this.outputStream instanceof ByteArrayOutputStream)) {
       throw new OutputStreamAlreadySetException();
     }
-    
+
     if (byteArray == null) {
-      byteArray = ((ByteArrayOutputStream)outputStream).toByteArray();
+      byteArray = ((ByteArrayOutputStream) outputStream).toByteArray();
     }
-    
+
     return byteArray;
   }
-  
+
   public String getBodyString() throws OutputStreamAlreadySetException {
     if (this.bodyStringCache == null) {
       Charset charset = null;
       try {
         String contentType = this.getHeader("Content-Type");
         if (contentType != null) {
-        int idx = contentType.indexOf("charset=");
+          int idx = contentType.indexOf("charset=");
           String charsetString = contentType.substring(idx + 8).trim();
           charset = Charset.forName(charsetString);
         } else {
           charset = Charset.defaultCharset();
         }
-      } finally {}
+      } finally {
+      }
 
       this.bodyStringCache = new String(this.getBodyBytes(), charset);
     }
-    
+
     return this.bodyStringCache;
   }
-  
+
   public String getHeader(String name) {
     return headers.get(name);
   }
@@ -78,7 +79,7 @@ public class Request {
   public Set<String> getHeadersKeySet() {
     return headers.keySet();
   }
-  
+
   /**
    * @return the outputStream
    */
@@ -98,13 +99,13 @@ public class Request {
   /**
    * @param outputStream the outputStream to set
    */
-  public void setOutputStream(OutputStream outputStream) 
+  public void setOutputStream(OutputStream outputStream)
           throws OutputStreamAlreadySetException {
     if (outputStream != null) {
       // ignore nonsense, or throw...
       throw new OutputStreamAlreadySetException();
     }
-    
+
     this.outputStream = outputStream;
   }
 
@@ -114,7 +115,7 @@ public class Request {
   public SelectionKey getKey() {
     return key;
   }
-  
+
   public SocketChannel getSocketChannel() {
     return (SocketChannel) getKey().channel();
   }
@@ -167,7 +168,7 @@ public class Request {
   protected void setFullPath(String fullPath) {
     this.fullPath = fullPath;
   }
-  
+
   protected void setPath(String fullPath) {
     this.fullPath = fullPath;
   }
@@ -199,5 +200,5 @@ public class Request {
   public void setAttachment(Object attachment) {
     this.attachment = attachment;
   }
-  
+
 }

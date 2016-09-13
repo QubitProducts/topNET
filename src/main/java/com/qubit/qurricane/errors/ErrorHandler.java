@@ -5,7 +5,6 @@
  */
 package com.qubit.qurricane.errors;
 
-import com.qubit.qurricane.DataHandler;
 import com.qubit.qurricane.Handler;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;

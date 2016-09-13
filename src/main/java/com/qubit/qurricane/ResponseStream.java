@@ -13,16 +13,19 @@ import java.io.InputStream;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class ResponseStream {
+
   private InputStream headersStream;
   private InputStream bodyStream;
-  
+
   public ResponseStream() {
   }
-  
+
   /**
-   * Main reading function. It returns integer != -1 if there is anything to read.
+   * Main reading function. It returns integer != -1 if there is anything to
+   * read.
+   *
    * @return
-   * @throws IOException 
+   * @throws IOException
    */
   public int read() throws IOException {
     int ch;
@@ -42,7 +45,6 @@ public class ResponseStream {
 
   /**
    * @param bodyStream the bodyStream to set
-   * @return 
    */
   public void setBodyStream(InputStream bodyStream) {
     this.bodyStream = bodyStream;
@@ -69,6 +71,5 @@ public class ResponseStream {
   public void setHeadersStream(InputStream headersStream) {
     this.headersStream = headersStream;
   }
-  
-  
+
 }
