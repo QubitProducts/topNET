@@ -143,7 +143,7 @@ public class Response {
       } else if (httpCodeNum == 204) {
         buffer.append(OK_204);
       } else if (httpCodeNum == 404) {
-        buffer.append("Not Found");
+        buffer.append("404 Not Found");
         buffer.append(CRLF);
       } else if (httpCodeNum == 400) {
         buffer.append("400 Bad Request");
@@ -152,7 +152,6 @@ public class Response {
         buffer.append("503 Server Error");
         buffer.append(CRLF);
       } else {
-        buffer.append(httpProtocol);
         buffer.append(httpCodeNum);
         buffer.append(CRLF);
       }
