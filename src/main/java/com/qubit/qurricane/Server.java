@@ -22,7 +22,7 @@ public class Server {
   
   final static Logger log = Logger.getLogger(Server.class.getName());
   
-  public final static String SERVER_VERSION = "1.0";
+  public final static String SERVER_VERSION = "1.0.1";
   
   private static final int THREAD_JOBS_SIZE = 64;
   private static final int THREADS_POOL_SIZE = 16;
