@@ -25,6 +25,7 @@ public class Demo {
     
     s.setJobsPerThread(4);
     // one byte buffer!
+    s.setRequestBufferSize(1);
     s.setThreadsAmount(16);
     s.start();
     

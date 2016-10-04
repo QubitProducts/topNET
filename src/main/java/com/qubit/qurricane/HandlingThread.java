@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -20,6 +22,8 @@ class HandlingThread extends Thread {
   private final ByteBuffer buffer;
   private final int defaultMaxMessageSize;
   private final int maxIdle;
+  
+  static final Logger log = Logger.getLogger(HandlingThread.class.getName());
 
   public HandlingThread(
           int jobsSize, int bufSize, int defaultMaxMessageSize, int maxIdle) {
@@ -71,6 +75,7 @@ class HandlingThread extends Thread {
                   }
                 }
               } catch (Exception es) {
+                log.log(Level.SEVERE, "Excpetion during handling data.", es);
                 // @todo metrics
                 this.jobs.set(i, null);
 
@@ -143,6 +148,7 @@ class HandlingThread extends Thread {
           return true;
         }
       } catch (IOException ex) {
+        log.log(Level.SEVERE, null, ex);
         return true;
       } finally {
       }

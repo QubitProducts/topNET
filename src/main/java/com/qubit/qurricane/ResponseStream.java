@@ -12,7 +12,7 @@ import java.io.InputStream;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class ResponseStream {
+public class ResponseStream implements ResponseReader {
 
   private InputStream headersStream;
   private InputStream bodyStream;
@@ -72,4 +72,18 @@ public class ResponseStream {
     this.headersStream = headersStream;
   }
 
+  private ResponseReader headerResponseReader;
+  public ResponseReader getHeadersOnlyResponseReader() {
+    if (headerResponseReader == null) {
+      headerResponseReader = new ResponseReader() {
+        @Override
+        public int read() throws IOException {
+          return ResponseStream.this.headersStream.read();
+        }
+      };
+    }
+    
+    return headerResponseReader;
+  }
+  
 }

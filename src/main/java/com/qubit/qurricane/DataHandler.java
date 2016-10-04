@@ -56,6 +56,9 @@ public class DataHandler {
           = "Content-Type: text/html; charset=utf-8\n\r";
   static final String EOL = "\n";
   private String params;
+  private String httpProtocol = HTTP_1_0;
+  
+  boolean headersOnly = false;
 
   protected void reset() {
     size = 0;
@@ -77,6 +80,7 @@ public class DataHandler {
     errorOccured = null;
     errorException = null;
     handlerUsed = null;
+    headersOnly = false;
   }
 
   public DataHandler() {
@@ -125,6 +129,11 @@ public class DataHandler {
     return "UTF-8";
   }
 
+  static final String  HTTP_0_9 = "HTTP/0.9";
+  static final String  HTTP_1_0 = "HTTP/1.0";
+  static final String  HTTP_1_1 = "HTTP/1.1";
+  static final String  HTTP_1_x = "HTTP/1.x";
+  
   private void setMethodAndPathFromLine(String line) {
     int idx = line.indexOf(" ");
     if (idx < 1) {
@@ -134,6 +143,19 @@ public class DataHandler {
     int sec_idx = line.indexOf(" ", idx + 1);
     if (sec_idx != -1) {
       this.fullPath = line.substring(idx + 1, sec_idx);
+      this.httpProtocol = line.substring(sec_idx + 1);
+      switch (this.httpProtocol) {
+        case HTTP_0_9:
+        case HTTP_1_0:
+        case HTTP_1_1:
+         break;
+        case HTTP_1_x:
+         this.httpProtocol = HTTP_1_0;
+         break;
+        default:
+        this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
+        this.httpProtocol = HTTP_1_0;
+      }
     } else {
       this.fullPath = line.substring(idx + 1);
     }
@@ -282,6 +304,11 @@ public class DataHandler {
       // two birds as one
 
       this.setMethodAndPathFromLine(line);
+      
+      if (this.method.equals("HEAD")) {
+        this.headersOnly = true;
+      }
+      
       this.analyzePathAndSplit();
 
       if (this.method == null) {
@@ -344,8 +371,13 @@ public class DataHandler {
 
     SocketChannel channel = (SocketChannel) key.channel();
     buffer.clear();
-
-    ResponseStream responseReader = this.getInputStreamForResponse();
+    ResponseReader responseReader;
+    if (this.headersOnly) {
+      responseReader = this.getInputStreamForResponse()
+              .getHeadersOnlyResponseReader();
+    } else {
+      responseReader = this.getInputStreamForResponse();
+    }
 
     if (responseReader == null) {
       return !this.response.isMoreDataComing();
@@ -375,7 +407,7 @@ public class DataHandler {
       return this.errorOccured;
     }
 
-    this.response = new Response();
+    this.response = new Response(this.httpProtocol);
     this.request = new Request(key, headers);
 
     if (this.errorOccured != null) {
@@ -394,9 +426,11 @@ public class DataHandler {
       this.request.setPathParameters(this.params);
       this.request.setMethod(this.method);
 
-      handler.prepare(this.request, this.response);
-
-      this.request.makeSureOutputStreamIsReady();
+      handler.runPrepare(this.request, this.response);
+      
+      // this prepares space for BODY to be written to, once headers are sorted,
+      // possibly body will be written
+      request.makeSureOutputStreamIsReady();
     }
 
     if (!handler.supports(this.method)) {
@@ -432,7 +466,7 @@ public class DataHandler {
 
     if (this.errorOccured != null) {
       handler = getErrorHandler(handler);
-      handler.prepare(request, response);
+      handler.runPrepare(request, response);
       // @todo review error handling and refactor to nicer form
     }
 
@@ -448,10 +482,10 @@ public class DataHandler {
         handler = getErrorHandler(handler);
 
         try {
-          response = new Response();
-          handler.prepare(request, response);
+          response = new Response(this.httpProtocol);
+          handler.runPrepare(request, response);
           // @todo review error handling and refactor to nicer form.
-          // prepare not really needed
+          // runPrepare not really needed
           handler.process(request, response);
         } catch (Throwable ex) {
           Logger.getLogger(DataHandler.class.getName())
@@ -461,6 +495,10 @@ public class DataHandler {
         }
 
         return this.errorOccured;
+      } finally {
+        if (this.errorOccured != null && this.handlerUsed != null) {
+          this.handlerUsed.onError(this.errorException);
+        }
       }
     }
 

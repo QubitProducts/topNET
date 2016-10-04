@@ -33,9 +33,9 @@ public class ErrorHandler extends Handler {
                   .log(Level.SEVERE, null, request.getAssociatedException());
     }
     if (request.getAssociatedException() == null) {
-      response.print("Qurricane says: " + getCode() + ".\n");
+      response.print("Status: " + getCode() + "\n");
     } else {
-      response.print("Qurricane says: " + code + ".\n" + 
+      response.print("Status: " + code + "\n" + 
             request.getAssociatedException().getMessage());
     }
   }

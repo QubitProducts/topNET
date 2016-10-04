@@ -5,6 +5,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.DataHandler.HTTP_1_0;
 import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
 import com.qubit.qurricane.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
@@ -22,9 +23,9 @@ import java.util.logging.Logger;
  */
 public class Response {
 
-  static final String CRLF = "\r\n";
-  static final String OK_200 = "HTTP/1.x 200 OK" + CRLF;
-  static final String OK_204 = "HTTP/1.x 204 No Content" + CRLF;
+  static private final String CRLF = "\r\n";
+  static private final String OK_200 = "200 OK" + CRLF;
+  static private final String OK_204 = "204 No Content" + CRLF;
 
   private static final ThreadLocal<ServerTime> serverTime;
 
@@ -51,7 +52,16 @@ public class Response {
   private StringBuffer responseBuilder = null;
   private InputStream inputStreamForBody;
   private Object attachment;
+  private String httpProtocol;
 
+  public Response (String httpProtocol) {
+    this.httpProtocol = httpProtocol;
+  }
+  
+  public Response () {
+    this.httpProtocol = HTTP_1_0;
+  }
+  
   /**
    * Called just before starting reading to output.
    *
@@ -83,7 +93,10 @@ public class Response {
 
   public StringBuffer getHeadersBuffer(String customFirstHttpLine) {
     StringBuffer buffer
-            = getHeadersBufferWithoutEOL(customFirstHttpLine, this.httpCode);
+            = getHeadersBufferWithoutEOL(
+                    customFirstHttpLine,
+                    this.httpCode,
+                    this.getHttpProtocol());
 
     try {
       this.addHeaders(buffer);
@@ -105,36 +118,44 @@ public class Response {
     return buffer;
   }
 
-  public static StringBuffer getHeadersBufferWithoutEOL(int httpCode) {
-    return getHeadersBufferWithoutEOL(null, httpCode);
+  public static StringBuffer getHeadersBufferWithoutEOL(
+          int httpCode, String httpProtocol) {
+    return getHeadersBufferWithoutEOL(null, httpCode, httpProtocol);
   }
 
   public static StringBuffer getHeadersBufferWithoutEOL(
-          String customFirstHttpLine, int httpCode) {
+          String customFirstHttpLine, int httpCode, String httpProtocol) {
 
     StringBuffer buffer = new StringBuffer();
     int httpCodeNum = httpCode;
 
+    
+    
     if (customFirstHttpLine != null) {
       buffer.append(customFirstHttpLine);
       buffer.append(CRLF);
-    } else if (httpCodeNum == 200) {
-      buffer.append(OK_200);
-    } else if (httpCodeNum == 204) {
-      buffer.append(OK_204);
-    } else if (httpCodeNum == 404) {
-      buffer.append("HTTP/1.x 404 Not Found");
-      buffer.append(CRLF);
-    } else if (httpCodeNum == 400) {
-      buffer.append("HTTP/1.x 400 Bad Request");
-      buffer.append(CRLF);
-    } else if (httpCodeNum == 503) {
-      buffer.append("HTTP/1.x 503 Server Error");
-      buffer.append(CRLF);
     } else {
-      buffer.append("HTTP/1.x ");
-      buffer.append(httpCodeNum);
-      buffer.append(CRLF);
+      buffer.append(httpProtocol);
+      buffer.append(" ");
+      
+      if (httpCodeNum == 200) {
+        buffer.append(OK_200);
+      } else if (httpCodeNum == 204) {
+        buffer.append(OK_204);
+      } else if (httpCodeNum == 404) {
+        buffer.append("Not Found");
+        buffer.append(CRLF);
+      } else if (httpCodeNum == 400) {
+        buffer.append("400 Bad Request");
+        buffer.append(CRLF);
+      } else if (httpCodeNum == 503) {
+        buffer.append("503 Server Error");
+        buffer.append(CRLF);
+      } else {
+        buffer.append(httpProtocol);
+        buffer.append(httpCodeNum);
+        buffer.append(CRLF);
+      }
     }
 
     buffer.append("Date: ");
@@ -390,6 +411,20 @@ public class Response {
    */
   public ResponseStream getResponseStream() {
     return responseStream;
+  }
+
+  /**
+   * @return the httpProtocol
+   */
+  public String getHttpProtocol() {
+    return httpProtocol;
+  }
+
+  /**
+   * @param httpProtocol the httpProtocol to set
+   */
+  public void setHttpProtocol(String httpProtocol) {
+    this.httpProtocol = httpProtocol;
   }
 
 }

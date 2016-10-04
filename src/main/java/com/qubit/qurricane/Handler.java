@@ -58,10 +58,15 @@ public abstract class Handler {
     return null;
   }
 
-  public void prepare(Request request, Response response) {
-    // optional moment to put own output stream to request
+  //locallly used only
+  void runPrepare(Request request, Response response) {
+    this.prepare(request, response);
   }
 
+  public void prepare(Request request, Response response) {
+  
+  }
+  
   // request is ready, with full body, unless different stream been passed
   public abstract void process(Request request, Response response) throws Exception;
 
@@ -106,4 +111,6 @@ public abstract class Handler {
     return -1;
   }
 
+  
+  public void onError(Throwable t) {}
 }
