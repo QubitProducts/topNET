@@ -6,6 +6,7 @@
 package com.qubit.qurricane;
 
 import static com.qubit.qurricane.DataHandler.HTTP_1_0;
+import static com.qubit.qurricane.Server.SERVER_VERSION;
 import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
 import com.qubit.qurricane.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
@@ -161,7 +162,8 @@ public class Response {
     buffer.append(serverTime.get().getTime());
     buffer.append(CRLF);
 
-    buffer.append("Server: Qurricane");
+    buffer.append("Server: Qurricane ");
+    buffer.append(SERVER_VERSION);
     buffer.append(CRLF);
 
     return buffer;
