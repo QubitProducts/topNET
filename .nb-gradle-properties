@@ -10,7 +10,7 @@
       </task-names>
       <task-args>
         <arg>-PmainClass=com.qubit.qurricane.examples.Demo</arg>
-        <arg>-PappArgs="['--experiments=ccc']"</arg>
+        <arg>-PmainArgs="['--experiments=ccc']"</arg>
       </task-args>
       <task-jvm-args/>
     </task>

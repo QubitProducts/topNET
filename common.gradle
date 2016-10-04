@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 
 String mavenGroupId = 'com.qubit'
-String mavenVersion = '1.0.0'
+String mavenVersion = '1.0.1'
 String mavenArtifactId = name.replace("modules/", "")
 
 group = mavenGroupId
@@ -13,6 +13,11 @@ version = mavenVersion
 //        attributes 'Main-Class': 'com.qubit.opentag.ping.PingServer'
 //    }
 //}
+subprojects {
+    tasks.withType(Jar) {
+        archivesBaseName = archivesBaseName - "modules/"
+    }
+}
 
 def fatJarBaseName = project.name + '-all';
 
