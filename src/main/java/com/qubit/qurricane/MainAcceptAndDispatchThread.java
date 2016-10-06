@@ -5,6 +5,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.Server.close;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
@@ -123,14 +124,12 @@ class MainAcceptAndDispatchThread extends Thread {
                 }
               }
             }
-          } catch (CancelledKeyException | IOException ex) {
-            try {
-              log.log(Level.SEVERE, null, ex);
-              key.channel().close();
-              key.cancel();
-            } catch (IOException ex1) {
-              log.log(Level.SEVERE, null, ex1);
-            }
+          } catch (CancelledKeyException ex) {
+            log.fine("Key already closed.");
+            close(key);
+          } catch (IOException ex) {
+            log.log(Level.SEVERE, null, ex);
+            close(key);
           }
         }
       }
