@@ -145,7 +145,7 @@ class HandlingThread extends Thread {
               return true;
             }
           } catch (CancelledKeyException ex) {
-            log.fine("Key already closed.");
+            log.info("Key already closed.");
             return true;
           }
         }
