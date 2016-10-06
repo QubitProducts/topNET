@@ -29,6 +29,8 @@ public class Response {
   static private final String OK_204 = "204 No Content" + CRLF;
 
   private static final ThreadLocal<ServerTime> serverTime;
+  
+  static final Logger log = Logger.getLogger(Response.class.getName());
 
   static {
     serverTime = new ThreadLocal<ServerTime>() {
@@ -102,9 +104,7 @@ public class Response {
     try {
       this.addHeaders(buffer);
     } catch (TooLateToChangeHeadersException ex) {
-      Logger.getLogger(
-              Response.class.getName())
-              .log(Level.SEVERE, "This should never happen.", ex);
+      log.log(Level.SEVERE, "This should never happen.", ex);
     }
 
     if (this.getContentLength() >= 0
@@ -268,8 +268,7 @@ public class Response {
                     this.getContentType() + "; charset=" + charsetString);
           }
         } catch (TooLateToChangeHeadersException ex) {
-          Logger.getLogger(Response.class.getName())
-                  .log(Level.SEVERE,
+          log.log(Level.SEVERE,
                           "This should never happen - bad implementation.", ex);
         }
 

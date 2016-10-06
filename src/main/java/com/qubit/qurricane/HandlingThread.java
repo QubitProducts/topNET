@@ -76,7 +76,7 @@ class HandlingThread extends Thread {
                 }
               } catch (Exception es) {
                 log.log(Level.SEVERE, "Excpetion during handling data.", es);
-                // @todo metrics
+                
                 this.jobs.set(i, null);
 
                 if (dataHandler != null) {
@@ -104,7 +104,7 @@ class HandlingThread extends Thread {
             }
           }
         } catch (InterruptedException ex) {
-
+          log.log(Level.SEVERE, null, ex);
         }
       }
 

@@ -490,8 +490,6 @@ public class DataHandler {
         } catch (Throwable ex) {
           Logger.getLogger(DataHandler.class.getName())
                   .log(Level.SEVERE, "Error prone error handler!", ex);
-        } finally {
-
         }
 
         return this.errorOccured;

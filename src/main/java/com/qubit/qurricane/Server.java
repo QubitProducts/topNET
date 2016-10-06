@@ -12,6 +12,7 @@ import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -92,7 +93,9 @@ public class Server {
     while (MainAcceptAndDispatchThread.hasThreads()) {
       try {
         Thread.sleep(5);
-      } catch (InterruptedException ex) {}
+      } catch (InterruptedException ex) {
+        log.log(Level.SEVERE, null, ex);
+      }
     }
     
     serverChannel.close();
@@ -145,7 +148,7 @@ public class Server {
       key.cancel();
       key.channel().close();
     } catch (IOException ex) {
-      // metrics???
+      log.log(Level.SEVERE, null, ex);
     }
   }
 

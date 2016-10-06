@@ -5,6 +5,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
@@ -12,6 +13,7 @@ import java.nio.channels.Selector;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
 
 /**
  *
@@ -73,10 +75,10 @@ class MainAcceptAndDispatchThread extends Thread {
         getAcceptSelector().select();
       } catch (IOException ex) {
         try {
-          // some trouble, metrics???
+          log.log(Level.SEVERE, null, ex);
           getAcceptSelector().close();
         } catch (IOException ex1) {
-          // try to close 
+          log.log(Level.SEVERE, null, ex1);
         }
       }
 
@@ -121,10 +123,11 @@ class MainAcceptAndDispatchThread extends Thread {
             }
           } catch (CancelledKeyException | IOException ex) {
             try {
-
+              log.log(Level.SEVERE, null, ex);
               key.channel().close();
               key.cancel();
             } catch (IOException ex1) {
+              log.log(Level.SEVERE, null, ex1);
             }
           }
         }
