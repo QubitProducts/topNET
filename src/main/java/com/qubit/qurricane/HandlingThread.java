@@ -7,6 +7,7 @@ package com.qubit.qurricane;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Level;
@@ -56,7 +57,8 @@ class HandlingThread extends Thread {
                   //check if connection is not open too long! Prevent DDoS
                   if ((System.currentTimeMillis() - dataHandler.getTouch())
                           > dataHandler.getMaxIdle(maxIdle)) {
-                    Server.close(job); // jiust close - timedout
+                    Server.close(job); // just close - timedout
+                    continue;
                   }
 
                   // check if not too large
@@ -65,6 +67,7 @@ class HandlingThread extends Thread {
 
                   if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
                     Server.close(job);
+                    continue;
                   }
 
                   if (this.processKey(job, dataHandler)) {
@@ -75,22 +78,12 @@ class HandlingThread extends Thread {
                   }
                 }
               } catch (Exception es) {
-                log.log(Level.SEVERE, "Excpetion during handling data.", es);
-                
-                this.jobs.set(i, null);
-
-                if (dataHandler != null) {
-                  dataHandler.locked = false;
-                }
-
+                log.log(Level.SEVERE, "Exception during handling data.", es);
+                remove = true;
                 Server.close(job);
               } finally {
                 if (remove) {
-                  this.jobs.set(i, null);
-
-                  if (dataHandler != null) {
-                    dataHandler.locked = false;
-                  }
+                  this.removeJobFromPool(i, dataHandler);
                 }
               }
             }
@@ -117,40 +110,45 @@ class HandlingThread extends Thread {
           throws IOException {
     if (key.isValid()) {
       try {
-        if (dataHandler.writingResponse) {
+        if (dataHandler.writingResponse) {// in progress of writing
           if (this.writeResponse(key, dataHandler)) {
-            dataHandler.writingResponse = false;
-            return true;
-          } else {
-            return false;
-          }
-        } else if (key.isReadable()) {
-          int many = dataHandler.read(key, buffer);
-          if (many < 0) { // finished reading
-            if (many == -2) {
-              dataHandler.writingResponse = true;
-              if (this.writeResponse(key, dataHandler)) {
-                return this.closeIfNecessary(key, dataHandler, true);
-              } else {
-                return false;
-              }
-            }
-            // connection is closed - just close socket
-            if (many == -1) {
-              Server.close(key);
-            }
-
+            dataHandler.writingResponse = false; // finished writing
             return true;
           } else {
             return false;
           }
         } else {
-          return true;
+          try {
+            if (key.isReadable()) {
+              int many = dataHandler.read(key, buffer);
+              if (many < 0) { // finished reading
+                if (many == -2) {
+                  dataHandler.writingResponse = true; // started writing
+                  if (this.writeResponse(key, dataHandler)) {
+                    return this.closeIfNecessary(key, dataHandler, true);
+                  } else {
+                    return false;
+                  }
+                }
+                // connection is closed - just close socket
+                if (many == -1) {
+                  Server.close(key);
+                }
+                return true;
+              } else {
+                return false;
+              }
+            } else {
+              return true;
+            }
+          } catch (CancelledKeyException ex) {
+            log.fine("Key already closed.");
+            return true;
+          }
         }
       } catch (IOException ex) {
         log.log(Level.SEVERE, null, ex);
         return true;
-      } finally {
       }
     } else {
       return true;
@@ -205,6 +203,14 @@ class HandlingThread extends Thread {
       return this.closeIfNecessary(key, dataHandler, true);
     }
     return false;
+  }
+
+  private void removeJobFromPool(int i, DataHandler dataHandler) {
+    this.jobs.set(i, null);
+
+    if (dataHandler != null) {
+      dataHandler.locked = false;
+    }
   }
 
 }
