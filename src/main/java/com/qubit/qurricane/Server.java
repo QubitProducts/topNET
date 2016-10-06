@@ -71,15 +71,11 @@ public class Server {
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
       
-      Selector s1 = Selector.open();
-      serverChannel.register(s1, SelectionKey.OP_ACCEPT);
-      MainAcceptAndDispatchThread t1 = new MainAcceptAndDispatchThread(s1);
-      t1.start();
-
-//      Selector s2 = Selector.open();
-//      serverChannel.register(s2, SelectionKey.OP_ACCEPT);
-//      MainAcceptAndDispatchThread t2 = new MainAcceptAndDispatchThread(s2);
-//      t2.start();
+      Selector acceptSelector = Selector.open();
+      serverChannel.register(acceptSelector, SelectionKey.OP_ACCEPT);
+      MainAcceptAndDispatchThread mainAcceptDispatcher = 
+              new MainAcceptAndDispatchThread(acceptSelector);
+      mainAcceptDispatcher.start();
     }
     
     log.info("Server starting at " + listenAddress.getHostName() +
