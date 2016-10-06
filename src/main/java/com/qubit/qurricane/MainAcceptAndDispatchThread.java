@@ -88,13 +88,15 @@ class MainAcceptAndDispatchThread extends Thread {
       for (SelectionKey key : selectionKeys) {
         if (key.isValid()) {
           try {
-            if (key.isAcceptable()) {
+            
+            DataHandler dataHandler = (DataHandler) key.attachment();
+            
+            if (dataHandler == null && key.isAcceptable()) {
 
               Server.accept(key, acceptSelector);
 
             } else {
-              DataHandler dataHandler = (DataHandler) key.attachment();
-
+              
               if (dataHandler == null) {
                 dataHandler = new DataHandler();
                 key.attach(dataHandler);
