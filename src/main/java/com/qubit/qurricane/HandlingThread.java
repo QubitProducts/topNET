@@ -211,7 +211,6 @@ class HandlingThread extends Thread {
           throws IOException {
     if (dataHandler.write(key, buffer)) {
       dataHandler.writingResponse = false; // finished writing
-      dataHandler.setReplied(true);
       return this.closeIfNecessaryAndTellIfShouldReleaseJob(
                                                   key, dataHandler, true);
     }

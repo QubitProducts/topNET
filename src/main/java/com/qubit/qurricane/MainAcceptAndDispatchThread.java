@@ -104,7 +104,8 @@ class MainAcceptAndDispatchThread extends Thread {
               }
 
               // add to worker
-              if (!dataHandler.locked) {
+              if (!dataHandler.locked) { // currently closeIfNecessaryAndTellIfShouldReleaseJob
+                // decides that single job is bound to thread - and it's fine
                 for (int i = currentThread, c = 0; c < handlingThreads.length; i++) {
 
                   int idx = i % handlingThreads.length;
@@ -125,7 +126,7 @@ class MainAcceptAndDispatchThread extends Thread {
               }
             }
           } catch (CancelledKeyException ex) {
-            log.fine("Key already closed.");
+            log.info("Key already closed.");
             close(key);
           } catch (IOException ex) {
             log.log(Level.SEVERE, null, ex);
