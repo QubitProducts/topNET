@@ -55,8 +55,9 @@ class HandlingThread extends Thread {
                 if (dataHandler != null) {
 
                   //check if connection is not open too long! Prevent DDoS
-                  if ((System.currentTimeMillis() - dataHandler.getTouch())
-                          > dataHandler.getMaxIdle(maxIdle)) {
+                  long idle = System.currentTimeMillis() - dataHandler.getTouch();
+                  if (idle > dataHandler.getMaxIdle(maxIdle)) {
+                    log.log(Level.INFO, "Max idle gained - closing: {0}", idle);
                     Server.close(job); // just close - timedout
                     continue;
                   }
@@ -66,14 +67,17 @@ class HandlingThread extends Thread {
                           .getMaxMessageSize(defaultMaxMessageSize);
 
                   if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
+                    log.log(Level.INFO, "Max size reached - closing: {0}",
+                            dataHandler.getSize());
                     Server.close(job);
                     continue;
                   }
 
                   if (this.processKey(job, dataHandler)) {
-                    // key not necessary anymore
+                    // job not necessary anymore
                     // remove = true;
                   } else {
+                    // keep job
                     remove = false;
                   }
                 }
@@ -106,17 +110,19 @@ class HandlingThread extends Thread {
     }
   }
 
+  /**
+   * 
+   * @param key
+   * @param dataHandler
+   * @return true only is key should be released
+   * @throws IOException 
+   */
   private boolean processKey(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (key.isValid()) {
       try {
-        if (dataHandler.writingResponse) {// in progress of writing
-          if (this.writeResponse(key, dataHandler)) {
-            dataHandler.writingResponse = false; // finished writing
-            return true;
-          } else {
-            return false;
-          }
+        if (dataHandler.writingResponse) { // in progress of writing
+          return this.writeResponse(key, dataHandler);
         } else {
           try {
             if (key.isReadable()) {
@@ -124,11 +130,8 @@ class HandlingThread extends Thread {
               if (many < 0) { // finished reading
                 if (many == -2) {
                   dataHandler.writingResponse = true; // started writing
-                  if (this.writeResponse(key, dataHandler)) {
-                    return this.closeIfNecessary(key, dataHandler, true);
-                  } else {
-                    return false;
-                  }
+                  // writingResponse will be unchecked by writeResponse(...)
+                  return this.writeResponse(key, dataHandler);
                 }
                 // connection is closed - just close socket
                 if (many == -1) {
@@ -156,18 +159,17 @@ class HandlingThread extends Thread {
   }
 
   private boolean
-          closeIfNecessary(SelectionKey key, DataHandler dataHandler, boolean finishedWriting) {
-    try {
-      if (dataHandler.canClose(finishedWriting)) {
-        Server.close(key);
-        return true;
-      } else {
-        dataHandler.reset();
-      }
-    } finally {
+          closeIfNecessaryAndTellIfShouldReleaseJob(
+                                                SelectionKey key,
+                                                DataHandler dataHandler,
+                                                boolean finishedWriting) {
+    if (dataHandler.canClose(finishedWriting)) {
+      Server.close(key);
+      return true;
+    } else {
+      dataHandler.reset();
+      return false;
     }
-
-    return false;
   }
 
   /**
@@ -196,11 +198,22 @@ class HandlingThread extends Thread {
     return false;
   }
 
+  /**
+   * Returns false if not finished writing or 
+   * "this.closeIfNecessaryAndTellIfShouldReleaseJob(...)" 
+   * when finished. It tells if job can be released.
+   * @param key
+   * @param dataHandler
+   * @return
+   * @throws IOException 
+   */
   private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (dataHandler.write(key, buffer)) {
-      dataHandler.writingResponse = false;
-      return this.closeIfNecessary(key, dataHandler, true);
+      dataHandler.writingResponse = false; // finished writing
+      dataHandler.setReplied(true);
+      return this.closeIfNecessaryAndTellIfShouldReleaseJob(
+                                                  key, dataHandler, true);
     }
     return false;
   }
