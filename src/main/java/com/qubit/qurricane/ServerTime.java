@@ -7,7 +7,7 @@ package com.qubit.qurricane;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -17,11 +17,8 @@ import java.util.TimeZone;
  */
 class ServerTime {
   DateFormat dateFormat;
-  Calendar calendar;
 
-  public ServerTime () {
-    calendar =  Calendar.getInstance();
-    
+  public ServerTime () {    
     dateFormat = new SimpleDateFormat(
                 "EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
     
@@ -29,7 +26,7 @@ class ServerTime {
   }
   
   public String getTime() {
-    return dateFormat.format(calendar.getTime());
+    return dateFormat.format(new Date());
   }
   
 }
