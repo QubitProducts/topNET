@@ -12,8 +12,6 @@ import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
 /**
@@ -128,7 +126,7 @@ class MainAcceptAndDispatchThread extends Thread {
           } catch (CancelledKeyException ex) {
             log.info("Key already closed.");
             close(key);
-          } catch (IOException ex) {
+          } catch (Exception ex) {
             log.log(Level.SEVERE, null, ex);
             close(key);
           }
