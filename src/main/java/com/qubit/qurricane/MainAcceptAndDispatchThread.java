@@ -60,13 +60,12 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private final Selector acceptSelector;
-//  private Lock lock = new ReentrantLock();
 
   MainAcceptAndDispatchThread(final Selector acceptSelector) throws IOException {
     this.acceptSelector = acceptSelector;
   }
 
-  int acceptedCnt = 0;
+  volatile int acceptedCnt = 0;
   private int currentThread = 0;
   
   @Override
@@ -117,7 +116,7 @@ class MainAcceptAndDispatchThread extends Thread {
   public Selector getAcceptSelector() {
     return acceptSelector;
   }
-int qqqq = 0;
+//  int i = 0;
   private void startReading(SelectionKey key, DataHandler dataHandler) {
     
     if (dataHandler == null) {
@@ -129,13 +128,13 @@ int qqqq = 0;
     if (!dataHandler.locked) {
       // currently closeIfNecessaryAndTellIfShouldReleaseJob
       // decides that single job is bound to thread - and it's fine
-      for (int i = currentThread, c = 0; c < handlingThreads.length; i++) {
+      for (int c = 0; c < handlingThreads.length; c++) {
         HandlingThread handlingThread = handlingThreads[currentThread];
-
+        currentThread = (currentThread + 1) % handlingThreads.length;
+        
         if (handlingThread != null && 
                 handlingThread.addJob(dataHandler, key)) {
-          currentThread = (currentThread + 1) % handlingThreads.length;
-          log.log(Level.INFO, "Q connections: {0}", ++qqqq);
+//          log.info(">>>>>> " + i++);
           break;
         }
       }
