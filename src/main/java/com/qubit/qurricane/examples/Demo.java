@@ -5,7 +5,6 @@
  */
 package com.qubit.qurricane.examples;
 
-import static com.qubit.qurricane.Handler.registerHandlerByPath;
 import com.qubit.qurricane.Server;
 import java.io.IOException;
 
@@ -20,16 +19,38 @@ public class Demo {
    * @param args
    * @throws IOException 
    */
-  public static void main(String[] args) throws IOException {    
+  public static void main(String[] args) throws IOException {
+    
+    int jobs = 256;
+    int buf = 8192;
+    int th = 4;
+    
     Server s = new Server("localhost", 3456);
     
-    s.setJobsPerThread(20000);
+    s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setRequestBufferSize(8192);
-    s.setThreadsAmount(4);
+    s.setRequestBufferSize(buf);
+    s.setThreadsAmount(th);
+    s.setPooled(true);
     s.start();
     
-    registerHandlerByPath("/echo", new EchoHandler());
-    registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    
+    // second version
+    
+    s = new Server("localhost", 3457);
+    
+    s.setJobsPerThread(jobs);
+    // one byte buffer!
+    s.setRequestBufferSize(buf);
+    s.setThreadsAmount(th);
+    s.setPooled(false);
+    s.start();
+    
+    
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
   }
 }
