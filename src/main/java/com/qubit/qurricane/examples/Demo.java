@@ -23,10 +23,10 @@ public class Demo {
   public static void main(String[] args) throws IOException {    
     Server s = new Server("localhost", 3456);
     
-    s.setJobsPerThread(4);
+    s.setJobsPerThread(20000);
     // one byte buffer!
-    s.setRequestBufferSize(1);
-    s.setThreadsAmount(16);
+    s.setRequestBufferSize(8192);
+    s.setThreadsAmount(4);
     s.start();
     
     registerHandlerByPath("/echo", new EchoHandler());

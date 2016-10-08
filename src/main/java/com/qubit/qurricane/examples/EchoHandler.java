@@ -28,6 +28,8 @@ public class EchoHandler extends Handler {
 //    ByteArrayInputStream is = new ByteArrayInputStream(
 //    request.getBodyString().getBytes());
 //    response.setStreamToReadFrom(is);
+    response.setForcingNotKeepingAlive(false);
+    response.setTellingConnectionClose(false);
   }
   
 }

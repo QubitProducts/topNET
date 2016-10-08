@@ -58,7 +58,7 @@ public class DataHandler {
   private String params;
   private String httpProtocol = HTTP_1_0;
   
-  boolean headersOnly = false;
+  private boolean headersOnly = false;
 
   protected void reset() {
     size = 0;
@@ -210,6 +210,10 @@ public class DataHandler {
     buffer.flip();
 
     if (!this.headersReady) {
+      
+      if (this.request == null) {
+        this.request = new Request(key, this.headers);
+      }
 
       while (buffer.hasRemaining()) {
 
@@ -364,7 +368,7 @@ public class DataHandler {
     return false;
   }
 
-  public synchronized boolean write(
+  public synchronized int write(
           SelectionKey key,
           ByteBuffer buffer)
           throws IOException {
@@ -380,7 +384,11 @@ public class DataHandler {
     }
 
     if (responseReader == null) {
-      return !this.response.isMoreDataComing();
+      if (this.response.isMoreDataComing()) {
+        return 0;
+      } else {
+        return -1;//finished reading
+      }
     }
 
     int ch = 0;
@@ -395,20 +403,22 @@ public class DataHandler {
       this.touch();
     }
 
-    // finished?
-    return ch == -1 && !this.response.isMoreDataComing();
+
+    if ((ch == -1)) {
+      if (this.response.isMoreDataComing()) {
+        return 0;
+      } else {
+        return -1;
+      }
+    } else {
+      return ch;
+    }
   }
 
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
   private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
-
-    if (this.request != null) {
-      return this.errorOccured;
-    }
-
     this.response = new Response(this.httpProtocol);
-    this.request = new Request(key, headers);
 
     if (this.errorOccured != null) {
       return this.errorOccured;
@@ -532,28 +542,29 @@ public class DataHandler {
       return true;
     }
 
-    boolean close = false;
     String connection = this.headers.get("Connection");
 
     if (connection != null) {
       switch (connection) {
         case "keep-alive":
-          close = false;
-          break;
+          return false;
         case "close":
-          close = true;
-          break;
+          return true;
       }
+    }
+    
+    if (!this.httpProtocol.equals(HTTP_1_1)) {
+      return true;
     }
 
     if (finishedWriting && this.response != null) {
       int cl = this.response.getContentLength();
       if (cl == -1) {
-        close = true; // close unknown contents once finished reading
+        return true; // close unknown contents once finished reading
       }
     }
-
-    return close;
+    
+    return false;
   }
 
   int getMaxMessageSize(int defaultMaxMessageSize) {
@@ -567,7 +578,7 @@ public class DataHandler {
     return defaultMaxMessageSize;
   }
 
-  long getMaxIdle(int defaultMaxIdle) {
+  long getMaxIdle(long defaultMaxIdle) {
     if (this.handlerUsed != null) {
       int maxIdle = this.handlerUsed.getMaxIdle();
       if (maxIdle > -1) {
@@ -577,5 +588,4 @@ public class DataHandler {
 
     return defaultMaxIdle;
   }
-
 }

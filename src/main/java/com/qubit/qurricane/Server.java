@@ -7,6 +7,7 @@ package com.qubit.qurricane;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.channels.SelectionKey;
 import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
@@ -28,7 +29,7 @@ public class Server {
   private static final int THREAD_JOBS_SIZE = 64;
   private static final int THREADS_POOL_SIZE = 16;
   private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
-  public static final int MAX_IDLE_TOUT = 5 * 1000; // miliseconds
+  public static final int MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
   public static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
 
 //  public static Log log = new Log(Server.class);
@@ -43,7 +44,7 @@ public class Server {
   private int threadsAmount = THREADS_POOL_SIZE;
   private int requestBufferSize = DEFAULT_BUFFER_SIZE;
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
-  private int defaultIdleTime = MAX_IDLE_TOUT;
+  private long defaultIdleTime = MAX_IDLE_TOUT;
  
   public Server(String address, int port) {
     this.port = port;
@@ -55,7 +56,9 @@ public class Server {
     
     this.serverChannel = ServerSocketChannel.open();
     serverChannel.configureBlocking(false);
-    serverChannel.socket().bind(listenAddress);
+    ServerSocket socket = serverChannel.socket();
+//    socket.setPerformancePreferences(maxMessageSize, port, port);
+    socket.bind(listenAddress);
 
     // @todo move to cfg
     
@@ -118,8 +121,7 @@ public class Server {
     return address;
   }
 
-
-  protected static boolean accept(SelectionKey key, Selector readSelector)
+  protected static SelectionKey accept(SelectionKey key, Selector readSelector)
           throws IOException {
     // pick socketChannel channel
     ServerSocketChannel serverSocketChannel = 
@@ -131,10 +133,9 @@ public class Server {
       channel.configureBlocking(false);
       // now register readSelector for new event type (notice 
       // in loop accept and reading events)
-      channel.register(readSelector, OP_READ);
-      return true;
+      return channel.register(readSelector, OP_READ);
     }
-    return false;
+    return null;
   }
 
   protected static void close(SelectionKey key) {
@@ -207,14 +208,14 @@ public class Server {
   /**
    * @return the defaultIdleTime
    */
-  public int getDefaultIdleTime() {
+  public long getDefaultIdleTime() {
     return defaultIdleTime;
   }
 
   /**
    * @param defaultIdleTime the defaultIdleTime to set
    */
-  public void setDefaultIdleTime(int defaultIdleTime) {
+  public void setDefaultIdleTime(long defaultIdleTime) {
     this.defaultIdleTime = defaultIdleTime;
   }
 }

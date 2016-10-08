@@ -9,7 +9,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
-import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+//import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -19,16 +22,19 @@ import java.util.logging.Logger;
  */
 class HandlingThread extends Thread {
 
-  private AtomicReferenceArray<SelectionKey> jobs;
+  private final Queue<SelectionKey> jobs;
   private final ByteBuffer buffer;
   private final int defaultMaxMessageSize;
-  private final int maxIdle;
+  private final long maxIdle;
+  private int limit = 4096;
   
   static final Logger log = Logger.getLogger(HandlingThread.class.getName());
 
   public HandlingThread(
-          int jobsSize, int bufSize, int defaultMaxMessageSize, int maxIdle) {
-    jobs = new AtomicReferenceArray<>(jobsSize);
+          int jobsSize, int bufSize, int defaultMaxMessageSize, long maxIdle) {
+    //jobs = new AtomicReferenceArray<>(jobsSize);
+    jobs = new ConcurrentLinkedQueue<>();
+    limit = jobsSize + 1;
     buffer = ByteBuffer.allocate(bufSize);
     this.defaultMaxMessageSize = defaultMaxMessageSize;
     this.maxIdle = maxIdle;
@@ -41,13 +47,16 @@ class HandlingThread extends Thread {
 
       while (MainAcceptAndDispatchThread.keepRunning) {
 
-        while (this.hasJobs()) {
+//        while (this.hasJobs()) {
+        SelectionKey job;
+        while ((job = this.jobs.poll()) != null) {
 
-          for (int i = 0; i < this.jobs.length(); i++) {
-            SelectionKey job = this.jobs.get(i);
+//          for (int i = 0; i < this.jobs.size(); i++) {
+//            SelectionKey job = this.jobs.get(i);
+            
 
-            if (job != null) {
-              boolean remove = true;
+//            if (job != null) {
+              boolean isFinished = true;
               DataHandler dataHandler = (DataHandler) job.attachment();
 
               try {
@@ -75,31 +84,38 @@ class HandlingThread extends Thread {
 
                   if (this.processKey(job, dataHandler)) {
                     // job not necessary anymore
-                    // remove = true;
+                    // isFinished = true;
                   } else {
                     // keep job
-                    remove = false;
+                    isFinished = false;
                   }
                 }
               } catch (Exception es) {
                 log.log(Level.SEVERE, "Exception during handling data.", es);
-                remove = true;
+                isFinished = true;
                 Server.close(job);
               } finally {
-                if (remove) {
-                  this.removeJobFromPool(i, dataHandler);
+                if (isFinished) {
+//                  this.removeJobFromPool(i, dataHandler);
+//                  this.jobs.remove(job);
+                  if (dataHandler != null) {
+                    dataHandler.locked = false;
+                  }
+                } else {
+                  this.jobs.add(job); // put back to queue
                 }
-              }
-            }
+//              }
+//            }
           }
         }
 
         try {
-          synchronized (this) {
+          
             if (!this.hasJobs()) {
-              this.wait(100);
+              synchronized (this) {
+                this.wait(100);
+              }
             }
-          }
         } catch (InterruptedException ex) {
           log.log(Level.SEVERE, null, ex);
         }
@@ -114,44 +130,40 @@ class HandlingThread extends Thread {
    * 
    * @param key
    * @param dataHandler
-   * @return true only is key should be released
+   * @return true only if key should be released
    * @throws IOException 
    */
   private boolean processKey(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (key.isValid()) {
-      try {
-        if (dataHandler.writingResponse) { // in progress of writing
-          return this.writeResponse(key, dataHandler);
-        } else {
-          try {
-            if (key.isReadable()) {
-              int many = dataHandler.read(key, buffer);
-              if (many < 0) { // finished reading
-                if (many == -2) {
-                  dataHandler.writingResponse = true; // started writing
-                  // writingResponse will be unchecked by writeResponse(...)
-                  return this.writeResponse(key, dataHandler);
-                }
-                // connection is closed - just close socket
-                if (many == -1) {
-                  Server.close(key);
-                }
-                return true;
-              } else {
-                return false;
+       if (dataHandler.writingResponse) { // in progress of writing
+        return this.writeResponse(key, dataHandler);
+      } else {
+        try {
+          if (key.isReadable()) {
+            int many = dataHandler.read(key, buffer);
+            if (many < 0) { // finished reading
+              if (many == -2) {
+                dataHandler.writingResponse = true; // started writing
+                // writingResponse will be unchecked by writeResponse(...)
+                return this.writeResponse(key, dataHandler);
               }
-            } else {
+              // connection is closed - just close socket
+              if (many == -1) {
+                Server.close(key);
+              }
               return true;
+            } else {
+              return false;
             }
-          } catch (CancelledKeyException ex) {
-            log.info("Key already closed.");
+          } else {
             return true;
           }
+        } catch (CancelledKeyException ex) {
+          log.info("Key already closed.");
+          Server.close(key);
+          return true;
         }
-      } catch (IOException ex) {
-        log.log(Level.SEVERE, null, ex);
-        return true;
       }
     } else {
       return true;
@@ -177,25 +189,36 @@ class HandlingThread extends Thread {
    * @param key
    * @return
    */
-  public boolean addJob(SelectionKey key) {
-    for (int i = 0; i < this.jobs.length(); i++) {
-      SelectionKey job = this.jobs.get(i);
-      if (job == null) {
-        this.jobs.set(i, key);
-        return true;
+  public boolean addJob(DataHandler dataHandler,SelectionKey key) {
+    if (limit > 0 && this.jobs.size() < limit) {
+      dataHandler.locked = true; //single thread is deciding on this
+      boolean added = this.jobs.add(key);
+      if (added) {
+        synchronized (this) {
+          this.notify();
+        }
       }
+      return added;
     }
+//    for (int i = 0; i < this.jobs.length(); i++) {
+//      SelectionKey job = this.jobs.get(i);
+//      if (job == null) {
+//        this.jobs.set(i, key);
+//        return true;
+//      }
+//    }
 
     return false;
   }
 
   private boolean hasJobs() {
-    for (int i = 0; i < this.jobs.length(); i++) {
-      if (this.jobs.get(i) != null) {
-        return true;
-      }
-    }
-    return false;
+    return !this.jobs.isEmpty();
+//    for (int i = 0; i < this.jobs.length(); i++) {
+//      if (this.jobs.get(i) != null) {
+//        return true;
+//      }
+//    }
+//    return false;
   }
 
   /**
@@ -209,20 +232,37 @@ class HandlingThread extends Thread {
    */
   private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
           throws IOException {
-    if (dataHandler.write(key, buffer)) {
+    int written = dataHandler.write(key, buffer);
+    if (written < 0) {
       dataHandler.writingResponse = false; // finished writing
-      return this.closeIfNecessaryAndTellIfShouldReleaseJob(
+      if (written == -1) {
+        return this.closeIfNecessaryAndTellIfShouldReleaseJob(
                                                   key, dataHandler, true);
+      }
     }
     return false;
   }
 
-  private void removeJobFromPool(int i, DataHandler dataHandler) {
-    this.jobs.set(i, null);
+//  private void removeJobFromPool(int i, DataHandler dataHandler) {
+//    this.jobs.set(i, null);
+//
+//    if (dataHandler != null) {
+//      dataHandler.locked = false;
+//    }
+//  }
 
-    if (dataHandler != null) {
-      dataHandler.locked = false;
-    }
+  /**
+   * @return the limit
+   */
+  public int getLimit() {
+    return limit;
+  }
+
+  /**
+   * @param limit the limit to set
+   */
+  public void setLimit(int limit) {
+    this.limit = limit;
   }
 
 }

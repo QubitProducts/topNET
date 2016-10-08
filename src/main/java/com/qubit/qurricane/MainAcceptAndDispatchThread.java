@@ -5,7 +5,6 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Server.close;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
@@ -28,8 +27,10 @@ class MainAcceptAndDispatchThread extends Thread {
           int jobsSize,
           int bufSize,
           int defaultMaxMessage,
-          int defaultIdleTime) {
+          long defaultIdleTime) {
+    
     handlingThreads = new HandlingThread[many];
+    
     for (int i = 0; i < many; i++) {
       HandlingThread t = new HandlingThread(
               jobsSize,
@@ -61,81 +62,53 @@ class MainAcceptAndDispatchThread extends Thread {
   private final Selector acceptSelector;
 //  private Lock lock = new ReentrantLock();
 
-  MainAcceptAndDispatchThread(final Selector acceptSelector) {
+  MainAcceptAndDispatchThread(final Selector acceptSelector) throws IOException {
     this.acceptSelector = acceptSelector;
   }
 
+  int acceptedCnt = 0;
+  private int currentThread = 0;
+  
   @Override
   public void run() {
-    int currentThread = 0;
+
+    long lastMeassured = System.currentTimeMillis();
+    
     while (keepRunning) {
       try {
         // pick current events list:
         getAcceptSelector().select();
       } catch (IOException ex) {
-        try {
           log.log(Level.SEVERE, null, ex);
-          getAcceptSelector().close();
-        } catch (IOException ex1) {
-          log.log(Level.SEVERE, null, ex1);
-        }
       }
 
       Set<SelectionKey> selectionKeys
               = getAcceptSelector().selectedKeys();
 
       for (SelectionKey key : selectionKeys) {
-        if (key.isValid()) {
-          try {
-            
+        try {
+          if (key.isValid()) {
             DataHandler dataHandler = (DataHandler) key.attachment();
-            
             if (dataHandler == null && key.isAcceptable()) {
-
-              Server.accept(key, acceptSelector);
-
+              if (Server.accept(key, acceptSelector) != null) {
+                acceptedCnt++;
+              }
             } else {
-              
-              if (dataHandler == null) {
-                dataHandler = new DataHandler();
-                key.attach(dataHandler);
-              }
-
-              // add to worker
-              if (!dataHandler.locked) { // currently closeIfNecessaryAndTellIfShouldReleaseJob
-                // decides that single job is bound to thread - and it's fine
-                for (int i = currentThread, c = 0; c < handlingThreads.length; i++) {
-
-                  int idx = i % handlingThreads.length;
-                  i++;
-
-                  HandlingThread handlingThread = handlingThreads[idx];
-
-                  if (handlingThread != null && handlingThread.addJob(key)) {
-
-                    synchronized (handlingThread) {
-                      dataHandler.locked = true; //single thread is deciding on this
-                      handlingThread.notifyAll();
-                    }
-
-                    break;
-                  }
-                }
-              }
+              this.startReading(key, dataHandler);
             }
-          } catch (CancelledKeyException ex) {
-            log.info("Key already closed.");
-            close(key);
-          } catch (Exception ex) {
-            log.log(Level.SEVERE, null, ex);
-            close(key);
           }
+        } catch (CancelledKeyException ex) {
+          log.info("Key already closed.");
+        } catch (Exception ex) {
+          log.log(Level.SEVERE, null, ex);
         }
       }
-
-      //selectionKeys.clear();
+      
+      if (System.currentTimeMillis() > lastMeassured + 10000) {
+        log.log(Level.INFO, "Accepted connections: {0}", acceptedCnt);
+        lastMeassured = System.currentTimeMillis();
+      }
     }
-
   }
 
   /**
@@ -143,5 +116,29 @@ class MainAcceptAndDispatchThread extends Thread {
    */
   public Selector getAcceptSelector() {
     return acceptSelector;
+  }
+int qqqq = 0;
+  private void startReading(SelectionKey key, DataHandler dataHandler) {
+    
+    if (dataHandler == null) {
+      dataHandler = new DataHandler();
+      key.attach(dataHandler);
+    }
+
+    // add to worker
+    if (!dataHandler.locked) {
+      // currently closeIfNecessaryAndTellIfShouldReleaseJob
+      // decides that single job is bound to thread - and it's fine
+      for (int i = currentThread, c = 0; c < handlingThreads.length; i++) {
+        HandlingThread handlingThread = handlingThreads[currentThread];
+
+        if (handlingThread != null && 
+                handlingThread.addJob(dataHandler, key)) {
+          currentThread = (currentThread + 1) % handlingThreads.length;
+          log.log(Level.INFO, "Q connections: {0}", ++qqqq);
+          break;
+        }
+      }
+    }
   }
 }
