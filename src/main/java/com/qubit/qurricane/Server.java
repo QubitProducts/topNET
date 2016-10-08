@@ -33,7 +33,7 @@ public class Server {
   private static final int THREAD_JOBS_SIZE = 64;
   private static final int THREADS_POOL_SIZE = 16;
   private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
-  public static final int MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
+  public static final int MAX_IDLE_TOUT = 5 * 1000; // miliseconds
   public static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
 
 //  public static Log log = new Log(Server.class);
