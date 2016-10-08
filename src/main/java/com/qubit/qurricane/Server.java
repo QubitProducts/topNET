@@ -13,6 +13,10 @@ import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -45,7 +49,12 @@ public class Server {
   private int requestBufferSize = DEFAULT_BUFFER_SIZE;
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
+  private boolean pooled = false;
  
+  private final Map<String, Handler> plainPathHandlers = new HashMap<>();
+  private final List<Handler> matchingHandlersAfterPlainHandlers = 
+          new ArrayList<>();
+  
   public Server(String address, int port) {
     this.port = port;
     this.address = address;
@@ -64,12 +73,12 @@ public class Server {
     
     MainAcceptAndDispatchThread.keepRunning = true;
     
-    MainAcceptAndDispatchThread.setupThreadsList(
-            this.getThreadsAmount(),
+    MainAcceptAndDispatchThread.setupThreadsList(this.getThreadsAmount(),
             this.getJobsPerThread(),
             this.getRequestBufferSize(),
             this.getMaxMessageSize(),
-            this.getDefaultIdleTime());
+            this.getDefaultIdleTime(),
+            this.isPooled());
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
@@ -77,7 +86,7 @@ public class Server {
       Selector acceptSelector = Selector.open();
       serverChannel.register(acceptSelector, SelectionKey.OP_ACCEPT);
       MainAcceptAndDispatchThread mainAcceptDispatcher = 
-              new MainAcceptAndDispatchThread(acceptSelector);
+              new MainAcceptAndDispatchThread(this, acceptSelector);
       mainAcceptDispatcher.start();
     }
     
@@ -217,5 +226,43 @@ public class Server {
    */
   public void setDefaultIdleTime(long defaultIdleTime) {
     this.defaultIdleTime = defaultIdleTime;
+  }
+
+  /**
+   * @return the pooled
+   */
+  public boolean isPooled() {
+    return pooled;
+  }
+
+  /**
+   * @param pooled the pooled to set
+   */
+  public void setPooled(boolean pooled) {
+    this.pooled = pooled;
+  }
+  
+  public void registerHandlerByPath(String path, Handler handler) {
+    plainPathHandlers.put(path, handler);
+  }
+
+  public void registerHandlerForMatching(Handler handler) {
+    matchingHandlersAfterPlainHandlers.add(handler);
+  }
+  
+  public Handler getHandlerForPath(String fullPath, String path) {
+    Handler handler = plainPathHandlers.get(path);
+
+    if (handler == null) {
+      for (Handler matchingHandler : matchingHandlersAfterPlainHandlers) {
+        if (matchingHandler.matches(fullPath)) {
+          return matchingHandler.getInstance();
+        }
+      }
+    } else {
+      return handler.getInstance();
+    }
+
+    return null;
   }
 }

@@ -27,16 +27,27 @@ class MainAcceptAndDispatchThread extends Thread {
           int jobsSize,
           int bufSize,
           int defaultMaxMessage,
-          long defaultIdleTime) {
+          long defaultIdleTime,
+          boolean pooled) {
     
     handlingThreads = new HandlingThread[many];
     
     for (int i = 0; i < many; i++) {
-      HandlingThread t = new HandlingThread(
-              jobsSize,
-              bufSize,
-              defaultMaxMessage,
-              defaultIdleTime);
+      HandlingThread t;
+      if (pooled) {
+        t = new HandlingThreadPooled(
+                jobsSize,
+                bufSize,
+                defaultMaxMessage,
+                defaultIdleTime);
+        
+      } else {
+        t = new HandlingThreadQueueud(
+                jobsSize,
+                bufSize,
+                defaultMaxMessage,
+                defaultIdleTime);
+      }
       t.start();
       handlingThreads[i] = t;
     }
@@ -60,8 +71,10 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private final Selector acceptSelector;
+  private final Server server;
 
-  MainAcceptAndDispatchThread(final Selector acceptSelector) throws IOException {
+  MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) throws IOException {
+    this.server = server;
     this.acceptSelector = acceptSelector;
   }
 
@@ -120,7 +133,7 @@ class MainAcceptAndDispatchThread extends Thread {
   private void startReading(SelectionKey key, DataHandler dataHandler) {
     
     if (dataHandler == null) {
-      dataHandler = new DataHandler();
+      dataHandler = new DataHandler(this.server);
       key.attach(dataHandler);
     }
 

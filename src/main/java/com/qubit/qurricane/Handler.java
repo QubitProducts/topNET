@@ -2,10 +2,6 @@ package com.qubit.qurricane;
 
 import com.qubit.qurricane.errors.ErrorTypes;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  *
@@ -13,13 +9,7 @@ import java.util.Map;
  */
 public abstract class Handler {
 
-  static private final Map<String, Handler> plainPathHandlers;
-  static private final List<Handler> matchingHandlersAfterPlainHandlers;
-
-  static {
-    plainPathHandlers = new HashMap<>();
-    matchingHandlersAfterPlainHandlers = new ArrayList<>();
-  }
+  
 
   public Handler getInstance() {
     return this;
@@ -31,31 +21,8 @@ public abstract class Handler {
 //    return null;
   }
 
-  public static void registerHandlerByPath(String path, Handler handler) {
-    plainPathHandlers.put(path, handler);
-  }
-
-  public static void registerHandlerForMatching(Handler handler) {
-    matchingHandlersAfterPlainHandlers.add(handler);
-  }
 
   public Handler() {
-  }
-
-  public static Handler getHandlerForPath(String fullPath, String path) {
-    Handler handler = plainPathHandlers.get(path);
-
-    if (handler == null) {
-      for (Handler matchingHandler : matchingHandlersAfterPlainHandlers) {
-        if (matchingHandler.matches(fullPath)) {
-          return matchingHandler.getInstance();
-        }
-      }
-    } else {
-      return handler.getInstance();
-    }
-
-    return null;
   }
 
   //locallly used only

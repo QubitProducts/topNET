@@ -5,7 +5,6 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Handler.getHandlerForPath;
 import com.qubit.qurricane.errors.ErrorHandlingConfig;
 import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
@@ -60,6 +59,7 @@ public class DataHandler {
   private String httpProtocol = HTTP_1_0;
   
   private boolean headersOnly = false;
+  private final Server server;
 
   protected void reset() {
     size = 0;
@@ -83,7 +83,8 @@ public class DataHandler {
     headersOnly = false;
   }
 
-  public DataHandler() {
+  public DataHandler(Server server) {
+    this.server = server;
     touch = System.currentTimeMillis();
   }
 
@@ -430,7 +431,7 @@ public class DataHandler {
     }
 
     // paths must be ready by headers setup
-    Handler handler = getHandlerForPath(this.fullPath, this.path);
+    Handler handler = this.server.getHandlerForPath(this.fullPath, this.path);
     this.handlerUsed = handler;
 
     if (handler == null) {
