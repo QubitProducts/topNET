@@ -25,6 +25,7 @@ import java.util.logging.Logger;
  */
 public class DataHandler {
 
+  final static Logger log = Logger.getLogger(DataHandler.class.getName());
   private volatile long touch; // check if its needed volatile
   private volatile int size = 0; // check if its needed volatile
 
@@ -74,7 +75,6 @@ public class DataHandler {
     currentLine.setLength(0);
     contentLengthCounter = 0;
     contentLength = 0;
-//    locked = false;
     request = null;
     response = null;
     errorOccured = null;
@@ -213,6 +213,7 @@ public class DataHandler {
       
       if (this.request == null) {
         this.request = new Request(key, this.headers);
+        this.response = new Response(this.httpProtocol);
       }
 
       while (buffer.hasRemaining()) {
@@ -384,6 +385,10 @@ public class DataHandler {
     }
 
     if (responseReader == null) {
+      if (this.response == null) {// should never happen
+        log.warning("Response set to null - check threads.");
+        return -1;
+      }
       if (this.response.isMoreDataComing()) {
         return 0;
       } else {
@@ -418,8 +423,8 @@ public class DataHandler {
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
   private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
-    this.response = new Response(this.httpProtocol);
-
+    response.setHttpProtocol(httpProtocol);
+    
     if (this.errorOccured != null) {
       return this.errorOccured;
     }
@@ -514,6 +519,10 @@ public class DataHandler {
   }
 
   private ResponseStream getInputStreamForResponse() {
+    if (this.response == null) {
+      log.warning("Response is null - check threads.");
+      return null;
+    }
     return this.response.getResponseReaderReadyToRead();
   }
 
