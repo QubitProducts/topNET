@@ -21,6 +21,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
   public static volatile boolean keepRunning = true;
   private static HandlingThread[] handlingThreads;
+  final static long MSG_TOUT = 10000;
 
   public static void setupThreadsList(
           int many,
@@ -116,7 +117,7 @@ class MainAcceptAndDispatchThread extends Thread {
         }
       }
       
-      if (System.currentTimeMillis() > lastMeassured + 10000) {
+      if (System.currentTimeMillis() > lastMeassured + MSG_TOUT) {
         log.log(Level.INFO, "Accepted connections: {0}", acceptedCnt);
         lastMeassured = System.currentTimeMillis();
       }
