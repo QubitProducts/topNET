@@ -156,80 +156,79 @@ class HandlingThreadPooled extends HandlingThread {
     }
   }
 
-  private boolean
-          closeIfNecessaryAndTellIfShouldReleaseJob(
-                  SelectionKey key,
-                  DataHandler dataHandler,
-                  boolean finishedWriting) {
-            if (dataHandler.canClose(finishedWriting)) {
-              Server.close(key);
-              return true;
-            } else {
-              dataHandler.reset();
-              return false;
-            }
+  private boolean closeIfNecessaryAndTellIfShouldReleaseJob(
+          SelectionKey key,
+          DataHandler dataHandler,
+          boolean finishedWriting) {
+    if (dataHandler.canClose(finishedWriting)) {
+      Server.close(key);
+      return true;
+    } else {
+      dataHandler.reset();
+      return false;
+    }
+  }
+
+  /**
+   *
+   * @param key
+   * @return
+   */
+  public boolean addJob(DataHandler dataHandler, SelectionKey key) {
+    if (!dataHandler.locked) {
+      for (int i = 0; i < this.jobs.length(); i++) {
+        SelectionKey job = this.jobs.get(i);
+        if (job == null) {
+          dataHandler.locked = true;
+          this.jobs.set(i, key);
+          synchronized (this) {
+            this.notify();
           }
+          return true;
+        }
+      }
+    }
 
-          /**
-           *
-           * @param key
-           * @return
-           */
-          public boolean addJob(DataHandler dataHandler, SelectionKey key) {
-            if (!dataHandler.locked) {
-              for (int i = 0; i < this.jobs.length(); i++) {
-                SelectionKey job = this.jobs.get(i);
-                if (job == null) {
-                  dataHandler.locked = true;
-                  this.jobs.set(i, key);
-                  synchronized (this) {
-                    this.notify();
-                  }
-                  return true;
-                }
-              }
-            }
+    return false;
+  }
 
-            return false;
-          }
+  private boolean hasJobs() {
+    for (int i = 0; i < this.jobs.length(); i++) {
+      if (this.jobs.get(i) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
 
-          private boolean hasJobs() {
-            for (int i = 0; i < this.jobs.length(); i++) {
-              if (this.jobs.get(i) != null) {
-                return true;
-              }
-            }
-            return false;
-          }
+  /**
+   * Returns false if not finished writing or
+   * "this.closeIfNecessaryAndTellIfShouldReleaseJob(...)" when finished. It
+   * tells if job can be released.
+   *
+   * @param key
+   * @param dataHandler
+   * @return
+   * @throws IOException
+   */
+  private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
+          throws IOException {
+    int written = dataHandler.write(key, buffer);
+    if (written < 0) {
+      dataHandler.writingResponse = false; // finished writing
+      if (written == -1) {
+        return this.closeIfNecessaryAndTellIfShouldReleaseJob(
+                key, dataHandler, true);
+      }
+    }
+    return false;
+  }
 
-          /**
-           * Returns false if not finished writing or
-           * "this.closeIfNecessaryAndTellIfShouldReleaseJob(...)" when
-           * finished. It tells if job can be released.
-           *
-           * @param key
-           * @param dataHandler
-           * @return
-           * @throws IOException
-           */
-          private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
-                  throws IOException {
-            int written = dataHandler.write(key, buffer);
-            if (written < 0) {
-              dataHandler.writingResponse = false; // finished writing
-              if (written == -1) {
-                return this.closeIfNecessaryAndTellIfShouldReleaseJob(
-                        key, dataHandler, true);
-              }
-            }
-            return false;
-          }
+  private void removeJobFromPool(int i, DataHandler dataHandler) {
+    this.jobs.set(i, null);
 
-          private void removeJobFromPool(int i, DataHandler dataHandler) {
-            this.jobs.set(i, null);
-
-            if (dataHandler != null) {
-              dataHandler.locked = false;
-            }
-          }
+    if (dataHandler != null) {
+      dataHandler.locked = false;
+    }
+  }
 }
