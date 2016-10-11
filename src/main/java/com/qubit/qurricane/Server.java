@@ -91,7 +91,7 @@ public class Server {
     }
     
     log.info("Server starting at " + listenAddress.getHostName() +
-            " on port " + port);
+            " on port " + port + "\nPooled: " + this.isPooled());
   }
 
   public void stop() throws IOException {

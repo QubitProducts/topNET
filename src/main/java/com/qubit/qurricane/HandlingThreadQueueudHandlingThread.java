@@ -5,12 +5,13 @@
  */
 package com.qubit.qurricane;
 
+//import static com.qubit.qurricane.MainAcceptAndDispatchThread.MSG_TOUT;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 //import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,7 +22,7 @@ import java.util.logging.Logger;
  */
 class HandlingThreadQueueud extends HandlingThread {
 
-  private final Queue<SelectionKey> jobs;
+  private final ConcurrentLinkedDeque<SelectionKey> jobs;
   private final ByteBuffer buffer;
   private final int defaultMaxMessageSize;
   private final long maxIdle;
@@ -32,8 +33,7 @@ class HandlingThreadQueueud extends HandlingThread {
 
   public HandlingThreadQueueud(
           int jobsSize, int bufSize, int defaultMaxMessageSize, long maxIdle) {
-//    jobs = new AtomicReferenceArray<>(jobsSize);
-    jobs = new ConcurrentLinkedQueue<>();
+    jobs = new ConcurrentLinkedDeque<>();
     limit = jobsSize + 1;
     buffer = ByteBuffer.allocate(bufSize);
     this.defaultMaxMessageSize = defaultMaxMessageSize;
@@ -48,7 +48,7 @@ class HandlingThreadQueueud extends HandlingThread {
       while (MainAcceptAndDispatchThread.keepRunning) {
 
         SelectionKey job;
-        while ((job = this.jobs.poll()) != null) {
+        while ((job = this.jobs.pollFirst()) != null) {
 
           boolean isFinished = true;
           DataHandler dataHandler = (DataHandler) job.attachment();
@@ -94,7 +94,7 @@ class HandlingThreadQueueud extends HandlingThread {
                 dataHandler.locked = false;
               }
             } else {
-              this.jobs.add(job); // put back to queue
+              this.jobs.addLast(job); // put back to queue
             }
           }
         }
@@ -187,6 +187,8 @@ class HandlingThreadQueueud extends HandlingThread {
         synchronized (this) {
           this.notify();
         }
+      } else {
+        dataHandler.locked = false;
       }
       return added;
     }
@@ -234,4 +236,11 @@ class HandlingThreadQueueud extends HandlingThread {
     this.limit = limit;
   }
 
+  @Override
+  boolean canAddJob() {
+    if (limit > this.jobs.size()) {
+      return true;
+    }
+    return false;
+  }
 }

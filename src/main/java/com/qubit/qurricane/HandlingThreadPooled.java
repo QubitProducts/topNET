@@ -231,4 +231,14 @@ class HandlingThreadPooled extends HandlingThread {
       dataHandler.locked = false;
     }
   }
+
+  @Override
+  boolean canAddJob() {
+    for (int i = 0; i < this.jobs.length(); i++) {
+      if (this.jobs.get(i) == null) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

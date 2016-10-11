@@ -20,4 +20,6 @@ public abstract class HandlingThread extends Thread {
    */
   abstract boolean addJob(DataHandler dataHandler, SelectionKey key);
 
+  abstract boolean canAddJob();
+
 }

@@ -103,6 +103,14 @@ class MainAcceptAndDispatchThread extends Thread {
           if (key.isValid()) {
             DataHandler dataHandler = (DataHandler) key.attachment();
             if (dataHandler == null && key.isAcceptable()) {
+              
+              while(!thereAreFreeJobs()) {
+                try {
+                  log.info("waiting...");
+                  Thread.sleep(1);
+                } finally {}
+              }
+              
               if (Server.accept(key, acceptSelector) != null) {
                 acceptedCnt++;
               }
@@ -118,7 +126,7 @@ class MainAcceptAndDispatchThread extends Thread {
       }
       
       if (System.currentTimeMillis() > lastMeassured + MSG_TOUT) {
-        log.log(Level.INFO, "Accepted connections: {0}", acceptedCnt);
+        log.log(Level.FINE, "Accepted connections: {0}", acceptedCnt);
         lastMeassured = System.currentTimeMillis();
       }
     }
@@ -153,5 +161,17 @@ class MainAcceptAndDispatchThread extends Thread {
         }
       }
     }
+  }
+
+  private boolean thereAreFreeJobs() {
+    for (int c = 0; c < handlingThreads.length; c++) {
+      HandlingThread handlingThread = handlingThreads[c];
+
+      if (handlingThread != null && handlingThread.canAddJob()) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 }
