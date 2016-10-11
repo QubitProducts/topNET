@@ -19,7 +19,7 @@ subprojects {
     }
 }
 
-def fatJarBaseName = project.name + '-all';
+def fatJarBaseName = project.name;
 
 task fatJar(type: Jar) {
   classifier = 'all'
