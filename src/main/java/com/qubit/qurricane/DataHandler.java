@@ -131,7 +131,7 @@ public class DataHandler {
   }
 
   public String getEncoding() {
-    return "UTF-8";
+    return "utf-8";
   }
 
   static final String  HTTP_0_9 = "HTTP/0.9";
