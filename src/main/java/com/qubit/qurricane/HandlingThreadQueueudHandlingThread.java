@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 //import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Level;
@@ -211,7 +210,7 @@ class HandlingThreadQueueud extends HandlingThread {
    */
   private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
           throws IOException {
-    int written = dataHandler.write(key, buffer);
+    int written = dataHandler.write(key);
     if (written < 0) {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {

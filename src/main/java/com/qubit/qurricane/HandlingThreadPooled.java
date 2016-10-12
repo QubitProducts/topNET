@@ -213,7 +213,7 @@ class HandlingThreadPooled extends HandlingThread {
    */
   private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
           throws IOException {
-    int written = dataHandler.write(key, buffer);
+    int written = dataHandler.write(key);
     if (written < 0) {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {

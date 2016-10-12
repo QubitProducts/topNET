@@ -50,6 +50,8 @@ public class Server {
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private boolean pooled = false;
+  private int dataHandlerWriteBufferSize = 256;
+
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingHandlersAfterPlainHandlers = 
@@ -264,5 +266,20 @@ public class Server {
     }
 
     return null;
+  }
+  
+  
+  /**
+   * @return the dataHandlerWriteBufferSize
+   */
+  public int getDataHandlerWriteBufferSize() {
+    return dataHandlerWriteBufferSize;
+  }
+
+  /**
+   * @param dataHandlerWriteBufferSize the dataHandlerWriteBufferSize to set
+   */
+  public void setDataHandlerWriteBufferSize(int dataHandlerWriteBufferSize) {
+    this.dataHandlerWriteBufferSize = dataHandlerWriteBufferSize;
   }
 }

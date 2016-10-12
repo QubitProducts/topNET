@@ -90,13 +90,13 @@ class MainAcceptAndDispatchThread extends Thread {
     while (keepRunning) {
       try {
         // pick current events list:
-        getAcceptSelector().select();
+        acceptSelector.select();
       } catch (IOException ex) {
           log.log(Level.SEVERE, null, ex);
       }
 
       Set<SelectionKey> selectionKeys
-              = getAcceptSelector().selectedKeys();
+              = acceptSelector.selectedKeys();
 
       for (SelectionKey key : selectionKeys) {
         try {
@@ -131,13 +131,7 @@ class MainAcceptAndDispatchThread extends Thread {
       }
     }
   }
-
-  /**
-   * @return the acceptSelector
-   */
-  public Selector getAcceptSelector() {
-    return acceptSelector;
-  }
+  
 //  int i = 0;
   private void startReading(SelectionKey key, DataHandler dataHandler) {
     
@@ -174,4 +168,5 @@ class MainAcceptAndDispatchThread extends Thread {
     
     return false;
   }
+
 }

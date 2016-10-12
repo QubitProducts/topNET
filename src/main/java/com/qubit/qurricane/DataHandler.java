@@ -60,6 +60,8 @@ public class DataHandler {
   
   private boolean headersOnly = false;
   private final Server server;
+  private ByteBuffer writeBuffer;
+  private int writeBufSize;
 
   protected void reset() {
     size = 0;
@@ -81,10 +83,12 @@ public class DataHandler {
     errorException = null;
     handlerUsed = null;
     headersOnly = false;
+    writeBuffer = null;
   }
 
   public DataHandler(Server server) {
     this.server = server;
+    this.writeBufSize = server.getDataHandlerWriteBufferSize();
     touch = System.currentTimeMillis();
   }
 
@@ -370,13 +374,14 @@ public class DataHandler {
     return false;
   }
 
+  
+  
   public synchronized int write(
-          SelectionKey key,
-          ByteBuffer buffer)
+          SelectionKey key)
           throws IOException {
 
     SocketChannel channel = (SocketChannel) key.channel();
-    buffer.clear();
+    
     ResponseReader responseReader;
     if (this.headersOnly) {
       responseReader = this.getInputStreamForResponse()
@@ -397,13 +402,19 @@ public class DataHandler {
       }
     }
 
+    if (writeBuffer == null) {
+      this.writeBuffer = ByteBuffer.allocate(this.writeBufSize);
+    } else {
+      this.writeBuffer.compact();
+    }
+    
     int ch = 0;
-    while (buffer.hasRemaining() && (ch = responseReader.read()) != -1) {
-      buffer.put((byte) ch);
+    while (writeBuffer.hasRemaining() && (ch = responseReader.read()) != -1) {
+      writeBuffer.put((byte) ch);
     }
 
-    buffer.flip();
-    int written = channel.write(buffer);
+    writeBuffer.flip();
+    int written = channel.write(writeBuffer);
 
     if (written > 0) {
       this.touch();
