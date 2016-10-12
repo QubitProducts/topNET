@@ -131,7 +131,7 @@ public class DataHandler {
   }
 
   public String getEncoding() {
-    return "utf-8";
+    return "UTF-8";
   }
 
   static final String  HTTP_0_9 = "HTTP/0.9";
@@ -281,6 +281,7 @@ public class DataHandler {
           } catch (IOException ex) {
             this.errorOccured = ErrorTypes.IO_ERROR;
             this.errorException = ex;
+            log.log(Level.SEVERE, null, errorException);
             // some problem - just stop
             return true;
           }
@@ -505,6 +506,7 @@ public class DataHandler {
         // handle processing error, be delicate:
         this.errorOccured = ErrorTypes.HTTP_SERVER_ERROR;
         this.errorException = t;
+        log.log(Level.WARNING, "Exception in handler.", this.errorException);
 
         handler = getErrorHandler(handler);
 
@@ -516,7 +518,7 @@ public class DataHandler {
           handler.process(request, response);
         } catch (Throwable ex) {
           Logger.getLogger(DataHandler.class.getName())
-                  .log(Level.SEVERE, "Error prone error handler!", ex);
+                  .log(Level.SEVERE, "Error in error handler.", ex);
         }
 
         return this.errorOccured;

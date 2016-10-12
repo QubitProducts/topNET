@@ -153,7 +153,6 @@ public class Server {
     try {
       // this method is used on "bad occurence - to cleanup any stuff left
       // cleaning will be reviewed again
-      key.cancel();
       key.channel().close();
     } catch (IOException ex) {
       log.log(Level.SEVERE, null, ex);

@@ -117,6 +117,8 @@ class MainAcceptAndDispatchThread extends Thread {
             } else {
               this.startReading(key, dataHandler);
             }
+          } else {
+            key.cancel();
           }
         } catch (CancelledKeyException ex) {
           log.info("Key already closed.");
