@@ -5,7 +5,7 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.DataHandler.HTTP_1_0;
+import static com.qubit.qurricane.Handler.HTTP_1_0;
 import static com.qubit.qurricane.Server.SERVER_VERSION;
 import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
 import com.qubit.qurricane.exceptions.TooLateToChangeHeadersException;
@@ -44,8 +44,8 @@ public class Response {
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
   private ResponseStream responseStream;
-  private boolean tooLateToChangeHeaders;
-  private int contentLength = -1;
+  private volatile boolean tooLateToChangeHeaders;
+  private long contentLength = -1;
   private String contentType = "text/html";
   private String charset;
   private boolean forcingNotKeepingAlive = true;
@@ -105,13 +105,6 @@ public class Response {
       this.addHeaders(buffer);
     } catch (TooLateToChangeHeadersException ex) {
       log.log(Level.SEVERE, "This should never happen.", ex);
-    }
-
-    if (this.getContentLength() >= 0
-            && !this.headers.containsKey("Content-Length")) {
-      buffer.append("Content-Length: ");
-      buffer.append(this.getContentLength());
-      buffer.append(CRLF);
     }
 
     buffer.append(CRLF); // headers are done\
@@ -238,8 +231,8 @@ public class Response {
     this.responseBuilder.append(str);
   }
 
-  protected void prepareResponseReader() {
-    if (this.getResponseStream() == null) {
+  public void prepareResponseReader() {
+    if (this.responseStream == null) {
       if (this.responseBuilder != null) {
         String charsetString = this.getCharset();
 
@@ -253,7 +246,10 @@ public class Response {
 
         byte[] bytes = this.responseBuilder.toString().getBytes(_charset);
         // @todo its copying... lets do that without it
-        this.setContentLength(bytes.length);
+        if (this.getContentLength() < 0) { // only if not 
+          this.setContentLength(bytes.length);
+        }
+        
         ByteArrayInputStream bodyStream = new ByteArrayInputStream(bytes);
 
         try {
@@ -291,15 +287,25 @@ public class Response {
   /**
    * @return the contentLength
    */
-  public int getContentLength() {
+  public long getContentLength() {
     return contentLength;
   }
 
   /**
    * @param contentLength the contentLength to set
    */
-  public void setContentLength(int contentLength) {
-    this.contentLength = contentLength;
+  public void setContentLength(long contentLength) {
+    try {
+      if (contentLength >= 0) {
+        this.addHeader("Content-Length", Long.toString(contentLength));
+      } else {
+        this.removeHeader("Content-Length");
+      }
+      this.contentLength = contentLength;
+    } catch (TooLateToChangeHeadersException ex) {
+      log.warning("Trying to set content length too late: " + contentLength);
+    }
+    
   }
 
   /**

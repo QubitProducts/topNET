@@ -20,12 +20,18 @@ public class ErrorHandler extends Handler {
   static public final Handler[] errorHandlers = new Handler[1024];
   
   private int code;
-  public ErrorHandler(int httpCode) {
-    this.code = httpCode;
+  public static ErrorHandler getHandlerForCode(int httpCode) {
+    ErrorHandler errorHandler = new ErrorHandler();
+    errorHandler.setCode(httpCode);
+    return errorHandler;
   }
 
+  public Handler getInstance() {
+    return getHandlerForCode(this.code);
+  }
+  
   @Override
-  public void process(Request request, Response response) throws Exception {
+  public boolean process(Request request, Response response) throws Exception {
     response.setHttpCode(getCode());
     
     if (request.getAssociatedException() != null) {
@@ -38,6 +44,8 @@ public class ErrorHandler extends Handler {
       response.print("Status: " + code + "\n" + 
             request.getAssociatedException().getMessage());
     }
+    
+    return true;
   }
 
   /**

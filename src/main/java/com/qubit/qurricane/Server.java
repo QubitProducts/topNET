@@ -28,7 +28,7 @@ public class Server {
   
   final static Logger log = Logger.getLogger(Server.class.getName());
   
-  public final static String SERVER_VERSION = "1.0.1";
+  public final static String SERVER_VERSION = "1.1.0";
   
   private static final int THREAD_JOBS_SIZE = 64;
   private static final int THREADS_POOL_SIZE = 16;
@@ -54,7 +54,7 @@ public class Server {
 
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
-  private final List<Handler> matchingHandlersAfterPlainHandlers = 
+  private final List<Handler> matchingPathHandlers = 
           new ArrayList<>();
   
   public Server(String address, int port) {
@@ -247,24 +247,36 @@ public class Server {
     plainPathHandlers.put(path, handler);
   }
 
-  public void registerHandlerForMatching(Handler handler) {
-    matchingHandlersAfterPlainHandlers.add(handler);
+  public void registerPathMatchingHandler(Handler handler) {
+    matchingPathHandlers.add(handler);
   }
   
-  public Handler getHandlerForPath(String fullPath, String path) {
-    Handler handler = plainPathHandlers.get(path);
+  public Handler getHandlerForPath(
+          String fullPath, String path, String params) {
+    Handler handler = null;
 
-    if (handler == null) {
-      for (Handler matchingHandler : matchingHandlersAfterPlainHandlers) {
-        if (matchingHandler.matches(fullPath)) {
-          return matchingHandler.getInstance();
+    for (Handler matchingHandler : matchingPathHandlers) {
+      if (matchingHandler.matches(fullPath, path, params)) {
+        Handler instance = matchingHandler.getInstance();
+        if (handler == null) {
+          handler = instance;
+        } else {
+          handler.setNext(instance);
+          handler = instance;
         }
       }
-    } else {
-      return handler.getInstance();
     }
 
-    return null;
+    Handler plainHandler = plainPathHandlers.get(path);
+    if (plainHandler != null) {
+      if (handler == null) {
+        handler = plainHandler.getInstance();
+      } else {
+        handler.setNext(plainHandler.getInstance());
+      }
+    }
+
+    return handler;
   }
   
   

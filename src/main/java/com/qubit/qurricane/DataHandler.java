@@ -5,9 +5,14 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.Handler.HTTP_0_9;
+import static com.qubit.qurricane.Handler.HTTP_1_0;
+import static com.qubit.qurricane.Handler.HTTP_1_1;
+import static com.qubit.qurricane.Handler.HTTP_1_x;
 import com.qubit.qurricane.errors.ErrorHandlingConfig;
 import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
+import com.qubit.qurricane.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -62,6 +67,7 @@ public class DataHandler {
   private final Server server;
   private ByteBuffer writeBuffer;
   private int writeBufSize;
+  private boolean wasMarkedAsMoreDataIsComing;
 
   protected void reset() {
     size = 0;
@@ -133,11 +139,6 @@ public class DataHandler {
   public String getEncoding() {
     return "UTF-8";
   }
-
-  static final String  HTTP_0_9 = "HTTP/0.9";
-  static final String  HTTP_1_0 = "HTTP/1.0";
-  static final String  HTTP_1_1 = "HTTP/1.1";
-  static final String  HTTP_1_x = "HTTP/1.x";
   
   private void setMethodAndPathFromLine(String line) {
     int idx = line.indexOf(" ");
@@ -198,6 +199,7 @@ public class DataHandler {
       int idx = this.fullPath.indexOf("?");
       if (idx == -1) {
         this.path = this.fullPath;
+        this.params = "";
       } else {
         this.path = this.fullPath.substring(0, idx);
         this.params = this.fullPath.substring(idx + 1);
@@ -248,11 +250,25 @@ public class DataHandler {
 
     if (this.headersReady) {
       // request can be processed
-      if ((this.errorOccured = this.headersAreReadySoProcessReqAndRes(key))
-              != null) {
+      response.setHttpProtocol(httpProtocol);
+    
+      if (this.errorOccured != null) {
+        return true;
+      }
+      
+      // paths must be ready by headers setup
+      this.handlerUsed = 
+        this.server.getHandlerForPath(this.fullPath, this.path, this.params);
+      
+      this.errorOccured = 
+              this.headersAreReadySoProcessReqAndRes(key, this.handlerUsed);
+      
+      if (this.errorOccured != null) {
         return true; // stop reading now because of errors! 
       }
-
+      
+      this.handlerUsed.onBeforeOutputStreamIsSet(this.request, this.response);
+      
       if (this.bodyRequired) {
         if (this.contentLength < 0) {
           this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
@@ -397,6 +413,7 @@ public class DataHandler {
         return -1;
       }
       if (this.response.isMoreDataComing()) {
+        this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
         return -1;//finished reading
@@ -408,6 +425,7 @@ public class DataHandler {
     } else {
       this.writeBuffer.compact();
     }
+    
     
     int ch = 0;
     while (writeBuffer.hasRemaining() && (ch = responseReader.read()) != -1) {
@@ -424,9 +442,19 @@ public class DataHandler {
 
     if ((ch == -1)) {
       if (this.response.isMoreDataComing()) {
+        this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
-        return -1;
+        // this check is for synchronization reasons between last read 
+        // from stream and new check - it could happen that response is marked as 
+        // finished and few bytes appeared still left to be read.
+        // one more check will make sure all are read
+        if (this.wasMarkedAsMoreDataIsComing) {
+          this.wasMarkedAsMoreDataIsComing = false;
+          return 0;
+        } else {
+          return -1;
+        }
       }
     } else {
       return ch;
@@ -435,17 +463,9 @@ public class DataHandler {
 
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
-  private ErrorTypes headersAreReadySoProcessReqAndRes(SelectionKey key) {
-    response.setHttpProtocol(httpProtocol);
+  private ErrorTypes headersAreReadySoProcessReqAndRes(
+          SelectionKey key, Handler handler) {
     
-    if (this.errorOccured != null) {
-      return this.errorOccured;
-    }
-
-    // paths must be ready by headers setup
-    Handler handler = this.server.getHandlerForPath(this.fullPath, this.path);
-    this.handlerUsed = handler;
-
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
     } else {
@@ -453,19 +473,21 @@ public class DataHandler {
       this.request.setFullPath(this.fullPath);
       this.request.setPathParameters(this.params);
       this.request.setMethod(this.method);
-
-      handler.runPrepare(this.request, this.response);
       
       // this prepares space for BODY to be written to, once headers are sorted,
       // possibly body will be written
       request.makeSureOutputStreamIsReady();
-    }
-
-    if (!handler.supports(this.method)) {
+      Handler tmp = handler;
+      
+      while(tmp != null) {
+        if (tmp.supports(this.method)) {
+          return null;
+        }
+        tmp = tmp.getNext();
+      }
+      
       return ErrorTypes.HTTP_NOT_FOUND;
     }
-
-    return null;
   }
 
   private Handler getErrorHandler(Handler handler) {
@@ -494,36 +516,40 @@ public class DataHandler {
 
     if (this.errorOccured != null) {
       handler = getErrorHandler(handler);
-      handler.runPrepare(request, response);
-      // @todo review error handling and refactor to nicer form
     }
 
     if (handler != null) {
 
+      Pair<Handler, Throwable> execResult = 
+              handler.doProcess(this.request, this.response);
+      
       try {
-        handler.process(request, response);
-      } catch (Throwable t) {
-        // handle processing error, be delicate:
-        this.errorOccured = ErrorTypes.HTTP_SERVER_ERROR;
-        this.errorException = t;
-        log.log(Level.WARNING, "Exception in handler.", this.errorException);
+        if (execResult != null) {
+          // handle processing error, be delicate:
+          this.errorOccured = ErrorTypes.HTTP_SERVER_ERROR;
+          this.errorException = execResult.getRight();
+          log.log(Level.WARNING, "Exception in handler.", this.errorException);
 
-        handler = getErrorHandler(handler);
+          handler = getErrorHandler(handler);
 
-        try {
-          response = new Response(this.httpProtocol);
-          handler.runPrepare(request, response);
-          // @todo review error handling and refactor to nicer form.
-          // runPrepare not really needed
-          handler.process(request, response);
-        } catch (Throwable ex) {
-          Logger.getLogger(DataHandler.class.getName())
-                  .log(Level.SEVERE, "Error in error handler.", ex);
+          try {
+            handler.doProcess(this.request, this.response);
+          } catch (Throwable ex) {
+            Logger.getLogger(DataHandler.class.getName())
+                    .log(Level.SEVERE, "Error in error handler.", ex);
+          }
+
+          return this.errorOccured;
         }
-
-        return this.errorOccured;
       } finally {
         if (this.errorOccured != null && this.handlerUsed != null) {
+          if (execResult != null && execResult.getLeft() != this.handlerUsed) {
+            try {
+              execResult.getLeft().onError(execResult.getRight());
+            } catch (Throwable t) {
+              log.log(Level.SEVERE, null, t);
+            }
+          }
           this.handlerUsed.onError(this.errorException);
         }
       }
@@ -581,7 +607,7 @@ public class DataHandler {
     }
 
     if (finishedWriting && this.response != null) {
-      int cl = this.response.getContentLength();
+      long cl = this.response.getContentLength();
       if (cl == -1) {
         return true; // close unknown contents once finished reading
       }
@@ -593,6 +619,13 @@ public class DataHandler {
   int getMaxMessageSize(int defaultMaxMessageSize) {
     if (this.handlerUsed != null) {
       int maxSize = this.handlerUsed.getMaxIncomingDataSize();
+      Handler tmp = this.handlerUsed.getNext();
+      
+      while (tmp != null) {
+        maxSize = Math.max(tmp.getMaxIncomingDataSize(), maxSize);
+        tmp = tmp.getNext();
+      }
+      
       if (maxSize > -2) {
         return maxSize;
       }
@@ -604,6 +637,13 @@ public class DataHandler {
   long getMaxIdle(long defaultMaxIdle) {
     if (this.handlerUsed != null) {
       int maxIdle = this.handlerUsed.getMaxIdle();
+      Handler tmp = this.handlerUsed.getNext();
+      
+      while (tmp != null) {
+        maxIdle = Math.max(tmp.getMaxIdle(), maxIdle);
+        tmp = tmp.getNext();
+      }
+      
       if (maxIdle > -1) {
         return maxIdle;
       }

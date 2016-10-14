@@ -49,7 +49,7 @@ public class ErrorHandlingConfig {
     Handler handler = getHandlers()[code];
 
     if (handler == null) {
-      handler = new ErrorHandler(code);
+      handler = ErrorHandler.getHandlerForCode(code);
       getHandlers()[code] = handler;
     }
 

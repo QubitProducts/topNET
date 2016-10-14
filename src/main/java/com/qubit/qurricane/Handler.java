@@ -1,7 +1,10 @@
 package com.qubit.qurricane;
 
 import com.qubit.qurricane.errors.ErrorTypes;
+import com.qubit.qurricane.utils.Pair;
 import java.io.InputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -10,39 +13,71 @@ import java.io.InputStream;
 public abstract class Handler {
 
   
+  public static final String  HTTP_0_9 = "HTTP/0.9";
+  public static final String  HTTP_1_0 = "HTTP/1.0";
+  public static final String  HTTP_1_1 = "HTTP/1.1";
+  public static final String  HTTP_1_x = "HTTP/1.x";
+  
+  static final Logger log = Logger.getLogger(Handler.class.getName());
+  private Handler next;
 
   public Handler getInstance() {
-    return this;
-//    try {
-//      return this.getClass().newInstance();
-//    } catch (InstantiationException | IllegalAccessException ex) {
-//      Logger.getLogger(Handler.class.getName()).log(Level.SEVERE, null, ex);
-//    }
-//    return null;
+    try {
+      return this.getClass().newInstance();
+    } catch (InstantiationException | IllegalAccessException ex) {
+      log.log(Level.SEVERE, null, ex);
+    }
+    return null;
   }
 
+  protected Handler() {}
 
-  public Handler() {
+  protected void onBeforeOutputStreamIsSet(Request request, Response response) {
+    if (this.prepare(request, response)) {
+      Handler tmp = this.getNext();
+      while(tmp != null) {
+        if (!tmp.prepare(request, response)) {
+          break;
+        } else {
+          tmp = tmp.getNext();
+        }
+      }
+    }
   }
 
-  //locallly used only
-  void runPrepare(Request request, Response response) {
-    this.prepare(request, response);
+  public boolean prepare(Request request, Response response) {
+    return true;
   }
-
-  public void prepare(Request request, Response response) {
   
+  protected Pair<Handler, Throwable> 
+        doProcess(Request request, Response response) {
+    Handler tmp = this;
+        
+    while(tmp != null) {
+      try {
+        if (!tmp.process(request, response)) {
+          break;
+        } else {
+          tmp = tmp.getNext();
+        }
+      } catch (Throwable t) {
+        return new Pair<>(tmp, t);
+      }
+    }
+    
+    return null;
   }
   
   // request is ready, with full body, unless different stream been passed
-  public abstract void process(Request request, Response response) throws Exception;
+  public abstract boolean
+         process(Request request, Response response) throws Exception;
 
   public boolean supports(String method) {
     return true;
   }
 
-  public boolean matches(String fullPathIncludingQuery) {
-    return false;
+  public boolean matches(String fullPath, String path, String params) {
+    return true;
   }
 
   public InputStream getErrorInputStream(ErrorTypes errorOccured) {
@@ -77,7 +112,24 @@ public abstract class Handler {
   public int getMaxIdle() {
     return -1;
   }
-
   
   public void onError(Throwable t) {}
+
+  /**
+   * @return the next
+   */
+  public Handler getNext() {
+    return next;
+  }
+
+  /**
+   * @param next the next to set
+   */
+  public void setNext(Handler next) {
+    this.next = next;
+  }
+  
+  public void closeConnection (Request request) {
+    Server.close(request.getKey());
+  }
 }

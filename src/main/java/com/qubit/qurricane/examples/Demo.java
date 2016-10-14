@@ -34,7 +34,7 @@ public class Demo {
     s.setPooled(true);
     s.start();
     
-    
+    s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
@@ -49,7 +49,7 @@ public class Demo {
     s.setPooled(false);
     s.start();
     
-    
+    s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
   }

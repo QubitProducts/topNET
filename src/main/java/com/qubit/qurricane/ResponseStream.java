@@ -16,6 +16,7 @@ public class ResponseStream implements ResponseReader {
 
   private InputStream headersStream;
   private InputStream bodyStream;
+  private long bytesRead = 0;
 
   public ResponseStream() {
   }
@@ -29,11 +30,16 @@ public class ResponseStream implements ResponseReader {
    */
   public int read() throws IOException {
     int ch;
-    if ((ch = getHeadersStream().read()) != -1) {
-      return ch;
-    } else {
-      return readBody();
+    
+    if ((ch = getHeadersStream().read()) == -1) {
+      ch = readBody();
     }
+    
+    if (ch > -1) {
+      bytesRead++;
+    }
+    
+    return ch;
   }
 
   /**
@@ -85,5 +91,11 @@ public class ResponseStream implements ResponseReader {
     
     return headerResponseReader;
   }
-  
+
+  /**
+   * @return the bytesRead
+   */
+  public long getBytesRead() {
+    return bytesRead;
+  }
 }

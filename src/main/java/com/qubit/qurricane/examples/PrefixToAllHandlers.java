@@ -14,7 +14,7 @@ import com.qubit.qurricane.Response;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class EchoHandler extends Handler {
+public class PrefixToAllHandlers extends Handler {
 
   @Override
   public boolean prepare(Request request, Response response) {
@@ -25,14 +25,12 @@ public class EchoHandler extends Handler {
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
-    response.print("Hello World! Echo:\n" + request.getBodyString());
-    // using stream example (if you start using print, streaming will fail):
-//    ByteArrayInputStream is = new ByteArrayInputStream(
-//    request.getBodyString().getBytes());
-//    response.setStreamToReadFrom(is);
-    response.setForcingNotKeepingAlive(false);
-    response.setTellingConnectionClose(false);
+    response.print("<h1>URL " + request.getFullPath() + "\n</h1>");
     return true;
   }
-  
+
+  @Override
+  public boolean matches(String fullPath, String path, String params) {
+    return params.matches(".*url.*");
+  }
 }
