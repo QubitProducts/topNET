@@ -50,12 +50,13 @@ public class Server {
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private String poolType = "pool";
-  private int dataHandlerWriteBufferSize = 256;
+  private int dataHandlerWriteBufferSize = 4096;
 
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingPathHandlers = 
           new ArrayList<>();
+  private boolean allowingMoreAcceptsThanSlots = false;
   
   public Server(String address, int port) {
     this.port = port;
@@ -89,6 +90,8 @@ public class Server {
       serverChannel.register(acceptSelector, SelectionKey.OP_ACCEPT);
       MainAcceptAndDispatchThread mainAcceptDispatcher = 
               new MainAcceptAndDispatchThread(this, acceptSelector);
+      mainAcceptDispatcher.setAllowingMoreAcceptsThanSlots(
+              this.isAllowingMoreAcceptsThanSlots());
       mainAcceptDispatcher.start();
     }
     
@@ -292,5 +295,20 @@ public class Server {
    */
   public void setPoolType(String poolType) {
     this.poolType = poolType;
+  }
+
+  /**
+   * @return the allowingMoreAcceptsThanSlots
+   */
+  public boolean isAllowingMoreAcceptsThanSlots() {
+    return allowingMoreAcceptsThanSlots;
+  }
+
+  /**
+   * @param allowingMoreAcceptsThanSlots the allowingMoreAcceptsThanSlots to set
+   */
+  public void setAllowingMoreAcceptsThanSlots(
+          boolean allowingMoreAcceptsThanSlots) {
+    this.allowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
   }
 }

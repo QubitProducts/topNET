@@ -70,6 +70,7 @@ public abstract class HandlingThread extends Thread {
     if (written < 0) {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {
+        this.runOnFinishedHandler(dataHandler);
         return this.closeIfNecessaryAndTellIfShouldReleaseJob(
                 key, dataHandler, true);
       }
@@ -163,4 +164,16 @@ public abstract class HandlingThread extends Thread {
   }
   
   protected abstract boolean hasJobs();
+
+  private void runOnFinishedHandler(DataHandler dataHandler) {
+    if (dataHandler.getRequest() != null) {
+      if (dataHandler.getRequest().getWriteFinishedHandler() != null) {
+        try {
+          dataHandler.getRequest().getWriteFinishedHandler().run();
+        } catch (Exception e) {
+          log.log(Level.SEVERE, "Error running finishing handler.", e);
+        }
+      }
+    }
+  }
 }

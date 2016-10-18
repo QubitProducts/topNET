@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -34,10 +35,13 @@ public class Request {
   private Object attachment;
 
   private Map<String, Object> attributes;
+  private final long createdTime;
+  private Runnable writeFinishedHandler;
 
   protected Request(SelectionKey key, Map<String, String> headers) {
     this.headers = headers;
     this.key = key;
+    this.createdTime = new Date().getTime();
   }
 
   byte[] byteArray = null;
@@ -220,5 +224,23 @@ public class Request {
   
   public void setAttribute(String name, Object obj) {
     this.getAttributes().put(name, obj);
+  }
+
+  /**
+   * @return the createdTime
+   */
+  public long getCreatedTime() {
+    return createdTime;
+  }
+
+  public void onWriteFinished(Runnable runnable) {
+    writeFinishedHandler = runnable;
+  }
+
+  /**
+   * @return the writeFinishedHandler
+   */
+  public Runnable getWriteFinishedHandler() {
+    return writeFinishedHandler;
   }
 }

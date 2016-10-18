@@ -21,9 +21,9 @@ public class Demo {
    */
   public static void main(String[] args) throws IOException {
     
-    int jobs = 256;
+    int jobs = 128;
     int buf = 8192;
-    int th = 4;
+    int th = 8;
     
     Server s = new Server("localhost", 3456);
     

@@ -12,6 +12,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -108,7 +109,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private final Selector acceptSelector;
   private final Server server;
-  private boolean acceptOnlyIfThereAreFreeSlots = true;
+  private boolean allowingMoreAcceptsThanSlots = false;
 
   MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) throws IOException {
     this.server = server;
@@ -141,7 +142,7 @@ class MainAcceptAndDispatchThread extends Thread {
             DataHandler dataHandler = (DataHandler) key.attachment();
             if (dataHandler == null && key.isAcceptable()) {
               
-              if (isAcceptOnlyIfThereAreFreeSlots()) {
+              if (!isAllowingMoreAcceptsThanSlots()) {
                 while(!thereAreFreeJobs()) {
                   try {
                     totalWaitingAcceptMsCounter++;
@@ -213,17 +214,17 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   /**
-   * @return the acceptOnlyIfThereAreFreeSlots
+   * @return the allowingMoreAcceptsThanSlots
    */
-  public boolean isAcceptOnlyIfThereAreFreeSlots() {
-    return acceptOnlyIfThereAreFreeSlots;
+  public boolean isAllowingMoreAcceptsThanSlots() {
+    return allowingMoreAcceptsThanSlots;
   }
 
   /**
-   * @param acceptOnlyIfThereAreFreeSlots the acceptOnlyIfThereAreFreeSlots to set
+   * @param allowingMoreAcceptsThanSlots the allowingMoreAcceptsThanSlots to set
    */
-  public void setAcceptOnlyIfThereAreFreeSlots(boolean acceptOnlyIfThereAreFreeSlots) {
-    this.acceptOnlyIfThereAreFreeSlots = acceptOnlyIfThereAreFreeSlots;
+  public void setAllowingMoreAcceptsThanSlots(boolean allowingMoreAcceptsThanSlots) {
+    this.allowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
   }
 
 }

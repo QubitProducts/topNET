@@ -218,7 +218,7 @@ public class DataHandler {
 
     if (!this.headersReady) {
       
-      if (this.request == null) {
+      if (this.getRequest() == null) {
         this.request = new Request(key, this.headers);
         this.response = new Response(this.httpProtocol);
       }
@@ -250,7 +250,7 @@ public class DataHandler {
 
     if (this.headersReady) {
       // request can be processed
-      response.setHttpProtocol(httpProtocol);
+      getResponse().setHttpProtocol(httpProtocol);
     
       if (this.errorOccured != null) {
         return true;
@@ -267,7 +267,7 @@ public class DataHandler {
         return true; // stop reading now because of errors! 
       }
       
-      this.handlerUsed.onBeforeOutputStreamIsSet(this.request, this.response);
+      this.handlerUsed.onBeforeOutputStreamIsSet(this.getRequest(), this.getResponse());
       
       if (this.bodyRequired) {
         if (this.contentLength < 0) {
@@ -290,7 +290,7 @@ public class DataHandler {
           this.contentLengthCounter += amount;
 
           try {
-            request.getOutputStream().write(
+            getRequest().getOutputStream().write(
                     buffer.array(),
                     pos,
                     amount);
@@ -408,11 +408,11 @@ public class DataHandler {
     }
 
     if (responseReader == null) {
-      if (this.response == null) {// should never happen
+      if (this.getResponse() == null) {// should never happen
         log.warning("Response set to null - check threads.");
         return -1;
       }
-      if (this.response.isMoreDataComing()) {
+      if (this.getResponse().isMoreDataComing()) {
         this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
@@ -441,7 +441,7 @@ public class DataHandler {
 
 
     if ((ch == -1)) {
-      if (this.response.isMoreDataComing()) {
+      if (this.getResponse().isMoreDataComing()) {
         this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
@@ -469,14 +469,14 @@ public class DataHandler {
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
     } else {
-      this.request.setPath(this.path);
-      this.request.setFullPath(this.fullPath);
-      this.request.setPathParameters(this.params);
-      this.request.setMethod(this.method);
+      this.getRequest().setPath(this.path);
+      this.getRequest().setFullPath(this.fullPath);
+      this.getRequest().setPathParameters(this.params);
+      this.getRequest().setMethod(this.method);
       
       // this prepares space for BODY to be written to, once headers are sorted,
       // possibly body will be written
-      request.makeSureOutputStreamIsReady();
+      getRequest().makeSureOutputStreamIsReady();
       Handler tmp = handler;
       
       while(tmp != null) {
@@ -495,7 +495,7 @@ public class DataHandler {
             = ErrorHandlingConfig.getErrorHandlingConfig()
             .getDefaultErrorHandler(getErrorCode());
 
-    request.setAssociatedException(this.errorException);
+    getRequest().setAssociatedException(this.errorException);
 
     if (handler != null) {
       Handler tmp = handler.getErrorHandler();
@@ -521,7 +521,7 @@ public class DataHandler {
     if (handler != null) {
 
       Pair<Handler, Throwable> execResult = 
-              handler.doProcess(this.request, this.response);
+              handler.doProcess(this.getRequest(), this.getResponse());
       
       try {
         if (execResult != null) {
@@ -533,7 +533,7 @@ public class DataHandler {
           handler = getErrorHandler(handler);
 
           try {
-            handler.doProcess(this.request, this.response);
+            handler.doProcess(this.getRequest(), this.getResponse());
           } catch (Throwable ex) {
             Logger.getLogger(DataHandler.class.getName())
                     .log(Level.SEVERE, "Error in error handler.", ex);
@@ -559,11 +559,11 @@ public class DataHandler {
   }
 
   private ResponseStream getInputStreamForResponse() {
-    if (this.response == null) {
+    if (this.getResponse() == null) {
       log.warning("Response is null - check threads.");
       return null;
     }
-    return this.response.getResponseReaderReadyToRead();
+    return this.getResponse().getResponseReaderReadyToRead();
   }
 
   private int getErrorCode() {
@@ -587,7 +587,8 @@ public class DataHandler {
   }
 
   boolean canClose(boolean finishedWriting) {
-    if (this.response != null && this.response.isForcingNotKeepingAlive()) {
+    if (this.getResponse() != null && 
+            this.getResponse().isForcingNotKeepingAlive()) {
       return true;
     }
 
@@ -606,8 +607,8 @@ public class DataHandler {
       return true;
     }
 
-    if (finishedWriting && this.response != null) {
-      long cl = this.response.getContentLength();
+    if (finishedWriting && this.getResponse() != null) {
+      long cl = this.getResponse().getContentLength();
       if (cl == -1) {
         return true; // close unknown contents once finished reading
       }
@@ -650,5 +651,19 @@ public class DataHandler {
     }
 
     return defaultMaxIdle;
+  }
+
+  /**
+   * @return the request
+   */
+  public Request getRequest() {
+    return request;
+  }
+
+  /**
+   * @return the response
+   */
+  public Response getResponse() {
+    return response;
   }
 }
