@@ -21,7 +21,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
   public static volatile boolean keepRunning = true;
   private static HandlingThread[] handlingThreads;
-  final static long MSG_TOUT = 10000;
+  private static long infoLogsFrequency = 60 * 1000;
 
   public static void setupThreadsList(
           int many,
@@ -92,6 +92,20 @@ class MainAcceptAndDispatchThread extends Thread {
     return false;
   }
 
+  /**
+   * @return the infoLogsFrequency
+   */
+  public static long getInfoLogsFrequency() {
+    return infoLogsFrequency;
+  }
+
+  /**
+   * @param aInfoLogsFrequency the infoLogsFrequency to set
+   */
+  public static void setInfoLogsFrequency(long aInfoLogsFrequency) {
+    infoLogsFrequency = aInfoLogsFrequency;
+  }
+
   private final Selector acceptSelector;
   private final Server server;
   private boolean acceptOnlyIfThereAreFreeSlots = true;
@@ -101,13 +115,14 @@ class MainAcceptAndDispatchThread extends Thread {
     this.acceptSelector = acceptSelector;
   }
 
-  volatile int acceptedCnt = 0;
+  private int acceptedCnt = 0;
   private int currentThread = 0;
   
   @Override
   public void run() {
 
     long lastMeassured = System.currentTimeMillis();
+    long totalWaitingAcceptMsCounter = 0;
     
     while (keepRunning) {
       try {
@@ -119,7 +134,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
       Set<SelectionKey> selectionKeys
               = acceptSelector.selectedKeys();
-
+      
       for (SelectionKey key : selectionKeys) {
         try {
           if (key.isValid()) {
@@ -129,7 +144,7 @@ class MainAcceptAndDispatchThread extends Thread {
               if (isAcceptOnlyIfThereAreFreeSlots()) {
                 while(!thereAreFreeJobs()) {
                   try {
-                    log.info("waiting for free pools...");
+                    totalWaitingAcceptMsCounter++;
                     Thread.sleep(1);
                   } finally {}
                 }
@@ -151,8 +166,10 @@ class MainAcceptAndDispatchThread extends Thread {
         }
       }
       
-      if (System.currentTimeMillis() > lastMeassured + MSG_TOUT) {
-        log.log(Level.FINE, "Accepted connections: {0}", acceptedCnt);
+      if (System.currentTimeMillis() > lastMeassured + getInfoLogsFrequency()) {
+        log.log(Level.INFO,
+                "Accepted connections: {0}, total accept waited: {1}ms",
+                new Object[]{acceptedCnt, totalWaitingAcceptMsCounter});
         lastMeassured = System.currentTimeMillis();
       }
     }
