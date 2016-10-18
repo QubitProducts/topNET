@@ -5,11 +5,9 @@
  */
 package com.qubit.qurricane;
 
-//import static com.qubit.qurricane.MainAcceptAndDispatchThread.MSG_TOUT;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.util.concurrent.ConcurrentLinkedDeque;
-//import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
