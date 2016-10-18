@@ -94,6 +94,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private final Selector acceptSelector;
   private final Server server;
+  private boolean acceptOnlyIfThereAreFreeSlots = true;
 
   MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) throws IOException {
     this.server = server;
@@ -125,11 +126,13 @@ class MainAcceptAndDispatchThread extends Thread {
             DataHandler dataHandler = (DataHandler) key.attachment();
             if (dataHandler == null && key.isAcceptable()) {
               
-              while(!thereAreFreeJobs()) {
-                try {
-                  log.info("waiting...");
-                  Thread.sleep(1);
-                } finally {}
+              if (isAcceptOnlyIfThereAreFreeSlots()) {
+                while(!thereAreFreeJobs()) {
+                  try {
+                    log.info("waiting for free pools...");
+                    Thread.sleep(1);
+                  } finally {}
+                }
               }
               
               if (Server.accept(key, acceptSelector) != null) {
@@ -190,6 +193,20 @@ class MainAcceptAndDispatchThread extends Thread {
     }
     
     return false;
+  }
+
+  /**
+   * @return the acceptOnlyIfThereAreFreeSlots
+   */
+  public boolean isAcceptOnlyIfThereAreFreeSlots() {
+    return acceptOnlyIfThereAreFreeSlots;
+  }
+
+  /**
+   * @param acceptOnlyIfThereAreFreeSlots the acceptOnlyIfThereAreFreeSlots to set
+   */
+  public void setAcceptOnlyIfThereAreFreeSlots(boolean acceptOnlyIfThereAreFreeSlots) {
+    this.acceptOnlyIfThereAreFreeSlots = acceptOnlyIfThereAreFreeSlots;
   }
 
 }
