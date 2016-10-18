@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,6 +32,8 @@ public class Request {
   private String fullPath;
   private Throwable associatedException;
   private Object attachment;
+
+  private Map<String, Object> attributes;
 
   protected Request(SelectionKey key, Map<String, String> headers) {
     this.headers = headers;
@@ -200,5 +203,22 @@ public class Request {
   public void setAttachment(Object attachment) {
     this.attachment = attachment;
   }
+  
+  /**
+   * @return the attributes
+   */
+  public Map getAttributes() {
+    if (this.attributes == null) {
+      this.attributes = new HashMap<>();
+    }
+    return this.attributes;
+  }
 
+  public Object getAttribute(String name) {
+    return this.getAttributes().get(name);
+  }
+  
+  public void setAttribute(String name, Object obj) {
+    this.getAttributes().put(name, obj);
+  }
 }

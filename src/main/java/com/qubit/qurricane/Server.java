@@ -49,7 +49,7 @@ public class Server {
   private int requestBufferSize = DEFAULT_BUFFER_SIZE;
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
-  private boolean pooled = false;
+  private String poolType = "pool";
   private int dataHandlerWriteBufferSize = 256;
 
  
@@ -80,7 +80,7 @@ public class Server {
             this.getRequestBufferSize(),
             this.getMaxMessageSize(),
             this.getDefaultIdleTime(),
-            this.isPooled());
+            this.getPoolType());
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
@@ -93,7 +93,7 @@ public class Server {
     }
     
     log.info("Server starting at " + listenAddress.getHostName() +
-            " on port " + port + "\nPooled: " + this.isPooled());
+            " on port " + port + "\nPool type: " + this.getPoolType());
   }
 
   public void stop() throws IOException {
@@ -228,20 +228,6 @@ public class Server {
   public void setDefaultIdleTime(long defaultIdleTime) {
     this.defaultIdleTime = defaultIdleTime;
   }
-
-  /**
-   * @return the pooled
-   */
-  public boolean isPooled() {
-    return pooled;
-  }
-
-  /**
-   * @param pooled the pooled to set
-   */
-  public void setPooled(boolean pooled) {
-    this.pooled = pooled;
-  }
   
   public void registerHandlerByPath(String path, Handler handler) {
     plainPathHandlers.put(path, handler);
@@ -292,5 +278,19 @@ public class Server {
    */
   public void setDataHandlerWriteBufferSize(int dataHandlerWriteBufferSize) {
     this.dataHandlerWriteBufferSize = dataHandlerWriteBufferSize;
+  }
+
+  /**
+   * @return the poolType
+   */
+  public String getPoolType() {
+    return poolType;
+  }
+
+  /**
+   * @param poolType the poolType to set
+   */
+  public void setPoolType(String poolType) {
+    this.poolType = poolType;
   }
 }

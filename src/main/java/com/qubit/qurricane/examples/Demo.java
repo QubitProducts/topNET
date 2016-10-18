@@ -31,7 +31,7 @@ public class Demo {
     // one byte buffer!
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
-    s.setPooled(true);
+    s.setPoolType("pool");
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
@@ -46,7 +46,20 @@ public class Demo {
     // one byte buffer!
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
-    s.setPooled(false);
+    s.setPoolType("queue");
+    s.start();
+    
+    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    
+    s = new Server("localhost", 3458);
+    
+    s.setJobsPerThread(jobs);
+    // one byte buffer!
+    s.setRequestBufferSize(buf);
+    s.setThreadsAmount(th);
+    s.setPoolType("queue-shared");
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());

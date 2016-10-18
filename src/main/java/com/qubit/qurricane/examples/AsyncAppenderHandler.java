@@ -23,7 +23,8 @@ public class AsyncAppenderHandler extends Handler {
   @Override
   public boolean process(final Request request, final Response response) 
           throws Exception {
-    response.setResponseStream(new ResponseStream());
+//    response.setResponseStream(new ResponseStream());
+    response.prepareResponseReader();
     response.getResponseStream()
             .setBodyStream(new ResponseAppendableReader());
     response.setHttpProtocol(HTTP_1_1);

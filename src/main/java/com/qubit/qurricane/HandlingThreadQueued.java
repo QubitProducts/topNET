@@ -17,18 +17,18 @@ import java.util.logging.Logger;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-class HandlingThreadQueueud extends HandlingThread {
+class HandlingThreadQueued extends HandlingThread {
 
-  private final ConcurrentLinkedDeque<SelectionKey> jobs;
+  private final ConcurrentLinkedDeque<SelectionKey> jobs = 
+          new ConcurrentLinkedDeque<>();
   private final long maxIdle;
   private int limit = 16;
 
   static final Logger log = Logger.getLogger(
-          HandlingThreadQueueud.class.getName());
+          HandlingThreadQueued.class.getName());
 
-  public HandlingThreadQueueud(
+  public HandlingThreadQueued(
           int jobsSize, int bufSize, int defaultMaxMessageSize, long maxIdle) {
-    jobs = new ConcurrentLinkedDeque<>();
     limit = jobsSize + 1;
     this.setBuffer(ByteBuffer.allocate(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
@@ -43,7 +43,7 @@ class HandlingThreadQueueud extends HandlingThread {
       while (MainAcceptAndDispatchThread.keepRunning) {
 
         SelectionKey job;
-        while ((job = this.jobs.pollFirst()) != null) {
+        while ((job = this.getJobs().pollFirst()) != null) {
 
           boolean isFinished = true;
           DataHandler dataHandler = (DataHandler) job.attachment();
@@ -75,7 +75,7 @@ class HandlingThreadQueueud extends HandlingThread {
                 dataHandler.locked = false;
               }
             } else {
-              this.jobs.addLast(job); // put back to queue
+              this.getJobs().addLast(job); // put back to queue
             }
           }
         }
@@ -104,9 +104,9 @@ class HandlingThreadQueueud extends HandlingThread {
    */
   @Override
   public boolean addJob(DataHandler dataHandler, SelectionKey key) {
-    if (limit > 0 && this.jobs.size() < limit) {
+    if (limit > 0 && this.getJobs().size() < limit) {
       dataHandler.locked = true; //single thread is deciding on this
-      boolean added = this.jobs.add(key);
+      boolean added = this.getJobs().add(key);
       if (added) {
         synchronized (this) {
           this.notify();
@@ -121,7 +121,7 @@ class HandlingThreadQueueud extends HandlingThread {
 
   @Override
   protected boolean hasJobs() {
-    return !this.jobs.isEmpty();
+    return !this.getJobs().isEmpty();
   }
 
   /**
@@ -140,9 +140,16 @@ class HandlingThreadQueueud extends HandlingThread {
 
   @Override
   boolean canAddJob() {
-    if (limit > this.jobs.size()) {
+    if (limit > this.getJobs().size()) {
       return true;
     }
     return false;
+  }
+
+  /**
+   * @return the jobs
+   */
+  public ConcurrentLinkedDeque<SelectionKey> getJobs() {
+    return jobs;
   }
 }

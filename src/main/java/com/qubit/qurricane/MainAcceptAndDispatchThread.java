@@ -29,25 +29,46 @@ class MainAcceptAndDispatchThread extends Thread {
           int bufSize,
           int defaultMaxMessage,
           long defaultIdleTime,
-          boolean pooled) {
+          String type) {
     
     handlingThreads = new HandlingThread[many];
-    
+    boolean announced = false;
     for (int i = 0; i < many; i++) {
       HandlingThread t;
-      if (pooled) {
+      if (type.equals("pool")) {
+        if (!announced) {
+          log.info("Atomic Array  Pools type used.");
+          announced = true;
+        }
         t = new HandlingThreadPooled(
                 jobsSize,
                 bufSize,
                 defaultMaxMessage,
                 defaultIdleTime);
         
-      } else {
-        t = new HandlingThreadQueueud(
+      } else if (type.equals("queue")) {
+        if (!announced) {
+          log.info("Concurrent Queue Pools type used.");
+          announced = true;
+        }
+        t = new HandlingThreadQueued(
                 jobsSize,
                 bufSize,
                 defaultMaxMessage,
                 defaultIdleTime);
+      } else if (type.equals("queue-shared")) {
+        if (!announced) {
+          log.info("Shared Concurrent Queue Pools type used.");
+          announced = true;
+        }
+        t = new HandlingThreadSharedQueue(
+                jobsSize,
+                bufSize,
+                defaultMaxMessage,
+                defaultIdleTime);
+      } else {
+        throw new RuntimeException(
+                "Unknown thread handling type selected: " + type);
       }
       t.start();
       handlingThreads[i] = t;
