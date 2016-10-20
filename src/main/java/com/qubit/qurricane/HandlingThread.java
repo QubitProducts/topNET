@@ -25,18 +25,23 @@ public abstract class HandlingThread extends Thread {
   private ByteBuffer buffer;
   
   private int defaultMaxMessageSize;
+  private volatile long delayForNoIO = 1;
   
   abstract boolean addJob(DataHandler dataHandler, SelectionKey key);
 
   abstract boolean canAddJob();
   
-  private long singlePassDelay = 0;
+  private volatile long singlePassDelay = 0;
   
-  protected boolean handleMaxIdle(DataHandler dataHandler, SelectionKey job, long maxIdle) {
+  private static volatile long closedIdleCounter = 0;
+  
+  protected boolean handleMaxIdle(
+          DataHandler dataHandler, SelectionKey job, long maxIdle) {
     //check if connection is not open too long! Prevent DDoS
     long idle = dataHandler.getMaxIdle(maxIdle);
     if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
-      log.log(Level.INFO, "Max idle gained - closing: {0}", idle);
+      log.log(Level.INFO,
+              "Max idle gained - closing, total: {0}", ++closedIdleCounter);
       Server.close(job); // just close - timedout
       return true;
     }
@@ -55,23 +60,28 @@ public abstract class HandlingThread extends Thread {
     return false;
   }
 
-    @Override
+  @Override
   public void run() {
-
     try {
 
-      while (MainAcceptAndDispatchThread.keepRunning) {
-
+      while (this.getServer().isServerRunning()) {
+        boolean noIOOccured = false;
+        
         while (this.hasJobs()) {
-          this.takeAbreak();
-          this.runSinglePass();
+          this.takeSomeBreak();
+          if (this.runSinglePass() == 0) {
+            noIOOccured = true;
+          }
         }
 
         try {
-
           if (!this.hasJobs()) {
             synchronized (this) {
               this.wait(500);
+            }
+          } else {
+            if (noIOOccured) {
+              this.waitForSomethingToIO();
             }
           }
         } catch (InterruptedException ex) {
@@ -80,7 +90,7 @@ public abstract class HandlingThread extends Thread {
       }
 
     } finally {
-      MainAcceptAndDispatchThread.removeThread(this);
+      this.getServer().removeThread(this);
     }
   }
 
@@ -96,18 +106,22 @@ public abstract class HandlingThread extends Thread {
    * @return
    * @throws IOException
    */
-  private boolean writeResponse(SelectionKey key, DataHandler dataHandler)
+  private int writeResponse(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     int written = dataHandler.write(key);
     if (written < 0) {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {
         this.runOnFinishedHandler(dataHandler);
-        return this.closeIfNecessaryAndTellIfShouldReleaseJob(
-                key, dataHandler, true);
+        if (this.closeIfNecessaryAndTellIfShouldReleaseJob(
+                key, dataHandler, true)) {
+          return -2;
+        } else {
+          return -1;
+        }
       }
     }
-    return false;
+    return written;
   }
   
   /**
@@ -117,7 +131,7 @@ public abstract class HandlingThread extends Thread {
    * @return true only if key should be released
    * @throws IOException
    */
-  protected boolean processKey(SelectionKey key, DataHandler dataHandler)
+  protected int processKey(SelectionKey key, DataHandler dataHandler)
           throws IOException {
     if (key.isValid()) {
       if (dataHandler.writingResponse) { // in progress of writing
@@ -136,21 +150,22 @@ public abstract class HandlingThread extends Thread {
               if (many == -1) {
                 Server.close(key);
               }
-              return true;
+              
+              return -1;
             } else {
-              return false;
+              return many;
             }
           } else {
-            return true;
+            return -1;
           }
         } catch (CancelledKeyException ex) {
           log.info("Key already closed.");
           Server.close(key);
-          return true;
+          return -1;
         }
       }
     } else {
-      return true;
+      return -1;
     }
   }
   
@@ -197,7 +212,19 @@ public abstract class HandlingThread extends Thread {
   
   protected abstract boolean hasJobs();
   
-  protected void takeAbreak() {
+  protected void waitForSomethingToIO() {
+    if (this.getSinglePassDelay() > 0) {
+      synchronized (this) {
+        try {
+          this.wait((long)((Math.random() * this.getDelayForNoIO()) + 0.5));
+        } catch (InterruptedException ex) {
+          log.log(Level.SEVERE, "Single pass delay interrupted.", ex);
+        }
+      }
+    }
+  }
+
+  protected void takeSomeBreak() {
     if (this.getSinglePassDelay() > 0) {
       synchronized (this) {
         try {
@@ -208,7 +235,7 @@ public abstract class HandlingThread extends Thread {
       }
     }
   }
-
+  
   private void runOnFinishedHandler(DataHandler dataHandler) {
     if (dataHandler.getRequest() != null) {
       if (dataHandler.getRequest().getWriteFinishedHandler() != null) {
@@ -221,7 +248,7 @@ public abstract class HandlingThread extends Thread {
     }
   }
 
-  protected abstract void runSinglePass();
+  protected abstract int runSinglePass();
 
   /**
    * @return the singlePassDelay
@@ -235,5 +262,24 @@ public abstract class HandlingThread extends Thread {
    */
   public void setSinglePassDelay(long singlePassDelay) {
     this.singlePassDelay = singlePassDelay;
+  }
+
+  /**
+   * @return the server
+   */
+  public abstract Server getServer();
+
+  /**
+   * @return the delayForNoIO
+   */
+  public long getDelayForNoIO() {
+    return delayForNoIO;
+  }
+
+  /**
+   * @param delayForNoIO the delayForNoIO to set
+   */
+  public void setDelayForNoIO(long delayForNoIO) {
+    this.delayForNoIO = delayForNoIO;
   }
 }

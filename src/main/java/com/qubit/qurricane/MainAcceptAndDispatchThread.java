@@ -19,82 +19,8 @@ import java.util.logging.Level;
  */
 class MainAcceptAndDispatchThread extends Thread {
 
-  public static volatile boolean keepRunning = true;
-  private static HandlingThread[] handlingThreads;
   private static long infoLogsFrequency = 60 * 1000;
-
-  public static void setupThreadsList(
-          int many,
-          int jobsSize,
-          int bufSize,
-          int defaultMaxMessage,
-          long defaultIdleTime,
-          String type,
-          long singlePoolPassThreadDelay) {
-    
-    handlingThreads = new HandlingThread[many];
-    boolean announced = false;
-    for (int i = 0; i < many; i++) {
-      HandlingThread t;
-      
-      if (type.equals("pool")) {
-        if (!announced) {
-          log.info("Atomic Array  Pools type used.");
-          announced = true;
-        }
-        t = new HandlingThreadPooled(
-                jobsSize,
-                bufSize,
-                defaultMaxMessage,
-                defaultIdleTime);
-      } else if (type.equals("queue")) {
-        if (!announced) {
-          log.info("Concurrent Queue Pools type used.");
-          announced = true;
-        }
-        t = new HandlingThreadQueued(
-                jobsSize,
-                bufSize,
-                defaultMaxMessage,
-                defaultIdleTime);
-      } else if (type.equals("queue-shared")) {
-        if (!announced) {
-          log.info("Shared Concurrent Queue Pools type used.");
-          announced = true;
-        }
-        t = new HandlingThreadSharedQueue(
-                jobsSize,
-                bufSize,
-                defaultMaxMessage,
-                defaultIdleTime);
-      } else {
-        throw new RuntimeException(
-                "Unknown thread handling type selected: " + type);
-      }
-      
-      t.setSinglePassDelay(singlePoolPassThreadDelay);
-      t.start();
-      handlingThreads[i] = t;
-    }
-  }
-
-  static void removeThread(HandlingThread thread) {
-    for (int i = 0; i < handlingThreads.length; i++) {
-      if (handlingThreads[i] == thread) {
-        handlingThreads[i] = null;
-      }
-    }
-  }
-
-  static boolean hasThreads() {
-    for (int i = 0; i < handlingThreads.length; i++) {
-      if (handlingThreads[i] != null) {
-        return true;
-      }
-    }
-    return false;
-  }
-
+  
   /**
    * @return the infoLogsFrequency
    */
@@ -113,7 +39,8 @@ class MainAcceptAndDispatchThread extends Thread {
   private final Server server;
   private boolean allowingMoreAcceptsThanSlots = false;
 
-  MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) throws IOException {
+  MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) 
+          throws IOException {
     this.server = server;
     this.acceptSelector = acceptSelector;
   }
@@ -123,11 +50,11 @@ class MainAcceptAndDispatchThread extends Thread {
   
   @Override
   public void run() {
-
+    HandlingThread[] handlingThreads = this.server.getHandlingThreads();
     long lastMeassured = System.currentTimeMillis();
     long totalWaitingAcceptMsCounter = 0;
     
-    while (keepRunning) {
+    while (this.server.isServerRunning()) {
       try {
         // pick current events list:
         acceptSelector.select();
@@ -145,7 +72,7 @@ class MainAcceptAndDispatchThread extends Thread {
             if (dataHandler == null && key.isAcceptable()) {
               
               if (!isAllowingMoreAcceptsThanSlots()) {
-                while(!thereAreFreeJobs()) {
+                while(!thereAreFreeJobs(handlingThreads)) {
                   try {
                     totalWaitingAcceptMsCounter++;
                     Thread.sleep(1);
@@ -157,7 +84,7 @@ class MainAcceptAndDispatchThread extends Thread {
                 acceptedCnt++;
               }
             } else {
-              this.startReading(key, dataHandler);
+              this.startReading(handlingThreads, key, dataHandler);
             }
           } else {
             key.cancel();
@@ -179,7 +106,10 @@ class MainAcceptAndDispatchThread extends Thread {
   }
   
 //  int i = 0;
-  private void startReading(SelectionKey key, DataHandler dataHandler) {
+  private void startReading(
+          HandlingThread[] handlingThreads,
+          SelectionKey key,
+          DataHandler dataHandler) {
     
     if (dataHandler == null) {
       dataHandler = new DataHandler(this.server);
@@ -203,7 +133,7 @@ class MainAcceptAndDispatchThread extends Thread {
     }
   }
 
-  private boolean thereAreFreeJobs() {
+  private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
     for (int c = 0; c < handlingThreads.length; c++) {
       HandlingThread handlingThread = handlingThreads[c];
 

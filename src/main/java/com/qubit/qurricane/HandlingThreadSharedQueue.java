@@ -18,9 +18,10 @@ public class HandlingThreadSharedQueue extends HandlingThreadQueued {
           new ConcurrentLinkedDeque<>();
   
   public HandlingThreadSharedQueue(
+          Server server,
           int jobsSize, int bufSize,
           int defaultMaxMessageSize, long maxIdle) {
-    super(jobsSize, bufSize, defaultMaxMessageSize, maxIdle);
+    super(server, jobsSize, bufSize, defaultMaxMessageSize, maxIdle);
   }
 
   @Override

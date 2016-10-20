@@ -19,14 +19,18 @@ class HandlingThreadPooled extends HandlingThread {
 
   private final AtomicReferenceArray<SelectionKey> jobs;
   
-
+  private final Server server;
+  
   private final long maxIdle;
 
   static final Logger log
           = Logger.getLogger(HandlingThreadPooled.class.getName());
 
   public HandlingThreadPooled(
-          int jobsSize, int bufSize, int defaultMaxMessageSize, long maxIdle) {
+          Server server,
+          int jobsSize, int bufSize,
+          int defaultMaxMessageSize, long maxIdle) {
+    this.server = server;
     jobs = new AtomicReferenceArray<>(jobsSize);
     this.setBuffer(ByteBuffer.allocate(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
@@ -34,7 +38,9 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   @Override
-  public void runSinglePass() {
+  public int runSinglePass() {
+    int totalWroteRead = 0;
+    
     for (int i = 0; i < this.jobs.length(); i++) {
       SelectionKey job = this.jobs.get(i);
 
@@ -49,12 +55,14 @@ class HandlingThreadPooled extends HandlingThread {
             if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
               continue;
             }
-
-            if (this.processKey(job, dataHandler)) {
+            
+            int processed = this.processKey(job, dataHandler);
+            
+            if (processed < 0) {
               // job not necessary anymore
-              // isFinished = true;
             } else {
               // keep job
+              totalWroteRead += processed;
               isFinished = false;
             }
           }
@@ -69,6 +77,8 @@ class HandlingThreadPooled extends HandlingThread {
         }
       }
     }
+    
+    return totalWroteRead;
   }
 
   /**
@@ -122,5 +132,12 @@ class HandlingThreadPooled extends HandlingThread {
       }
     }
     return false;
+  }
+
+  /**
+   * @return the server
+   */
+  public Server getServer() {
+    return server;
   }
 }

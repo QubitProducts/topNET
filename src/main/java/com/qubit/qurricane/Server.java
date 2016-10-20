@@ -28,6 +28,8 @@ public class Server {
   
   final static Logger log = Logger.getLogger(Server.class.getName());
   
+  private HandlingThread[] handlingThreads;
+  
   public final static String SERVER_VERSION = "1.1.0";
   
   private static final int THREAD_JOBS_SIZE = 64;
@@ -35,14 +37,48 @@ public class Server {
   private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
   public static final int MAX_IDLE_TOUT = 5 * 1000; // miliseconds
   public static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
+  private volatile boolean serverRunning;
+  private long delayForNoIOReadsInSuite;
 
+  /**
+   * @return the handlingThreads
+   */
+  public HandlingThread[] getHandlingThreads() {
+    return handlingThreads;
+  }
+
+  /**
+   * @param aHandlingThreads the handlingThreads to set
+   */
+  public void setHandlingThreads(HandlingThread[] aHandlingThreads) {
+    handlingThreads = aHandlingThreads;
+  }
+
+  void removeThread(HandlingThread thread) {
+    HandlingThread[] handlingThreads = this.getHandlingThreads();
+    for (int i = 0; i < handlingThreads.length; i++) {
+      if (handlingThreads[i] == thread) {
+        handlingThreads[i] = null;
+      }
+    }
+  }
+
+  boolean hasThreads() {
+    HandlingThread[] handlingThreads = this.getHandlingThreads();
+    for (int i = 0; i < handlingThreads.length; i++) {
+      if (handlingThreads[i] != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
 //  public static Log log = new Log(Server.class);
 
   private final int port;
 
   private final InetSocketAddress listenAddress;
   private final String address;
-  private boolean readPreparatorSet;
   private ServerSocketChannel serverChannel;
   private int jobsPerThread = THREAD_JOBS_SIZE;
   private int threadsAmount = THREADS_POOL_SIZE;
@@ -75,36 +111,32 @@ public class Server {
 
     // @todo move to cfg
     
-    MainAcceptAndDispatchThread.keepRunning = true;
+    this.setHandlingThreads(new HandlingThread[this.getThreadsAmount()]);
     
-    MainAcceptAndDispatchThread.setupThreadsList(this.getThreadsAmount(),
-            this.getJobsPerThread(),
-            this.getRequestBufferSize(),
-            this.getMaxMessageSize(),
-            this.getDefaultIdleTime(),
-            this.getPoolType(), this.getSinglePoolPassThreadDelay());
+    Selector acceptSelector = Selector.open();
     
-    if (!this.readPreparatorSet) {
-      this.readPreparatorSet = true;
-      
-      Selector acceptSelector = Selector.open();
-      serverChannel.register(acceptSelector, SelectionKey.OP_ACCEPT);
-      MainAcceptAndDispatchThread mainAcceptDispatcher = 
-              new MainAcceptAndDispatchThread(this, acceptSelector);
-      mainAcceptDispatcher.setAllowingMoreAcceptsThanSlots(
-              this.isAllowingMoreAcceptsThanSlots());
-      mainAcceptDispatcher.start();
-    }
+    serverChannel.register(acceptSelector, SelectionKey.OP_ACCEPT);
     
+    MainAcceptAndDispatchThread mainAcceptDispatcher = 
+            new MainAcceptAndDispatchThread(this, acceptSelector);
+
+    this.setServerRunning(true);
+
+    this.setupThreadsList();
+
+    mainAcceptDispatcher.setAllowingMoreAcceptsThanSlots(
+            this.isAllowingMoreAcceptsThanSlots());
+    mainAcceptDispatcher.start();
+ 
     log.info("Server starting at " + listenAddress.getHostName() +
             " on port " + port + "\nPool type: " + this.getPoolType());
   }
 
   public void stop() throws IOException {
-    MainAcceptAndDispatchThread.keepRunning = false;
+    this.setServerRunning(false);
     
     // wait for all to finish
-    while (MainAcceptAndDispatchThread.hasThreads()) {
+    while (this.hasThreads()) {
       try {
         Thread.sleep(5);
       } catch (InterruptedException ex) {
@@ -153,6 +185,67 @@ public class Server {
     return null;
   }
 
+  
+  private void setupThreadsList() {
+    
+    HandlingThread[] handlingThreads = this.getHandlingThreads();
+    
+    boolean announced = false;
+    String type = this.getPoolType();
+    int jobsSize = this.getJobsPerThread();
+    int bufSize = this.getRequestBufferSize();
+    int defaultMaxMessage = this.getMaxMessageSize();
+    
+    for (int i = 0; i < handlingThreads.length; i++) {
+      HandlingThread t;
+      
+      if (type.equals("pool")) {
+        if (!announced) {
+          log.info("Atomic Array  Pools type used.");
+          announced = true;
+        }
+        t = new HandlingThreadPooled(
+                this,
+                jobsSize,
+                bufSize,
+                defaultMaxMessage,
+                defaultIdleTime);
+      } else if (type.equals("queue")) {
+        if (!announced) {
+          log.info("Concurrent Queue Pools type used.");
+          announced = true;
+        }
+        t = new HandlingThreadQueued(
+                this,
+                jobsSize,
+                bufSize,
+                defaultMaxMessage,
+                defaultIdleTime);
+      } else if (type.equals("queue-shared")) {
+        if (!announced) {
+          log.info("Shared Concurrent Queue Pools type used.");
+          announced = true;
+        }
+        t = new HandlingThreadSharedQueue(
+                this,
+                jobsSize,
+                bufSize,
+                defaultMaxMessage,
+                defaultIdleTime);
+      } else {
+        throw new RuntimeException(
+                "Unknown thread handling type selected: " + type);
+      }
+      
+      t.setSinglePassDelay(this.singlePoolPassThreadDelay);
+      t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
+      
+      t.start();
+      
+      handlingThreads[i] = t;
+    }
+  }
+  
   protected static void close(SelectionKey key) {
     try {
       // this method is used on "bad occurence - to cleanup any stuff left
@@ -326,4 +419,34 @@ public class Server {
   public void setSinglePoolPassThreadDelay(long singlePoolPassThreadDelay) {
     this.singlePoolPassThreadDelay = singlePoolPassThreadDelay;
   }
+
+  /**
+   * @return the serverRunning
+   */
+  public boolean isServerRunning() {
+    return serverRunning;
+  }
+
+  /**
+   * @param serverRunning the serverRunning to set
+   */
+  public void setServerRunning(boolean serverRunning) {
+    this.serverRunning = serverRunning;
+  }
+
+  /**
+   * @return the delayForNoIOReadsInSuite
+   */
+  public long getDelayForNoIOReadsInSuite() {
+    return delayForNoIOReadsInSuite;
+  }
+
+  /**
+   * @param delayForNoIOReadsInSuite the delayForNoIOReadsInSuite to set
+   */
+  public void setDelayForNoIOReadsInSuite(long delayForNoIOReadsInSuite) {
+    this.delayForNoIOReadsInSuite = delayForNoIOReadsInSuite;
+  }
+  
+  
 }

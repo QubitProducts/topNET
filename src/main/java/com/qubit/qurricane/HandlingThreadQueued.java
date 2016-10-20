@@ -21,12 +21,16 @@ class HandlingThreadQueued extends HandlingThread {
           new ConcurrentLinkedDeque<>();
   private final long maxIdle;
   private int limit = 16;
+  private final Server server;
 
   static final Logger log = Logger.getLogger(
           HandlingThreadQueued.class.getName());
 
   public HandlingThreadQueued(
-          int jobsSize, int bufSize, int defaultMaxMessageSize, long maxIdle) {
+          Server server,
+          int jobsSize, int bufSize,
+          int defaultMaxMessageSize, long maxIdle) {
+    this.server = server;
     limit = jobsSize + 1;
     this.setBuffer(ByteBuffer.allocate(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
@@ -34,8 +38,9 @@ class HandlingThreadQueued extends HandlingThread {
   }
 
   @Override
-  public void runSinglePass() {
+  public int runSinglePass() {
     SelectionKey job;
+    int totalWroteRead = 0;
     while ((job = this.getJobs().pollFirst()) != null) {
 
       boolean isFinished = true;
@@ -49,12 +54,15 @@ class HandlingThreadQueued extends HandlingThread {
           if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
             continue;
           }
-
-          if (this.processKey(job, dataHandler)) {
+          
+          int processed = this.processKey(job, dataHandler);
+          
+          if (processed < 0) {
                 // job not necessary anymore
             // isFinished = true;
           } else {
             // keep job
+            totalWroteRead += processed;
             isFinished = false;
           }
         }
@@ -72,6 +80,8 @@ class HandlingThreadQueued extends HandlingThread {
         }
       }
     }
+    
+    return totalWroteRead;
   }
 
   /**
@@ -128,5 +138,12 @@ class HandlingThreadQueued extends HandlingThread {
    */
   public ConcurrentLinkedDeque<SelectionKey> getJobs() {
     return jobs;
+  }
+
+  /**
+   * @return the server
+   */
+  public Server getServer() {
+    return server;
   }
 }
