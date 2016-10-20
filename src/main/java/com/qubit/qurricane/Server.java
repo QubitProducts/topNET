@@ -51,6 +51,7 @@ public class Server {
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private String poolType = "pool";
   private int dataHandlerWriteBufferSize = 4096;
+  private long singlePoolPassThreadDelay = 0;
 
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
@@ -81,7 +82,7 @@ public class Server {
             this.getRequestBufferSize(),
             this.getMaxMessageSize(),
             this.getDefaultIdleTime(),
-            this.getPoolType());
+            this.getPoolType(), this.getSinglePoolPassThreadDelay());
     
     if (!this.readPreparatorSet) {
       this.readPreparatorSet = true;
@@ -310,5 +311,19 @@ public class Server {
   public void setAllowingMoreAcceptsThanSlots(
           boolean allowingMoreAcceptsThanSlots) {
     this.allowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
+  }
+
+  /**
+   * @return the singlePoolPassThreadDelay
+   */
+  public long getSinglePoolPassThreadDelay() {
+    return singlePoolPassThreadDelay;
+  }
+
+  /**
+   * @param singlePoolPassThreadDelay the singlePoolPassThreadDelay to set
+   */
+  public void setSinglePoolPassThreadDelay(long singlePoolPassThreadDelay) {
+    this.singlePoolPassThreadDelay = singlePoolPassThreadDelay;
   }
 }

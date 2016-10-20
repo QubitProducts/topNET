@@ -12,7 +12,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Set;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -30,12 +29,14 @@ class MainAcceptAndDispatchThread extends Thread {
           int bufSize,
           int defaultMaxMessage,
           long defaultIdleTime,
-          String type) {
+          String type,
+          long singlePoolPassThreadDelay) {
     
     handlingThreads = new HandlingThread[many];
     boolean announced = false;
     for (int i = 0; i < many; i++) {
       HandlingThread t;
+      
       if (type.equals("pool")) {
         if (!announced) {
           log.info("Atomic Array  Pools type used.");
@@ -46,7 +47,6 @@ class MainAcceptAndDispatchThread extends Thread {
                 bufSize,
                 defaultMaxMessage,
                 defaultIdleTime);
-        
       } else if (type.equals("queue")) {
         if (!announced) {
           log.info("Concurrent Queue Pools type used.");
@@ -71,6 +71,8 @@ class MainAcceptAndDispatchThread extends Thread {
         throw new RuntimeException(
                 "Unknown thread handling type selected: " + type);
       }
+      
+      t.setSinglePassDelay(singlePoolPassThreadDelay);
       t.start();
       handlingThreads[i] = t;
     }

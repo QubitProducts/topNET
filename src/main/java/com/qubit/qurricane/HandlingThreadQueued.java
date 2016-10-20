@@ -34,64 +34,43 @@ class HandlingThreadQueued extends HandlingThread {
   }
 
   @Override
-  public void run() {
+  public void runSinglePass() {
+    SelectionKey job;
+    while ((job = this.getJobs().pollFirst()) != null) {
 
-    try {
+      boolean isFinished = true;
+      DataHandler dataHandler = (DataHandler) job.attachment();
 
-      while (MainAcceptAndDispatchThread.keepRunning) {
+      try {
+        // important step! skip those busy
+        if (dataHandler != null) {
 
-        SelectionKey job;
-        while ((job = this.getJobs().pollFirst()) != null) {
+          //check if connection is not open too long! Prevent DDoS
+          if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
+            continue;
+          }
 
-          boolean isFinished = true;
-          DataHandler dataHandler = (DataHandler) job.attachment();
-
-          try {
-            // important step! skip those busy
-            if (dataHandler != null) {
-
-              //check if connection is not open too long! Prevent DDoS
-              if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
-                continue;
-              }
-
-              if (this.processKey(job, dataHandler)) {
+          if (this.processKey(job, dataHandler)) {
                 // job not necessary anymore
-                // isFinished = true;
-              } else {
-                // keep job
-                isFinished = false;
-              }
-            }
-          } catch (Exception es) {
-            log.log(Level.SEVERE, "Exception during handling data.", es);
-            isFinished = true;
-            Server.close(job);
-          } finally {
-            if (isFinished) { // will be closed
-              if (dataHandler != null) {
-                dataHandler.locked = false;
-              }
-            } else {
-              this.getJobs().addLast(job); // put back to queue
-            }
+            // isFinished = true;
+          } else {
+            // keep job
+            isFinished = false;
           }
         }
-
-        try {
-
-          if (!this.hasJobs()) {
-            synchronized (this) {
-              this.wait(500);
-            }
+      } catch (Exception es) {
+        log.log(Level.SEVERE, "Exception during handling data.", es);
+        isFinished = true;
+        Server.close(job);
+      } finally {
+        if (isFinished) { // will be closed
+          if (dataHandler != null) {
+            dataHandler.locked = false;
           }
-        } catch (InterruptedException ex) {
-          log.log(Level.SEVERE, null, ex);
+        } else {
+          this.getJobs().addLast(job); // put back to queue
         }
       }
-
-    } finally {
-      MainAcceptAndDispatchThread.removeThread(this);
     }
   }
 

@@ -34,64 +34,40 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   @Override
-  public void run() {
+  public void runSinglePass() {
+    for (int i = 0; i < this.jobs.length(); i++) {
+      SelectionKey job = this.jobs.get(i);
 
-    try {
-
-      while (MainAcceptAndDispatchThread.keepRunning) {
-
-        while (this.hasJobs()) {
-
-          for (int i = 0; i < this.jobs.length(); i++) {
-            SelectionKey job = this.jobs.get(i);
-
-            if (job != null) {
-              boolean isFinished = true;
-              DataHandler dataHandler = (DataHandler) job.attachment();
-
-              try {
-                // important step! skip those busy
-                if (dataHandler != null) {
-                  
-                  if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
-                    continue;
-                  }
-                  
-                  if (this.processKey(job, dataHandler)) {
-                    // job not necessary anymore
-                    // isFinished = true;
-                  } else {
-                    // keep job
-                    isFinished = false;
-                  }
-                }
-              } catch (Exception es) {
-                log.log(Level.SEVERE, "Exception during handling data.", es);
-                isFinished = true;
-                Server.close(job);
-              } finally {
-                if (isFinished) {
-                  this.removeJobFromPool(i, dataHandler);
-                }
-              }
-            }
-          }
-        }
+      if (job != null) {
+        boolean isFinished = true;
+        DataHandler dataHandler = (DataHandler) job.attachment();
 
         try {
+          // important step! skip those busy
+          if (dataHandler != null) {
 
-          if (!this.hasJobs()) {
-            synchronized (this) {
-              this.wait(500);
+            if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
+              continue;
+            }
+
+            if (this.processKey(job, dataHandler)) {
+              // job not necessary anymore
+              // isFinished = true;
+            } else {
+              // keep job
+              isFinished = false;
             }
           }
-        } catch (InterruptedException ex) {
-          log.log(Level.SEVERE, null, ex);
+        } catch (Exception es) {
+          log.log(Level.SEVERE, "Exception during handling data.", es);
+          isFinished = true;
+          Server.close(job);
+        } finally {
+          if (isFinished) {
+            this.removeJobFromPool(i, dataHandler);
+          }
         }
       }
-
-    } finally {
-      MainAcceptAndDispatchThread.removeThread(this);
     }
   }
 

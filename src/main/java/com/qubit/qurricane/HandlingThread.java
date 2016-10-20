@@ -30,6 +30,8 @@ public abstract class HandlingThread extends Thread {
 
   abstract boolean canAddJob();
   
+  private long singlePassDelay = 0;
+  
   protected boolean handleMaxIdle(DataHandler dataHandler, SelectionKey job, long maxIdle) {
     //check if connection is not open too long! Prevent DDoS
     long idle = dataHandler.getMaxIdle(maxIdle);
@@ -53,6 +55,36 @@ public abstract class HandlingThread extends Thread {
     return false;
   }
 
+    @Override
+  public void run() {
+
+    try {
+
+      while (MainAcceptAndDispatchThread.keepRunning) {
+
+        while (this.hasJobs()) {
+          this.takeAbreak();
+          this.runSinglePass();
+        }
+
+        try {
+
+          if (!this.hasJobs()) {
+            synchronized (this) {
+              this.wait(500);
+            }
+          }
+        } catch (InterruptedException ex) {
+          log.log(Level.SEVERE, null, ex);
+        }
+      }
+
+    } finally {
+      MainAcceptAndDispatchThread.removeThread(this);
+    }
+  }
+
+  
   
   /**
    * Returns false if not finished writing or
@@ -164,6 +196,18 @@ public abstract class HandlingThread extends Thread {
   }
   
   protected abstract boolean hasJobs();
+  
+  protected void takeAbreak() {
+    if (this.getSinglePassDelay() > 0) {
+      synchronized (this) {
+        try {
+          this.wait((long)((Math.random() * this.getSinglePassDelay()) + 0.5));
+        } catch (InterruptedException ex) {
+          log.log(Level.SEVERE, "Single pass delay interrupted.", ex);
+        }
+      }
+    }
+  }
 
   private void runOnFinishedHandler(DataHandler dataHandler) {
     if (dataHandler.getRequest() != null) {
@@ -175,5 +219,21 @@ public abstract class HandlingThread extends Thread {
         }
       }
     }
+  }
+
+  protected abstract void runSinglePass();
+
+  /**
+   * @return the singlePassDelay
+   */
+  public long getSinglePassDelay() {
+    return singlePassDelay;
+  }
+
+  /**
+   * @param singlePassDelay the singlePassDelay to set
+   */
+  public void setSinglePassDelay(long singlePassDelay) {
+    this.singlePassDelay = singlePassDelay;
   }
 }

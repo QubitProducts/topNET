@@ -24,6 +24,7 @@ public class Demo {
     int jobs = 128;
     int buf = 8192;
     int th = 8;
+    long delay = 4;
     
     Server s = new Server("localhost", 3456);
     
@@ -32,6 +33,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("pool");
+    s.setSinglePoolPassThreadDelay(delay);
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
@@ -47,6 +49,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("queue");
+    s.setSinglePoolPassThreadDelay(delay);
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
@@ -60,6 +63,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("queue-shared");
+    s.setSinglePoolPassThreadDelay(delay);
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
