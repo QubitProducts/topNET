@@ -130,6 +130,6 @@ public abstract class Handler {
   }
   
   public void closeConnection (Request request) {
-    Server.close(request.getKey());
+    Server.close(request.getChannel());
   }
 }

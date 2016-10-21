@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -68,8 +69,8 @@ class MainAcceptAndDispatchThread extends Thread {
       for (SelectionKey key : selectionKeys) {
         try {
           if (key.isValid()) {
-            DataHandler dataHandler = (DataHandler) key.attachment();
-            if (dataHandler == null && key.isAcceptable()) {
+//            DataHandler dataHandler = (DataHandler) key.attachment();
+            if (key.isAcceptable()) {
               
               if (!isAllowingMoreAcceptsThanSlots()) {
                 while(!thereAreFreeJobs(handlingThreads)) {
@@ -80,11 +81,14 @@ class MainAcceptAndDispatchThread extends Thread {
                 }
               }
               
-              if (Server.accept(key, acceptSelector) != null) {
+              SocketChannel channel = Server.accept(key, acceptSelector);
+              
+              if (channel != null) {
                 acceptedCnt++;
+                this.startReading(handlingThreads, channel);
               }
             } else {
-              this.startReading(handlingThreads, key, dataHandler);
+//              this.startReading(handlingThreads, key.channel(), dataHandler);
             }
           } else {
             key.cancel();
@@ -108,13 +112,8 @@ class MainAcceptAndDispatchThread extends Thread {
 //  int i = 0;
   private void startReading(
           HandlingThread[] handlingThreads,
-          SelectionKey key,
-          DataHandler dataHandler) {
-    
-    if (dataHandler == null) {
-      dataHandler = new DataHandler(this.server);
-      key.attach(dataHandler);
-    }
+          SocketChannel channel) {
+    DataHandler dataHandler = new DataHandler(server, channel);
 
     // add to worker
     if (!dataHandler.locked) {
@@ -125,7 +124,7 @@ class MainAcceptAndDispatchThread extends Thread {
         currentThread = (currentThread + 1) % handlingThreads.length;
         
         if (handlingThread != null && 
-                handlingThread.addJob(dataHandler, key)) {
+                handlingThread.addJob(dataHandler)) {
 //          log.info(">>>>>> " + i++);
           break;
         }

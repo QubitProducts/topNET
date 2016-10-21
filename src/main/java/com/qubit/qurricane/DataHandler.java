@@ -16,7 +16,6 @@ import com.qubit.qurricane.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
@@ -68,6 +67,7 @@ public class DataHandler {
   private ByteBuffer writeBuffer;
   private int writeBufSize;
   private boolean wasMarkedAsMoreDataIsComing;
+  private final SocketChannel channel;
 
   protected void reset() {
     size = 0;
@@ -92,30 +92,31 @@ public class DataHandler {
     writeBuffer = null;
   }
 
-  public DataHandler(Server server) {
+  public DataHandler(Server server, SocketChannel channel) {
+    this.channel = channel;
     this.server = server;
     this.writeBufSize = server.getDataHandlerWriteBufferSize();
     touch = System.currentTimeMillis();
   }
 
   // returns true if should listen for write
-  public synchronized int read(SelectionKey key, ByteBuffer buf)
+  public synchronized int read(SocketChannel channel, ByteBuffer buf)
           throws IOException {
-    SocketChannel socketChannel = (SocketChannel) key.channel();
 
     buf.clear();
     int read;
 
-    if ((read = socketChannel.read(buf)) > 0) {
+    if ((read = channel.read(buf)) > 0) {
       size += read;
-      if (this.flushReads(key, buf)) {
+      
+      if (read > 0) {
+        this.touch();
+      }
+      
+      if (this.flushReads(buf)) {
         read = -2; // -1: reading is finished, -2 means done
         this.handleData();
       }
-    }
-
-    if (read > 0) {
-      this.touch();
     }
 
     return read;
@@ -211,7 +212,7 @@ public class DataHandler {
   private byte previous = -1;
 
   // returns true if reading is finished. any error handling should happend after reading foinished.
-  private synchronized boolean flushReads(SelectionKey key, ByteBuffer buffer)
+  private synchronized boolean flushReads(ByteBuffer buffer)
           throws UnsupportedEncodingException {
 
     buffer.flip();
@@ -219,7 +220,7 @@ public class DataHandler {
     if (!this.headersReady) {
       
       if (this.getRequest() == null) {
-        this.request = new Request(key, this.headers);
+        this.request = new Request(this.getChannel(), this.headers);
         this.response = new Response(this.httpProtocol);
       }
 
@@ -261,7 +262,7 @@ public class DataHandler {
         this.server.getHandlerForPath(this.fullPath, this.path, this.params);
       
       this.errorOccured = 
-              this.headersAreReadySoProcessReqAndRes(key, this.handlerUsed);
+              this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
       
       if (this.errorOccured != null) {
         return true; // stop reading now because of errors! 
@@ -394,10 +395,8 @@ public class DataHandler {
   
   
   public synchronized int write(
-          SelectionKey key)
+          SocketChannel channel)
           throws IOException {
-
-    SocketChannel channel = (SocketChannel) key.channel();
     
     ResponseReader responseReader;
     if (this.headersOnly) {
@@ -426,6 +425,9 @@ public class DataHandler {
       this.writeBuffer.compact();
     }
     
+    if (!this.getResponse().isTooLateToChangeHeaders()) {
+      this.getResponse().setTooLateToChangeHeaders(true);
+    }
     
     int ch = 0;
     while (writeBuffer.hasRemaining() && (ch = responseReader.read()) != -1) {
@@ -463,8 +465,7 @@ public class DataHandler {
 
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
-  private ErrorTypes headersAreReadySoProcessReqAndRes(
-          SelectionKey key, Handler handler) {
+  private ErrorTypes headersAreReadySoProcessReqAndRes(Handler handler) {
     
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
@@ -665,5 +666,12 @@ public class DataHandler {
    */
   public Response getResponse() {
     return response;
+  }
+
+  /**
+   * @return the channel
+   */
+  public SocketChannel getChannel() {
+    return channel;
   }
 }

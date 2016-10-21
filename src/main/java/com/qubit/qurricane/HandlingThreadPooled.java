@@ -7,6 +7,7 @@ package com.qubit.qurricane;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,7 +18,7 @@ import java.util.logging.Logger;
  */
 class HandlingThreadPooled extends HandlingThread {
 
-  private final AtomicReferenceArray<SelectionKey> jobs;
+  private final AtomicReferenceArray<DataHandler> jobs;
   
   private final Server server;
   
@@ -42,23 +43,24 @@ class HandlingThreadPooled extends HandlingThread {
     int totalWroteRead = 0;
     
     for (int i = 0; i < this.jobs.length(); i++) {
-      SelectionKey job = this.jobs.get(i);
+      DataHandler dataHandler = this.jobs.get(i);
 
-      if (job != null) {
+      if (dataHandler != null) {
         boolean isFinished = true;
-        DataHandler dataHandler = (DataHandler) job.attachment();
+        SocketChannel channel = dataHandler.getChannel();
 
         try {
           // important step! skip those busy
-          if (dataHandler != null) {
+          if (channel != null) {
 
-            if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
+            if (this.handleMaxIdle(dataHandler, maxIdle)) {
               continue;
             }
             
-            int processed = this.processKey(job, dataHandler);
+            // -2 close, -1 hold
+            int processed = this.processKey(dataHandler);
             
-            if (processed < 0) {
+            if (processed < -1) {
               // job not necessary anymore
             } else {
               // keep job
@@ -69,7 +71,7 @@ class HandlingThreadPooled extends HandlingThread {
         } catch (Exception es) {
           log.log(Level.SEVERE, "Exception during handling data.", es);
           isFinished = true;
-          Server.close(job);
+          Server.close(channel);
         } finally {
           if (isFinished) {
             this.removeJobFromPool(i, dataHandler);
@@ -87,13 +89,13 @@ class HandlingThreadPooled extends HandlingThread {
    * @return
    */
   @Override
-  public boolean addJob(DataHandler dataHandler, SelectionKey key) {
+  public boolean addJob(DataHandler dataHandler) {
     if (!dataHandler.locked) {
       for (int i = 0; i < this.jobs.length(); i++) {
-        SelectionKey job = this.jobs.get(i);
+        DataHandler job = this.jobs.get(i);
         if (job == null) {
           dataHandler.locked = true;
-          this.jobs.set(i, key);
+          this.jobs.set(i, dataHandler);
           synchronized (this) {
             this.notify();
           }

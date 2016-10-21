@@ -52,7 +52,7 @@ public class Response {
   private boolean tellingConnectionClose = true;
   private volatile boolean moreDataComing = false;
 
-  private StringBuffer responseBuilder = null;
+  private StringBuffer stringBuffer = null;
   private InputStream inputStreamForBody;
   private Object attachment;
   private String httpProtocol;
@@ -152,7 +152,7 @@ public class Response {
     }
 
     buffer.append("Date: ");
-    buffer.append(serverTime.get().getTime());
+    buffer.append(serverTime.get().getCachedTime());
     buffer.append(CRLF);
 
     buffer.append("Server: Qurricane ");
@@ -174,7 +174,7 @@ public class Response {
 
   public void addHeader(String name, String value)
           throws TooLateToChangeHeadersException {
-    if (this.tooLateToChangeHeaders) {
+    if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
     this.headers.put(name, value);
@@ -182,7 +182,7 @@ public class Response {
 
   public void removeHeader(String name)
           throws TooLateToChangeHeadersException {
-    if (this.tooLateToChangeHeaders) {
+    if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
     this.headers.remove(name);
@@ -207,7 +207,7 @@ public class Response {
    * @throws com.qubit.qurricane.exceptions.TooLateToChangeHeadersException
    */
   public void setHttpCode(int httpCode) throws TooLateToChangeHeadersException {
-    if (this.tooLateToChangeHeaders) {
+    if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
     this.httpCode = httpCode;
@@ -225,15 +225,15 @@ public class Response {
     if (this.getResponseStream() != null) {
       throw new ResponseBuildingStartedException();
     }
-    if (this.responseBuilder == null) {
-      this.responseBuilder = new StringBuffer();
+    if (this.getStringBuffer() == null) {
+      this.setStringBuffer(new StringBuffer());
     }
-    this.responseBuilder.append(str);
+    this.getStringBuffer().append(str);
   }
 
-  public void prepareResponseReader() {
+  protected void prepareResponseReader() {
     if (this.responseStream == null) {
-      if (this.responseBuilder != null) {
+      if (this.getStringBuffer() != null) {
         String charsetString = this.getCharset();
 
         Charset _charset = Charset.defaultCharset();
@@ -244,7 +244,7 @@ public class Response {
 
         charsetString = _charset.name();
 
-        byte[] bytes = this.responseBuilder.toString().getBytes(_charset);
+        byte[] bytes = this.getStringBuffer().toString().getBytes(_charset);
         // @todo its copying... lets do that without it
         if (this.getContentLength() < 0) { // only if not 
           this.setContentLength(bytes.length);
@@ -268,19 +268,20 @@ public class Response {
                           "This should never happen - bad implementation.", ex);
         }
 
-        this.responseBuilder.setLength(0);
+        this.getStringBuffer().setLength(0);
         // @todo setter may be a good idea here
-        this.responseStream = new ResponseStream();
-        this.responseStream.setBodyStream(bodyStream);
+        this.responseStream = 
+            prepareResponseStreamFromInputStream(bodyStream);
+        
       } else {
-        this.responseStream = new ResponseStream();
-        this.responseStream.setBodyStream(this.inputStreamForBody);
+        this.responseStream = 
+            prepareResponseStreamFromInputStream(this.getStreamToReadFrom());
       }
     }
-
+    
     if (this.getResponseStream().getHeadersStream() == null) { // only once
       this.getResponseStream().setHeadersStream(getHeadersToSend());
-      this.tooLateToChangeHeaders = true;
+//      this.tooLateToChangeHeaders = true;
     }
   }
 
@@ -363,13 +364,13 @@ public class Response {
    */
   public void setStreamToReadFrom(InputStream inputStream)
           throws ResponseBuildingStartedException {
-    if (this.responseBuilder != null) {
+    if (this.getStringBuffer() != null) {
       throw new ResponseBuildingStartedException();
     }
 
     this.inputStreamForBody = inputStream;
     if (this.getResponseStream() != null) {
-      this.getResponseStream().setBodyStream(this.inputStreamForBody);
+      this.getResponseStream().setBodyStream(this.getStreamToReadFrom());
     }
   }
 
@@ -431,6 +432,48 @@ public class Response {
    */
   public void setHttpProtocol(String httpProtocol) {
     this.httpProtocol = httpProtocol;
+  }
+
+  /**
+   * @return the tooLateToChangeHeaders
+   */
+  public boolean isTooLateToChangeHeaders() {
+    return tooLateToChangeHeaders;
+  }
+
+  /**
+   * @param tooLateToChangeHeaders the tooLateToChangeHeaders to set
+   */
+  void setTooLateToChangeHeaders(boolean tooLateToChangeHeaders) {
+    this.tooLateToChangeHeaders = tooLateToChangeHeaders;
+  }
+
+  /**
+   * @return the stringBuffer
+   */
+  public StringBuffer getStringBuffer() {
+    return stringBuffer;
+  }
+
+  /**
+   * @param stringBuffer the stringBuffer to set
+   */
+  public void setStringBuffer(StringBuffer stringBuffer) {
+    this.stringBuffer = stringBuffer;
+  }
+
+  public static ResponseStream prepareResponseStreamFromInputStream(
+          InputStream bodyStream) {
+    ResponseStream r = new ResponseStream();
+    r.setBodyStream(bodyStream);
+    return r;
+  }
+
+  /**
+   * @return the inputStreamForBody
+   */
+  public InputStream getStreamToReadFrom() {
+    return inputStreamForBody;
   }
 
 }

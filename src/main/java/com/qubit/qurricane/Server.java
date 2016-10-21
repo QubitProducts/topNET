@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.channels.SelectionKey;
-import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -38,7 +37,7 @@ public class Server {
   public static final int MAX_IDLE_TOUT = 5 * 1000; // miliseconds
   public static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
   private volatile boolean serverRunning;
-  private long delayForNoIOReadsInSuite;
+  private long delayForNoIOReadsInSuite = 0;
 
   /**
    * @return the handlingThreads
@@ -168,7 +167,7 @@ public class Server {
     return address;
   }
 
-  protected static SelectionKey accept(SelectionKey key, Selector readSelector)
+  protected static SocketChannel accept(SelectionKey key, Selector readSelector)
           throws IOException {
     // pick socketChannel channel
     ServerSocketChannel serverSocketChannel = 
@@ -180,7 +179,7 @@ public class Server {
       channel.configureBlocking(false);
       // now register readSelector for new event type (notice 
       // in loop accept and reading events)
-      return channel.register(readSelector, OP_READ);
+      return channel;
     }
     return null;
   }
@@ -246,11 +245,11 @@ public class Server {
     }
   }
   
-  protected static void close(SelectionKey key) {
+  protected static void close(SocketChannel channel) {
     try {
       // this method is used on "bad occurence - to cleanup any stuff left
       // cleaning will be reviewed again
-      key.channel().close();
+      channel.close();
     } catch (IOException ex) {
       log.log(Level.SEVERE, null, ex);
     }

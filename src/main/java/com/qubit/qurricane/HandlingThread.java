@@ -9,7 +9,7 @@ import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
-import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,7 +27,7 @@ public abstract class HandlingThread extends Thread {
   private int defaultMaxMessageSize;
   private volatile long delayForNoIO = 1;
   
-  abstract boolean addJob(DataHandler dataHandler, SelectionKey key);
+  abstract boolean addJob(DataHandler dataHandler);
 
   abstract boolean canAddJob();
   
@@ -36,13 +36,13 @@ public abstract class HandlingThread extends Thread {
   private static volatile long closedIdleCounter = 0;
   
   protected boolean handleMaxIdle(
-          DataHandler dataHandler, SelectionKey job, long maxIdle) {
+          DataHandler dataHandler, long maxIdle) {
     //check if connection is not open too long! Prevent DDoS
     long idle = dataHandler.getMaxIdle(maxIdle);
     if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
       log.log(Level.INFO,
               "Max idle gained - closing, total: {0}", ++closedIdleCounter);
-      Server.close(job); // just close - timedout
+      Server.close(dataHandler.getChannel()); // just close - timedout
       return true;
     }
 
@@ -53,7 +53,7 @@ public abstract class HandlingThread extends Thread {
     if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
       log.log(Level.INFO, "Max size reached - closing: {0}",
               dataHandler.getSize());
-      Server.close(job);
+      Server.close(dataHandler.getChannel());
       return true;
     }
 
@@ -106,15 +106,15 @@ public abstract class HandlingThread extends Thread {
    * @return
    * @throws IOException
    */
-  private int writeResponse(SelectionKey key, DataHandler dataHandler)
+  private int writeResponse(SocketChannel channel, DataHandler dataHandler)
           throws IOException {
-    int written = dataHandler.write(key);
+    int written = dataHandler.write(channel);
     if (written < 0) {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {
         this.runOnFinishedHandler(dataHandler);
         if (this.closeIfNecessaryAndTellIfShouldReleaseJob(
-                key, dataHandler, true)) {
+                channel, dataHandler, true)) {
           return -2;
         } else {
           return -1;
@@ -131,50 +131,48 @@ public abstract class HandlingThread extends Thread {
    * @return true only if key should be released
    * @throws IOException
    */
-  protected int processKey(SelectionKey key, DataHandler dataHandler)
+  protected int processKey(DataHandler dataHandler)
           throws IOException {
-    if (key.isValid()) {
+    SocketChannel channel = dataHandler.getChannel();
+    if (channel.isConnected()) {
       if (dataHandler.writingResponse) { // in progress of writing
-        return this.writeResponse(key, dataHandler);
+        return this.writeResponse(channel, dataHandler);
       } else {
-        try {
-          if (key.isReadable()) {
-            int many = dataHandler.read(key, getBuffer());
-            if (many < 0) { // finished reading
-              if (many == -2) {
-                dataHandler.writingResponse = true; // started writing
-                // writingResponse will be unchecked by writeResponse(...)
-                return this.writeResponse(key, dataHandler);
-              }
-              // connection is closed - just close socket
-              if (many == -1) {
-                Server.close(key);
-              }
-              
-              return -1;
-            } else {
-              return many;
-            }
-          } else {
-            return -1;
+        int many = dataHandler.read(channel, getBuffer());
+        if (many < 0) { 
+          if (many == -2) {// finished reading
+            dataHandler.writingResponse = true; // started writing
+            // writingResponse will be unchecked by writeResponse(...)
+            return this.writeResponse(channel, dataHandler);
           }
-        } catch (CancelledKeyException ex) {
-          log.info("Key already closed.");
-          Server.close(key);
-          return -1;
+          // connection is closed - just close socket
+          if (many == -1) {
+            // end of stream reached! this is an error normally.
+            Server.close(channel);
+          }
+          return -2;
+        } else {
+          return many;
         }
       }
     } else {
-      return -1;
+      return -2;
     }
   }
   
+  /**
+   * 
+   * @param channel
+   * @param dataHandler
+   * @param finishedWriting
+   * @return true if closed connection, false otherwise and will reset handler
+   */
   protected boolean closeIfNecessaryAndTellIfShouldReleaseJob(
-          SelectionKey key,
+          SocketChannel channel,
           DataHandler dataHandler,
           boolean finishedWriting) {
     if (dataHandler.canClose(finishedWriting)) {
-      Server.close(key);
+      Server.close(channel);
       return true;
     } else {
       dataHandler.reset();

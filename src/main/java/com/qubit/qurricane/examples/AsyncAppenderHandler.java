@@ -8,7 +8,6 @@ package com.qubit.qurricane.examples;
 import com.qubit.qurricane.Handler;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
-import com.qubit.qurricane.ResponseStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
@@ -24,12 +23,17 @@ public class AsyncAppenderHandler extends Handler {
   public boolean process(final Request request, final Response response) 
           throws Exception {
 //    response.setResponseStream(new ResponseStream());
-    response.prepareResponseReader();
-    response.getResponseStream()
-            .setBodyStream(new ResponseAppendableReader());
     response.setHttpProtocol(HTTP_1_1);
-    response.setContentLength(-1);// 1 value trick
     response.setMoreDataComing(true);
+    response.setContentLength(-1);// 1 value trick
+    ResponseAppendableReader source = new ResponseAppendableReader();
+    
+    if (response.getStringBuffer() != null) {
+      source.print(response.getStringBuffer());
+      response.setStringBuffer(null);
+    }
+    
+    response.setStreamToReadFrom(source);
     
     Thread t = new Thread(new Runnable() {
       @Override
@@ -37,7 +41,7 @@ public class AsyncAppenderHandler extends Handler {
         try {
           ResponseAppendableReader stream
                   = (ResponseAppendableReader)
-                    response.getResponseStream().getBodyStream();
+                    response.getStreamToReadFrom();
           Thread.sleep(1000);
           stream.print("Hello after 1 sec!<br>\n");
           Thread.sleep(1000);
@@ -95,6 +99,10 @@ class ResponseAppendableReader extends InputStream {
   }
 
   public void print(String str) {
+    buffer.append(str);
+  }
+  
+  public void print(StringBuffer str) {
     buffer.append(str);
   }
 }

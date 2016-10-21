@@ -8,7 +8,6 @@ package com.qubit.qurricane;
 import com.qubit.qurricane.exceptions.OutputStreamAlreadySetException;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
-import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.Date;
@@ -24,7 +23,7 @@ public class Request {
 
   private final Map<String, String> headers;
   private OutputStream outputStream;
-  private final SelectionKey key;
+  private final SocketChannel channel;
   private String bodyStringCache;
 
   private String path;
@@ -38,9 +37,9 @@ public class Request {
   private final long createdTime;
   private Runnable writeFinishedHandler;
 
-  protected Request(SelectionKey key, Map<String, String> headers) {
+  protected Request(SocketChannel channel, Map<String, String> headers) {
     this.headers = headers;
-    this.key = key;
+    this.channel = channel;
     this.createdTime = new Date().getTime();
   }
 
@@ -116,15 +115,8 @@ public class Request {
     this.outputStream = outputStream;
   }
 
-  /**
-   * @return the key
-   */
-  public SelectionKey getKey() {
-    return key;
-  }
-
-  public SocketChannel getSocketChannel() {
-    return (SocketChannel) getKey().channel();
+  public SocketChannel getChannel() {
+    return channel;
   }
 
   /**

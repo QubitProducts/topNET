@@ -6,7 +6,6 @@
 package com.qubit.qurricane;
 
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,7 +16,7 @@ import java.util.logging.Logger;
  */
 class HandlingThreadQueued extends HandlingThread {
 
-  private final ConcurrentLinkedDeque<SelectionKey> jobs = 
+  private final ConcurrentLinkedDeque<DataHandler> jobs = 
           new ConcurrentLinkedDeque<>();
   private final long maxIdle;
   private int limit = 16;
@@ -39,44 +38,43 @@ class HandlingThreadQueued extends HandlingThread {
 
   @Override
   public int runSinglePass() {
-    SelectionKey job;
+    DataHandler job;
     int totalWroteRead = 0;
     while ((job = this.getJobs().pollFirst()) != null) {
-
-      boolean isFinished = true;
-      DataHandler dataHandler = (DataHandler) job.attachment();
-
-      try {
-        // important step! skip those busy
-        if (dataHandler != null) {
+     
+      // important step! skip those busy
+      if (job != null) {
+        boolean isFinished = true;
+        try {
 
           //check if connection is not open too long! Prevent DDoS
-          if (this.handleMaxIdle(dataHandler, job, maxIdle)) {
+          if (this.handleMaxIdle(job, maxIdle)) {
             continue;
           }
-          
-          int processed = this.processKey(job, dataHandler);
-          
-          if (processed < 0) {
-                // job not necessary anymore
+
+          int processed = this.processKey(job);
+
+          if (processed < -1) {
+              // job not necessary anymore
             // isFinished = true;
           } else {
             // keep job
             totalWroteRead += processed;
             isFinished = false;
           }
-        }
-      } catch (Exception es) {
-        log.log(Level.SEVERE, "Exception during handling data.", es);
-        isFinished = true;
-        Server.close(job);
-      } finally {
-        if (isFinished) { // will be closed
-          if (dataHandler != null) {
-            dataHandler.locked = false;
+
+        } catch (Exception es) {
+          log.log(Level.SEVERE, "Exception during handling data.", es);
+          isFinished = true;
+          Server.close(job.getChannel());
+        } finally {
+          if (isFinished) { // will be closed
+            if (job != null) {
+              job.locked = false;
+            }
+          } else {
+            this.getJobs().addLast(job); // put back to queue
           }
-        } else {
-          this.getJobs().addLast(job); // put back to queue
         }
       }
     }
@@ -90,10 +88,10 @@ class HandlingThreadQueued extends HandlingThread {
    * @return
    */
   @Override
-  public boolean addJob(DataHandler dataHandler, SelectionKey key) {
+  public boolean addJob(DataHandler dataHandler) {
     if (limit > 0 && this.getJobs().size() < limit) {
       dataHandler.locked = true; //single thread is deciding on this
-      boolean added = this.getJobs().add(key);
+      boolean added = this.getJobs().add(dataHandler);
       if (added) {
         synchronized (this) {
           this.notify();
@@ -136,7 +134,7 @@ class HandlingThreadQueued extends HandlingThread {
   /**
    * @return the jobs
    */
-  public ConcurrentLinkedDeque<SelectionKey> getJobs() {
+  public ConcurrentLinkedDeque<DataHandler> getJobs() {
     return jobs;
   }
 

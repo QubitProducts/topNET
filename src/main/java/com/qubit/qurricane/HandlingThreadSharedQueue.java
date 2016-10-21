@@ -5,7 +5,6 @@
  */
 package com.qubit.qurricane;
 
-import java.nio.channels.SelectionKey;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
@@ -14,7 +13,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  */
 public class HandlingThreadSharedQueue extends HandlingThreadQueued {
 
-  private final static ConcurrentLinkedDeque<SelectionKey> jobs = 
+  private final static ConcurrentLinkedDeque<DataHandler> jobs = 
           new ConcurrentLinkedDeque<>();
   
   public HandlingThreadSharedQueue(
@@ -25,7 +24,7 @@ public class HandlingThreadSharedQueue extends HandlingThreadQueued {
   }
 
   @Override
-  public ConcurrentLinkedDeque<SelectionKey> getJobs() {
+  public ConcurrentLinkedDeque<DataHandler> getJobs() {
     return HandlingThreadSharedQueue.jobs;
   }
 }

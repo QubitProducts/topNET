@@ -25,8 +25,19 @@ class ServerTime {
     dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
   }
   
+  static volatile private long lastRead = 0;
+  String cachedTime = null;
+  
+  public String getCachedTime() {
+    long now = new Date().getTime();
+    if (cachedTime == null || (lastRead + 777) < now) {
+      lastRead = now;
+      cachedTime = getTime();
+    }
+    return cachedTime;
+  }
+  
   public String getTime() {
     return dateFormat.format(new Date());
   }
-  
 }
