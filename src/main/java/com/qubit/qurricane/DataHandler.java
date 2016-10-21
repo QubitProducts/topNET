@@ -16,9 +16,11 @@ import com.qubit.qurricane.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -33,6 +35,8 @@ public class DataHandler {
   private volatile int size = 0; // check if its needed volatile
 
   private final Map<String, String> headers = new HashMap<>();
+  
+  private ReentrantLock lock;
 
   private String method;
   private String fullPath;
@@ -47,8 +51,6 @@ public class DataHandler {
   private final StringBuffer currentLine = new StringBuffer();
   private int contentLengthCounter = 0;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
-
-  public volatile boolean locked = false;
 
   private Request request;
   private Response response;
@@ -68,6 +70,7 @@ public class DataHandler {
   private int writeBufSize;
   private boolean wasMarkedAsMoreDataIsComing;
   private final SocketChannel channel;
+  private final SelectionKey selectionKey;
 
   protected void reset() {
     size = 0;
@@ -92,14 +95,22 @@ public class DataHandler {
     writeBuffer = null;
   }
 
-  public DataHandler(Server server, SocketChannel channel) {
-    this.channel = channel;
+  public DataHandler(Server server, SelectionKey key) {
+    this.selectionKey = key;
+    this.channel = ((SocketChannel) key.channel());
     this.server = server;
     this.writeBufSize = server.getDataHandlerWriteBufferSize();
     touch = System.currentTimeMillis();
   }
 
-  // returns true if should listen for write
+  protected void makeLockable() {
+    if (lock == null) {
+      lock = new ReentrantLock();
+    }
+  }
+  
+  // returns -2 when done reading -1 when data stream  to read is finished , 
+  //-2 means that logically read is over, -1 that EOF stream occured 
   public synchronized int read(SocketChannel channel, ByteBuffer buf)
           throws IOException {
 
@@ -673,5 +684,19 @@ public class DataHandler {
    */
   public SocketChannel getChannel() {
     return channel;
+  }
+
+  /**
+   * @return the lock
+   */
+  public ReentrantLock getLock() {
+    return lock;
+  }
+
+  /**
+   * @return the selectionKey
+   */
+  public SelectionKey getSelectionKey() {
+    return selectionKey;
   }
 }

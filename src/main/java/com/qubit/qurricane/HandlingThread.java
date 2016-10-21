@@ -8,7 +8,6 @@ package com.qubit.qurricane;
 import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,10 +67,10 @@ public abstract class HandlingThread extends Thread {
         boolean noIOOccured = false;
         
         while (this.hasJobs()) {
-          this.takeSomeBreak();
           if (this.runSinglePass() == 0) {
             noIOOccured = true;
           }
+          this.takeSomeBreak();
         }
 
         try {
@@ -115,9 +114,9 @@ public abstract class HandlingThread extends Thread {
         this.runOnFinishedHandler(dataHandler);
         if (this.closeIfNecessaryAndTellIfShouldReleaseJob(
                 channel, dataHandler, true)) {
-          return -2;
-        } else {
           return -1;
+        } else {
+          return 0;
         }
       }
     }
@@ -134,29 +133,27 @@ public abstract class HandlingThread extends Thread {
   protected int processKey(DataHandler dataHandler)
           throws IOException {
     SocketChannel channel = dataHandler.getChannel();
-    if (channel.isConnected()) {
+    if (channel.finishConnect()) {
       if (dataHandler.writingResponse) { // in progress of writing
         return this.writeResponse(channel, dataHandler);
       } else {
         int many = dataHandler.read(channel, getBuffer());
-        if (many < 0) { 
-          if (many == -2) {// finished reading
+        
+        if (many < 0) { // reading is over
+          if (many == -2) {// finished reading correctly, otherwise many is -1
             dataHandler.writingResponse = true; // started writing
             // writingResponse will be unchecked by writeResponse(...)
             return this.writeResponse(channel, dataHandler);
-          }
-          // connection is closed - just close socket
-          if (many == -1) {
+          } else if (many == -1) {
             // end of stream reached! this is an error normally.
             Server.close(channel);
           }
-          return -2;
-        } else {
-          return many;
         }
+        
+        return many;
       }
     } else {
-      return -2;
+      return 0; //no IO occured
     }
   }
   
@@ -210,13 +207,18 @@ public abstract class HandlingThread extends Thread {
   
   protected abstract boolean hasJobs();
   
+  public static volatile long totalWaitedIO = 0;
+  
   protected void waitForSomethingToIO() {
     if (this.getSinglePassDelay() > 0) {
       synchronized (this) {
         try {
-          this.wait((long)((Math.random() * this.getDelayForNoIO()) + 0.5));
+          long timeToWait =
+              (long)((Math.random() * this.getDelayForNoIO()) + 0.5);
+          totalWaitedIO += timeToWait;
+          this.wait(timeToWait);
         } catch (InterruptedException ex) {
-          log.log(Level.SEVERE, "Single pass delay interrupted.", ex);
+          log.log(Level.FINE, "waitForSomethingToIO delay interrupted.", ex);
         }
       }
     }
@@ -228,7 +230,7 @@ public abstract class HandlingThread extends Thread {
         try {
           this.wait((long)((Math.random() * this.getSinglePassDelay()) + 0.5));
         } catch (InterruptedException ex) {
-          log.log(Level.SEVERE, "Single pass delay interrupted.", ex);
+          log.log(Level.FINE, "takeSomeBreak delay interrupted.", ex);
         }
       }
     }
@@ -279,5 +281,9 @@ public abstract class HandlingThread extends Thread {
    */
   public void setDelayForNoIO(long delayForNoIO) {
     this.delayForNoIO = delayForNoIO;
+  }
+  
+  protected void onJobFinished(DataHandler dataHandler) {
+    dataHandler.getSelectionKey().cancel();
   }
 }

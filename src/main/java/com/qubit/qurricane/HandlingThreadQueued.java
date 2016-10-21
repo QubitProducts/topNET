@@ -6,7 +6,9 @@
 package com.qubit.qurricane;
 
 import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,6 +23,8 @@ class HandlingThreadQueued extends HandlingThread {
   private final long maxIdle;
   private int limit = 16;
   private final Server server;
+  
+  private boolean lockingHandlers = false;
 
   static final Logger log = Logger.getLogger(
           HandlingThreadQueued.class.getName());
@@ -41,41 +45,78 @@ class HandlingThreadQueued extends HandlingThread {
     DataHandler job;
     int totalWroteRead = 0;
     while ((job = this.getJobs().pollFirst()) != null) {
-     
       // important step! skip those busy
       if (job != null) {
-        boolean isFinished = true;
+        
+        ReentrantLock lock = null;
+        boolean proceed = true;
+        
         try {
-
-          //check if connection is not open too long! Prevent DDoS
-          if (this.handleMaxIdle(job, maxIdle)) {
-            continue;
-          }
-
-          int processed = this.processKey(job);
-
-          if (processed < -1) {
-              // job not necessary anymore
-            // isFinished = true;
-          } else {
-            // keep job
-            totalWroteRead += processed;
-            isFinished = false;
-          }
-
-        } catch (Exception es) {
-          log.log(Level.SEVERE, "Exception during handling data.", es);
-          isFinished = true;
-          Server.close(job.getChannel());
-        } finally {
-          if (isFinished) { // will be closed
-            if (job != null) {
-              job.locked = false;
+          if (isLockingHandlers()) {
+            job.makeLockable();
+            if (!job.getLock().tryLock()) {
+              proceed = false;
+            } else {
+              lock = job.getLock();
             }
-          } else {
-            this.getJobs().addLast(job); // put back to queue
+          }
+          // PROCESSING BLOCK ***
+          if (proceed) {
+            boolean isFinished = true;
+            
+            try {
+
+              //check if connection is not open too long! Prevent DDoS
+              if (this.handleMaxIdle(job, maxIdle)) {
+                continue;
+              }
+
+              int processed = this.processKey(job);
+
+              if (processed < 0) {
+                  // job not necessary anymore
+                // isFinished = true;
+              } else {
+                // keep job
+                totalWroteRead += processed;
+                isFinished = false;
+              }
+
+            } catch (Exception es) {
+              log.log(Level.SEVERE, "Exception during handling data.", es);
+              isFinished = true;
+              Server.close(job.getChannel());
+            } finally {
+              if (!isFinished) { // will be closed
+                this.getJobs().addLast(job); // put back to queue
+              }
+            }
+          }
+          // *** PROCESSING BLOCK
+        } finally {
+          try {
+            
+            this.onJobFinished(job);
+            
+            if (lock != null) {
+              job.getLock().unlock();
+            }
+          } catch (IllegalMonitorStateException e) {
+            log.log(Level.SEVERE, null, e);
           }
         }
+      }
+      
+      if (getJobs().isEmpty()) {
+        break; // take some rest!
+      }
+      
+      try {
+        if (job == getJobs().getLast()) {
+          break; // take some rest!
+        }
+      } catch (NoSuchElementException ne) {
+        // can occur when multi threaded, very rare
       }
     }
     
@@ -89,15 +130,12 @@ class HandlingThreadQueued extends HandlingThread {
    */
   @Override
   public boolean addJob(DataHandler dataHandler) {
-    if (limit > 0 && this.getJobs().size() < limit) {
-      dataHandler.locked = true; //single thread is deciding on this
+    if (limit > 0 && this.getJobs().size() < limit) { // @todo getSize is not good
       boolean added = this.getJobs().add(dataHandler);
       if (added) {
         synchronized (this) {
           this.notify();
         }
-      } else {
-        dataHandler.locked = false;
       }
       return added;
     }
@@ -134,7 +172,7 @@ class HandlingThreadQueued extends HandlingThread {
   /**
    * @return the jobs
    */
-  public ConcurrentLinkedDeque<DataHandler> getJobs() {
+  protected ConcurrentLinkedDeque<DataHandler> getJobs() {
     return jobs;
   }
 
@@ -144,4 +182,19 @@ class HandlingThreadQueued extends HandlingThread {
   public Server getServer() {
     return server;
   }
+
+  /**
+   * @return the lockingHandlers
+   */
+  public boolean isLockingHandlers() {
+    return lockingHandlers;
+  }
+
+  /**
+   * @param lockingHandlers the lockingHandlers to set
+   */
+  public void setLockingHandlers(boolean lockingHandlers) {
+    this.lockingHandlers = lockingHandlers;
+  }
+
 }

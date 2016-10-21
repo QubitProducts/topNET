@@ -60,7 +60,7 @@ class HandlingThreadPooled extends HandlingThread {
             // -2 close, -1 hold
             int processed = this.processKey(dataHandler);
             
-            if (processed < -1) {
+            if (processed < 0) {
               // job not necessary anymore
             } else {
               // keep job
@@ -74,7 +74,9 @@ class HandlingThreadPooled extends HandlingThread {
           Server.close(channel);
         } finally {
           if (isFinished) {
+            //key cancell!
             this.removeJobFromPool(i, dataHandler);
+            this.onJobFinished(dataHandler);
           }
         }
       }
@@ -90,17 +92,14 @@ class HandlingThreadPooled extends HandlingThread {
    */
   @Override
   public boolean addJob(DataHandler dataHandler) {
-    if (!dataHandler.locked) {
-      for (int i = 0; i < this.jobs.length(); i++) {
-        DataHandler job = this.jobs.get(i);
-        if (job == null) {
-          dataHandler.locked = true;
-          this.jobs.set(i, dataHandler);
-          synchronized (this) {
-            this.notify();
-          }
-          return true;
+    for (int i = 0; i < this.jobs.length(); i++) {
+      DataHandler job = this.jobs.get(i);
+      if (job == null) {
+        this.jobs.set(i, dataHandler);
+        synchronized (this) {
+          this.notify();
         }
+        return true;
       }
     }
 
@@ -120,10 +119,6 @@ class HandlingThreadPooled extends HandlingThread {
 
   private void removeJobFromPool(int i, DataHandler dataHandler) {
     this.jobs.set(i, null);
-
-    if (dataHandler != null) {
-      dataHandler.locked = false;
-    }
   }
 
   @Override

@@ -38,6 +38,7 @@ public class Server {
   public static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
   private volatile boolean serverRunning;
   private long delayForNoIOReadsInSuite = 0;
+  private boolean blockingReadsAndWrites = false;
 
   /**
    * @return the handlingThreads
@@ -167,7 +168,7 @@ public class Server {
     return address;
   }
 
-  protected static SocketChannel accept(SelectionKey key, Selector readSelector)
+  protected SocketChannel accept(SelectionKey key, Selector readSelector)
           throws IOException {
     // pick socketChannel channel
     ServerSocketChannel serverSocketChannel = 
@@ -176,7 +177,7 @@ public class Server {
     SocketChannel channel = serverSocketChannel.accept();
 
     if (channel != null) {
-      channel.configureBlocking(false);
+      channel.configureBlocking(this.isBlockingReadsAndWrites());
       // now register readSelector for new event type (notice 
       // in loop accept and reading events)
       return channel;
@@ -249,6 +250,7 @@ public class Server {
     try {
       // this method is used on "bad occurence - to cleanup any stuff left
       // cleaning will be reviewed again
+//      key.cancel();
       channel.close();
     } catch (IOException ex) {
       log.log(Level.SEVERE, null, ex);
@@ -446,6 +448,18 @@ public class Server {
   public void setDelayForNoIOReadsInSuite(long delayForNoIOReadsInSuite) {
     this.delayForNoIOReadsInSuite = delayForNoIOReadsInSuite;
   }
-  
-  
+
+  /**
+   * @return the blockingReadsAndWrites
+   */
+  public boolean isBlockingReadsAndWrites() {
+    return blockingReadsAndWrites;
+  }
+
+  /**
+   * @param blockingReadsAndWrites the blockingReadsAndWrites to set
+   */
+  public void setBlockingReadsAndWrites(boolean blockingReadsAndWrites) {
+    this.blockingReadsAndWrites = blockingReadsAndWrites;
+  }
 }

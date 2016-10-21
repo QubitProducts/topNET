@@ -5,12 +5,15 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
+import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.LinkedList;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -81,17 +84,17 @@ class MainAcceptAndDispatchThread extends Thread {
                 }
               }
               
-              SocketChannel channel = Server.accept(key, acceptSelector);
+              SocketChannel channel = this.server.accept(key, acceptSelector);
               
               if (channel != null) {
+                channel.register(acceptSelector, OP_READ);
                 acceptedCnt++;
-                this.startReading(handlingThreads, channel);
               }
             } else {
-//              this.startReading(handlingThreads, key.channel(), dataHandler);
+              this.startReading(handlingThreads, key);
             }
           } else {
-            key.cancel();
+            key.channel().close();
           }
         } catch (CancelledKeyException ex) {
           log.info("Key already closed.");
@@ -102,30 +105,37 @@ class MainAcceptAndDispatchThread extends Thread {
       
       if (System.currentTimeMillis() > lastMeassured + getInfoLogsFrequency()) {
         log.log(Level.INFO,
-                "Accepted connections: {0}, total accept waited: {1}ms",
-                new Object[]{acceptedCnt, totalWaitingAcceptMsCounter});
+                "Accepted connections: {0}, total accept waited: {1}ms, total waited IO: {2}",
+                new Object[]{
+                  acceptedCnt,
+                  totalWaitingAcceptMsCounter,
+                  totalWaitedIO});
         lastMeassured = System.currentTimeMillis();
       }
     }
   }
   
+  LinkedList<DataHandler> waitingJobs = new LinkedList<>();
+  
 //  int i = 0;
   private void startReading(
           HandlingThread[] handlingThreads,
-          SocketChannel channel) {
-    DataHandler dataHandler = new DataHandler(server, channel);
+          SelectionKey key) {
+    
+    if (key.attachment() == null && key.isReadable()) {
+      DataHandler dataHandler = 
+              new DataHandler(server, key);
 
-    // add to worker
-    if (!dataHandler.locked) {
       // currently closeIfNecessaryAndTellIfShouldReleaseJob
       // decides that single job is bound to thread - and it's fine
       for (int c = 0; c < handlingThreads.length; c++) {
         HandlingThread handlingThread = handlingThreads[currentThread];
         currentThread = (currentThread + 1) % handlingThreads.length;
-        
+
         if (handlingThread != null && 
                 handlingThread.addJob(dataHandler)) {
-//          log.info(">>>>>> " + i++);
+  //          log.info(">>>>>> " + i++);
+          key.attach(dataHandler);
           break;
         }
       }
