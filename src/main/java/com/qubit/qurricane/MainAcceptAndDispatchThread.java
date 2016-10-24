@@ -42,6 +42,7 @@ class MainAcceptAndDispatchThread extends Thread {
   private final Selector acceptSelector;
   private final Server server;
   private boolean allowingMoreAcceptsThanSlots = false;
+  private long acceptDelay;
 
   MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) 
           throws IOException {
@@ -55,10 +56,19 @@ class MainAcceptAndDispatchThread extends Thread {
   @Override
   public void run() {
     HandlingThread[] handlingThreads = this.server.getHandlingThreads();
+    
     long lastMeassured = System.currentTimeMillis();
     long totalWaitingAcceptMsCounter = 0;
     
     while (this.server.isServerRunning()) {
+      
+       if (this.getAcceptDelay() > 0) {
+        try {
+          Thread.sleep(this.getAcceptDelay());
+        } catch (InterruptedException ex) {
+        }
+      }
+      
       try {
         // pick current events list:
         acceptSelector.select();
@@ -70,11 +80,10 @@ class MainAcceptAndDispatchThread extends Thread {
               = acceptSelector.selectedKeys();
       
       for (SelectionKey key : selectionKeys) {
+        
         try {
           if (key.isValid()) {
-//            DataHandler dataHandler = (DataHandler) key.attachment();
             if (key.isAcceptable()) {
-              
               if (!isAllowingMoreAcceptsThanSlots()) {
                 while(!thereAreFreeJobs(handlingThreads)) {
                   try {
@@ -102,6 +111,8 @@ class MainAcceptAndDispatchThread extends Thread {
           log.log(Level.SEVERE, null, ex);
         }
       }
+
+      selectionKeys.clear();
       
       if (System.currentTimeMillis() > lastMeassured + getInfoLogsFrequency()) {
         log.log(Level.INFO,
@@ -122,9 +133,13 @@ class MainAcceptAndDispatchThread extends Thread {
           HandlingThread[] handlingThreads,
           SelectionKey key) {
     
-    if (key.attachment() == null && key.isReadable()) {
-      DataHandler dataHandler = 
-              new DataHandler(server, key);
+    if (key.isReadable()) {
+      DataHandler dataHandler = (DataHandler) key.attachment();
+      
+      if (dataHandler == null) {
+        dataHandler = new DataHandler(server, (SocketChannel) key.channel());
+        key.attach(dataHandler);
+      }
 
       // currently closeIfNecessaryAndTellIfShouldReleaseJob
       // decides that single job is bound to thread - and it's fine
@@ -134,8 +149,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
         if (handlingThread != null && 
                 handlingThread.addJob(dataHandler)) {
-  //          log.info(">>>>>> " + i++);
-          key.attach(dataHandler);
+          key.cancel(); // remove key, handled channel is now by job processor
           break;
         }
       }
@@ -166,6 +180,20 @@ class MainAcceptAndDispatchThread extends Thread {
    */
   public void setAllowingMoreAcceptsThanSlots(boolean allowingMoreAcceptsThanSlots) {
     this.allowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
+  }
+
+  /**
+   * @return the acceptDelay
+   */
+  public long getAcceptDelay() {
+    return acceptDelay;
+  }
+
+  /**
+   * @param acceptDelay the acceptDelay to set
+   */
+  public void setAcceptDelay(long acceptDelay) {
+    this.acceptDelay = acceptDelay;
   }
 
 }
