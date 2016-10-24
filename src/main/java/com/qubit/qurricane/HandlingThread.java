@@ -284,6 +284,5 @@ public abstract class HandlingThread extends Thread {
   }
   
   protected void onJobFinished(DataHandler dataHandler) {
-    dataHandler.getSelectionKey().cancel();
   }
 }
