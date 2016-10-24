@@ -39,6 +39,7 @@ public class Server {
   private volatile boolean serverRunning;
   private long delayForNoIOReadsInSuite = 0;
   private boolean blockingReadsAndWrites = false;
+  private long acceptDelay = 0;
 
   /**
    * @return the handlingThreads
@@ -124,6 +125,7 @@ public class Server {
 
     this.setupThreadsList();
 
+    mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
     mainAcceptDispatcher.setAllowingMoreAcceptsThanSlots(
             this.isAllowingMoreAcceptsThanSlots());
     mainAcceptDispatcher.start();
@@ -461,5 +463,19 @@ public class Server {
    */
   public void setBlockingReadsAndWrites(boolean blockingReadsAndWrites) {
     this.blockingReadsAndWrites = blockingReadsAndWrites;
+  }
+
+  /**
+   * @return the acceptDelay
+   */
+  public long getAcceptDelay() {
+    return acceptDelay;
+  }
+
+  /**
+   * @param acceptDelay the acceptDelay to set
+   */
+  public void setAcceptDelay(long acceptDelay) {
+    this.acceptDelay = acceptDelay;
   }
 }
