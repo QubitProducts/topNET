@@ -70,7 +70,6 @@ public class DataHandler {
   private int writeBufSize;
   private boolean wasMarkedAsMoreDataIsComing;
   private final SocketChannel channel;
-  private final SelectionKey selectionKey;
 
   protected void reset() {
     size = 0;
@@ -95,9 +94,8 @@ public class DataHandler {
     writeBuffer = null;
   }
 
-  public DataHandler(Server server, SelectionKey key) {
-    this.selectionKey = key;
-    this.channel = ((SocketChannel) key.channel());
+  public DataHandler(Server server, SocketChannel channel) {
+    this.channel = channel;
     this.server = server;
     this.writeBufSize = server.getDataHandlerWriteBufferSize();
     touch = System.currentTimeMillis();
@@ -691,12 +689,5 @@ public class DataHandler {
    */
   public ReentrantLock getLock() {
     return lock;
-  }
-
-  /**
-   * @return the selectionKey
-   */
-  public SelectionKey getSelectionKey() {
-    return selectionKey;
   }
 }
