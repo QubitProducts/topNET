@@ -16,7 +16,6 @@ import com.qubit.qurricane.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,6 +69,7 @@ public class DataHandler {
   private int writeBufSize;
   private boolean wasMarkedAsMoreDataIsComing;
   private final SocketChannel channel;
+  private long acceptedTime;
 
   protected void reset() {
     size = 0;
@@ -689,5 +689,19 @@ public class DataHandler {
    */
   public ReentrantLock getLock() {
     return lock;
+  }
+
+  /**
+   * @return the acceptedTime
+   */
+  public long getAcceptedTime() {
+    return acceptedTime;
+  }
+
+  /**
+   * @param acceptedTime the acceptedTime to set
+   */
+  public void setAcceptedTime(long acceptedTime) {
+    this.acceptedTime = acceptedTime;
   }
 }

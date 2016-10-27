@@ -19,7 +19,7 @@ public class Demo {
    * @param args
    * @throws IOException 
    */
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws Exception {
     
     int jobs = 128;
     int buf = 8192;
@@ -56,6 +56,9 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(delay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
+    s.start();
+    Thread.sleep(200);
+    s.stop();
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());

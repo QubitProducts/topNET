@@ -16,6 +16,7 @@ import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -43,11 +44,16 @@ class MainAcceptAndDispatchThread extends Thread {
   private final Server server;
   private boolean allowingMoreAcceptsThanSlots = false;
   private long acceptDelay;
+  private final long maxIdleAfterAccept;
+  private volatile boolean running;
 
-  MainAcceptAndDispatchThread(Server server, final Selector acceptSelector) 
+  MainAcceptAndDispatchThread(Server server,
+          final Selector acceptSelector,
+          long maxIdleAfterAccept) 
           throws IOException {
     this.server = server;
     this.acceptSelector = acceptSelector;
+    this.maxIdleAfterAccept = maxIdleAfterAccept;
   }
 
   private int acceptedCnt = 0;
@@ -59,8 +65,8 @@ class MainAcceptAndDispatchThread extends Thread {
     
     long lastMeassured = System.currentTimeMillis();
     long totalWaitingAcceptMsCounter = 0;
-    
-    while (this.server.isServerRunning()) {
+    this.setRunning(true);
+    while (this.isRunning()) {
       
        if (this.getAcceptDelay() > 0) {
         try {
@@ -96,7 +102,13 @@ class MainAcceptAndDispatchThread extends Thread {
               SocketChannel channel = this.server.accept(key, acceptSelector);
               
               if (channel != null) {
-                channel.register(acceptSelector, OP_READ);
+                SelectionKey newKey = 
+                        channel.register(acceptSelector, OP_READ);
+                DataHandler dataHandler = new DataHandler(
+                        server, (SocketChannel) newKey.channel());
+                newKey.attach(dataHandler);
+                dataHandler.setAcceptedTime(System.currentTimeMillis());
+                dataHandler.touch();
                 acceptedCnt++;
               }
             } else {
@@ -124,6 +136,12 @@ class MainAcceptAndDispatchThread extends Thread {
         lastMeassured = System.currentTimeMillis();
       }
     }
+    
+    try {
+      acceptSelector.close();
+    } catch (IOException ex) {
+      log.log(Level.SEVERE, null, ex);
+    }
   }
   
   LinkedList<DataHandler> waitingJobs = new LinkedList<>();
@@ -133,19 +151,25 @@ class MainAcceptAndDispatchThread extends Thread {
           HandlingThread[] handlingThreads,
           SelectionKey key) {
     
-    if (key.isReadable()) {
-      DataHandler dataHandler = (DataHandler) key.attachment();
+    DataHandler dataHandler = (DataHandler) key.attachment();
       
-      if (dataHandler == null) {
-        dataHandler = new DataHandler(server, (SocketChannel) key.channel());
-        key.attach(dataHandler);
+    if (dataHandler == null) { // never null in this case!
+      dataHandler = new DataHandler(server, (SocketChannel) key.channel());
+      key.attach(dataHandler);
+    } else {
+      if (this.handleMaxIdle(dataHandler, this.maxIdleAfterAccept)) {
+        key.cancel();
+        return;
       }
-
+    }
+    
+    if (key.isReadable()) {
       // currently closeIfNecessaryAndTellIfShouldReleaseJob
       // decides that single job is bound to thread - and it's fine
-      for (int c = 0; c < handlingThreads.length; c++) {
+      int len = handlingThreads.length;
+      for (int c = 0; c < len; c++) {
         HandlingThread handlingThread = handlingThreads[currentThread];
-        currentThread = (currentThread + 1) % handlingThreads.length;
+        currentThread = (currentThread + 1) % len;
 
         if (handlingThread != null && 
                 handlingThread.addJob(dataHandler)) {
@@ -157,9 +181,9 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
-    for (int c = 0; c < handlingThreads.length; c++) {
+    int len = handlingThreads.length;
+    for (int c = 0; c < len; c++) {
       HandlingThread handlingThread = handlingThreads[c];
-
       if (handlingThread != null && handlingThread.canAddJob()) {
         return true;
       }
@@ -196,4 +220,35 @@ class MainAcceptAndDispatchThread extends Thread {
     this.acceptDelay = acceptDelay;
   }
 
+  private long closedIdleCounter = 0;
+  
+  protected boolean handleMaxIdle(
+          DataHandler dataHandler, long maxIdle) {
+    //check if connection is not open too long! Prevent DDoS
+    long idle = dataHandler.getMaxIdle(maxIdle);
+    if (idle != 0 &&
+            (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
+      log.log(Level.INFO,
+              "Max accept idle gained - closing, total: {0}",
+              ++closedIdleCounter);
+      Server.close(dataHandler.getChannel()); // just close - timedout
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * @return the running
+   */
+  public boolean isRunning() {
+    return running;
+  }
+
+  /**
+   * @param running the running to set
+   */
+  public void setRunning(boolean running) {
+    this.running = running;
+  }
 }

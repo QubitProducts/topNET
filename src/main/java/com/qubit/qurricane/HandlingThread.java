@@ -25,6 +25,7 @@ public abstract class HandlingThread extends Thread {
   
   private int defaultMaxMessageSize;
   private volatile long delayForNoIO = 1;
+  private volatile boolean running;
   
   abstract boolean addJob(DataHandler dataHandler);
 
@@ -62,8 +63,8 @@ public abstract class HandlingThread extends Thread {
   @Override
   public void run() {
     try {
-
-      while (this.getServer().isServerRunning()) {
+      this.setRunning(true);
+      while (this.isRunning()) {
         boolean noIOOccured = false;
         
         while (this.hasJobs()) {
@@ -76,7 +77,7 @@ public abstract class HandlingThread extends Thread {
         try {
           if (!this.hasJobs()) {
             synchronized (this) {
-              this.wait(500);
+              this.wait();
             }
           } else {
             if (noIOOccured) {
@@ -87,7 +88,6 @@ public abstract class HandlingThread extends Thread {
           log.log(Level.SEVERE, null, ex);
         }
       }
-
     } finally {
       this.getServer().removeThread(this);
     }
@@ -141,11 +141,11 @@ public abstract class HandlingThread extends Thread {
         
         if (many < 0) { // reading is over
           if (many == -2) {// finished reading correctly, otherwise many is -1
-            dataHandler.writingResponse = true; // started writing
+            dataHandler.writingResponse = true; // running writing
             // writingResponse will be unchecked by writeResponse(...)
             return this.writeResponse(channel, dataHandler);
           } else if (many == -1) {
-            // end of stream reached! this is an error normally.
+            // end of stream reached early! this is an error.
             Server.close(channel);
           }
         }
@@ -214,7 +214,7 @@ public abstract class HandlingThread extends Thread {
       synchronized (this) {
         try {
           long timeToWait =
-              (long)((Math.random() * this.getDelayForNoIO()) + 0.5);
+              (long)((Math.random() * this.getDelayForNoIO()) + 1);
           totalWaitedIO += timeToWait;
           this.wait(timeToWait);
         } catch (InterruptedException ex) {
@@ -228,7 +228,8 @@ public abstract class HandlingThread extends Thread {
     if (this.getSinglePassDelay() > 0) {
       synchronized (this) {
         try {
-          this.wait((long)((Math.random() * this.getSinglePassDelay()) + 0.5));
+          long waiting = (long)((Math.random() * this.getSinglePassDelay()) + 1);
+          this.wait(waiting);
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "takeSomeBreak delay interrupted.", ex);
         }
@@ -284,5 +285,19 @@ public abstract class HandlingThread extends Thread {
   }
   
   protected void onJobFinished(DataHandler dataHandler) {
+  }
+
+  /**
+   * @return the running
+   */
+  public boolean isRunning() {
+    return running;
+  }
+
+  /**
+   * @param started the running to set
+   */
+  public void setRunning(boolean started) {
+    this.running = started;
   }
 }
