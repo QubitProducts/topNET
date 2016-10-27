@@ -210,12 +210,12 @@ public abstract class HandlingThread extends Thread {
   public static volatile long totalWaitedIO = 0;
   
   protected void waitForSomethingToIO() {
-    if (this.getSinglePassDelay() > 0) {
+    if (this.getDelayForNoIO() > 0) {
+      long timeToWait =
+              (long)(this.getDelayForNoIO());
+      totalWaitedIO += timeToWait;
       synchronized (this) {
         try {
-          long timeToWait =
-              (long)((Math.random() * this.getDelayForNoIO()) + 1);
-          totalWaitedIO += timeToWait;
           this.wait(timeToWait);
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "waitForSomethingToIO delay interrupted.", ex);
@@ -228,8 +228,7 @@ public abstract class HandlingThread extends Thread {
     if (this.getSinglePassDelay() > 0) {
       synchronized (this) {
         try {
-          long waiting = (long)((Math.random() * this.getSinglePassDelay()) + 1);
-          this.wait(waiting);
+          this.wait(this.getSinglePassDelay());
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "takeSomeBreak delay interrupted.", ex);
         }
