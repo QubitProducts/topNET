@@ -45,7 +45,7 @@ public class Server {
 //  public static Log log = new Log(Server.class);
 
   private final int port;
-  private long delayForNoIOReadsInSuite = 0;
+  private long delayForNoIOReadsInSuite = 1;
   private boolean blockingReadsAndWrites = false;
   private long acceptDelay = 0;
   private final InetSocketAddress listenAddress;
