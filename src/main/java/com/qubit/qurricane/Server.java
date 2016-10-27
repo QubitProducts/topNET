@@ -29,7 +29,7 @@ public class Server {
   
   private HandlingThread[] handlingThreads;
   
-  public final static String SERVER_VERSION = "1.1.0";
+  public final static String SERVER_VERSION = "1.2.3";
   
   private static int THREAD_JOBS_SIZE;
   private static int THREADS_POOL_SIZE;
