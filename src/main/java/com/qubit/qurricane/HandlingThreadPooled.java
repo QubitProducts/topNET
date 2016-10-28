@@ -28,12 +28,14 @@ class HandlingThreadPooled extends HandlingThread {
   public HandlingThreadPooled(
           Server server,
           int jobsSize, int bufSize,
-          int defaultMaxMessageSize, long maxIdle) {
+          int defaultMaxMessageSize,
+          long maxIdle) {
     this.server = server;
     jobs = new DataHandlerHolder[jobsSize];
     for (int i = 0; i < jobs.length; i++) {
       jobs[i] = new DataHandlerHolder();
     }
+    
     this.setBuffer(ByteBuffer.allocate(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
@@ -76,7 +78,7 @@ class HandlingThreadPooled extends HandlingThread {
           if (isFinished) {
             //key cancell!
             try {
-              this.removeJobFromPool(i, dataHandler);
+              this.removeJobFromPool(i);
               this.onJobFinished(dataHandler);
             } finally {
               Server.close(channel);
@@ -89,11 +91,6 @@ class HandlingThreadPooled extends HandlingThread {
     return totalWroteRead;
   }
 
-  /**
-   *
-   * @param key
-   * @return
-   */
   @Override
   public boolean addJob(DataHandler dataHandler) {
     for (int i = 0; i < this.jobs.length; i++) {
@@ -121,7 +118,7 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
 
-  private void removeJobFromPool(int i, DataHandler dataHandler) {
+  private void removeJobFromPool(int i) {
     this.jobs[i].dataHandler = null;
   }
 
