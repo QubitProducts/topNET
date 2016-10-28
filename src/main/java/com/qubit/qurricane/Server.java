@@ -43,7 +43,10 @@ public class Server {
   }
   
 //  public static Log log = new Log(Server.class);
-
+  public static final String POOL = "pool";
+  public static final String QUEUE = "queue";
+  public static final String QUEUE_SHARED = "queue-shared";
+  
   private final int port;
   private long delayForNoIOReadsInSuite = 1;
   private boolean blockingReadsAndWrites = false;
@@ -57,7 +60,7 @@ public class Server {
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
-  private String poolType = "pool";
+  private String poolType = POOL;
   private int dataHandlerWriteBufferSize = 4096;
   private long singlePoolPassThreadDelay = 0;
 
@@ -195,7 +198,7 @@ public class Server {
       HandlingThread t;
       
       switch (type) {
-        case "pool":
+        case POOL:
           if (!announced) {
             log.info("Atomic Array  Pools type used.");
             announced = true;
@@ -206,7 +209,7 @@ public class Server {
                   defaultMaxMessage,
                   defaultIdleTime);
           break;
-        case "queue":
+        case QUEUE:
           if (!announced) {
             log.info("Concurrent Queue Pools type used.");
             announced = true;
@@ -217,7 +220,7 @@ public class Server {
                   defaultMaxMessage,
                   defaultIdleTime);
           break;
-        case "queue-shared":
+        case QUEUE_SHARED:
           if (!announced) {
             log.info("Shared Concurrent Queue Pools type used.");
             announced = true;
