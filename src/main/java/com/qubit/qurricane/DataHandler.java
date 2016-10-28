@@ -100,12 +100,6 @@ public class DataHandler {
     this.writeBufSize = server.getDataHandlerWriteBufferSize();
     touch = System.currentTimeMillis();
   }
-
-  protected void makeLockable() {
-    if (lock == null) {
-      lock = new ReentrantLock();
-    }
-  }
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
   //-2 means that logically read is over, -1 that EOF stream occured 
@@ -703,5 +697,18 @@ public class DataHandler {
    */
   public void setAcceptedTime(long acceptedTime) {
     this.acceptedTime = acceptedTime;
+  }
+
+  boolean tryLock() {
+    if (lock == null) {
+      return false;
+    }
+    return lock.tryLock();
+  }
+  
+  void initLock() {
+    if (lock == null) {
+      lock = new ReentrantLock();
+    }
   }
 }
