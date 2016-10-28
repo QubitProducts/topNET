@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  */
 class HandlingThreadPooled extends HandlingThread {
 
-  private final AtomicReferenceArray<DataHandler> jobs;
+  private final DataHandlerHolder[] jobs;
   
   private final Server server;
   
@@ -32,7 +32,10 @@ class HandlingThreadPooled extends HandlingThread {
           int jobsSize, int bufSize,
           int defaultMaxMessageSize, long maxIdle) {
     this.server = server;
-    jobs = new AtomicReferenceArray<>(jobsSize);
+    jobs = new DataHandlerHolder[jobsSize];
+    for (int i = 0; i < jobs.length; i++) {
+      jobs[i] = new DataHandlerHolder();
+    }
     this.setBuffer(ByteBuffer.allocate(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
@@ -42,8 +45,8 @@ class HandlingThreadPooled extends HandlingThread {
   public int runSinglePass() {
     int totalWroteRead = 0;
     
-    for (int i = 0; i < this.jobs.length(); i++) {
-      DataHandler dataHandler = this.jobs.get(i);
+    for (int i = 0; i < this.jobs.length; i++) {
+      DataHandler dataHandler = this.jobs[i].dataHandler;
 
       if (dataHandler != null) {
         boolean isFinished = true;
@@ -71,12 +74,15 @@ class HandlingThreadPooled extends HandlingThread {
         } catch (Exception es) {
           log.log(Level.SEVERE, "Exception during handling data.", es);
           isFinished = true;
-          Server.close(channel);
         } finally {
           if (isFinished) {
             //key cancell!
-            this.removeJobFromPool(i, dataHandler);
-            this.onJobFinished(dataHandler);
+            try {
+              this.removeJobFromPool(i, dataHandler);
+              this.onJobFinished(dataHandler);
+            } finally {
+              Server.close(channel);
+            }
           }
         }
       }
@@ -92,10 +98,10 @@ class HandlingThreadPooled extends HandlingThread {
    */
   @Override
   public boolean addJob(DataHandler dataHandler) {
-    for (int i = 0; i < this.jobs.length(); i++) {
-      DataHandler job = this.jobs.get(i);
+    for (int i = 0; i < this.jobs.length; i++) {
+      DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
-        this.jobs.set(i, dataHandler);
+        this.jobs[i].dataHandler = dataHandler;
         synchronized (this) {
           this.notify();
         }
@@ -108,8 +114,8 @@ class HandlingThreadPooled extends HandlingThread {
 
   @Override
   protected boolean hasJobs() {
-    for (int i = 0; i < this.jobs.length(); i++) {
-      if (this.jobs.get(i) != null) {
+    for (int i = 0; i < this.jobs.length; i++) {
+      if (this.jobs[i].dataHandler != null) {
         return true;
       }
     }
@@ -118,13 +124,13 @@ class HandlingThreadPooled extends HandlingThread {
 
 
   private void removeJobFromPool(int i, DataHandler dataHandler) {
-    this.jobs.set(i, null);
+    this.jobs[i].dataHandler = null;
   }
 
   @Override
   boolean canAddJob() {
-    for (int i = 0; i < this.jobs.length(); i++) {
-      if (this.jobs.get(i) == null) {
+    for (int i = 0; i < this.jobs.length; i++) {
+      if (this.jobs[i].dataHandler == null) {
         return true;
       }
     }
