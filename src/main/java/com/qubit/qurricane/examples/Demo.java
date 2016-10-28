@@ -24,7 +24,7 @@ public class Demo {
     int jobs = 64;
     int buf = 8192;
     int th = 8;
-    long delay = 0;
+    long delay = 1;
     long acceptDelay = 0;
     long breakStop = 0;
     
