@@ -21,10 +21,10 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 128;
+    int jobs = 64;
     int buf = 8192;
     int th = 8;
-    long delay = 1;
+    long delay = 0;
     long acceptDelay = 0;
     long breakStop = 0;
     
@@ -39,6 +39,28 @@ public class Demo {
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.start();
+    Thread.sleep(200);
+    s.stop();
+    s.start();
+    
+    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    
+    s = new Server("localhost", 3457);
+    
+    s.setJobsPerThread(jobs * 8);
+    // one byte buffer!
+    s.setRequestBufferSize(buf);
+    s.setThreadsAmount(th);
+    s.setPoolType("pool-shared");
+    s.setDelayForNoIOReadsInSuite(delay);
+    s.setSinglePoolPassThreadDelay(breakStop);
+    s.setAcceptDelay(acceptDelay);
+    s.start();
+    Thread.sleep(200);
+    s.stop();
+    s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/echo", new EchoHandler());
@@ -46,7 +68,7 @@ public class Demo {
     
     // second version
     
-    s = new Server("localhost", 3457);
+    s = new Server("localhost", 3458);
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
@@ -65,7 +87,7 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
-    s = new Server("localhost", 3458);
+    s = new Server("localhost", 3459);
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
@@ -75,6 +97,9 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(delay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
+    s.start();
+    Thread.sleep(200);
+    s.stop();
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());

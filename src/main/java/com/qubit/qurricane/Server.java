@@ -44,6 +44,7 @@ public class Server {
   
 //  public static Log log = new Log(Server.class);
   public static final String POOL = "pool";
+  public static final String POOL_SHARED = "pool-shared";
   public static final String QUEUE = "queue";
   public static final String QUEUE_SHARED = "queue-shared";
   
@@ -68,7 +69,7 @@ public class Server {
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingPathHandlers = 
           new ArrayList<>();
-  private boolean allowingMoreAcceptsThanSlots = false;
+  private boolean allowingMoreAcceptsThanSlots = true;
   private boolean stoppingNow = false;
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;
@@ -209,6 +210,17 @@ public class Server {
                   defaultMaxMessage,
                   defaultIdleTime);
           break;
+        case POOL_SHARED:
+          if (!announced) {
+            log.info("Atomic Array  Pools type used.");
+            announced = true;
+          } t = new HandlingThreadPooledShared(
+                  this,
+                  jobsSize,
+                  bufSize,
+                  defaultMaxMessage,
+                  defaultIdleTime);
+          break;
         case QUEUE:
           if (!announced) {
             log.info("Concurrent Queue Pools type used.");
@@ -244,14 +256,14 @@ public class Server {
       handlingThreads[i] = t;
     }
   }
-  
+
   protected static void close(SocketChannel channel) {
     try {
       // this method is used on "bad occurence - to cleanup any stuff left
       // cleaning will be reviewed again
 //      key.cancel();
       channel.close();
-    } catch (IOException ex) {
+    } catch (Exception ex) {
       log.log(Level.SEVERE, null, ex);
     }
   }

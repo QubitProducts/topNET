@@ -21,7 +21,6 @@ public class HandlingThreadSharedQueue extends HandlingThreadQueued {
           int jobsSize, int bufSize,
           int defaultMaxMessageSize, long maxIdle) {
     super(server, jobsSize, bufSize, defaultMaxMessageSize, maxIdle);
-    this.setLockingHandlers(true);
   }
 
   @Override

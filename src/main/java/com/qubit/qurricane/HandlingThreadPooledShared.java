@@ -52,12 +52,11 @@ class HandlingThreadPooledShared extends HandlingThread {
               HandlingThreadPooledShared.jobs[i].dataHandler;
 
       if (dataHandler != null) {
-        boolean locked = true;
         try {
-          if (!dataHandler.tryLock()) {
-            locked = false;
+          if (dataHandler.atomicRefToHandlingThread == null || 
+             !dataHandler.atomicRefToHandlingThread.compareAndSet(null, this)) {
             continue;
-            // something else already picked it
+            // something else already works on it
           }
 
           // PROCESSING BLOCK
@@ -100,8 +99,8 @@ class HandlingThreadPooledShared extends HandlingThread {
           // PROCESSING BLOCK ***
         } finally {
           try {
-            if (locked && dataHandler.getLock() != null) {
-              dataHandler.getLock().unlock();
+            if (dataHandler.atomicRefToHandlingThread != null) {
+              dataHandler.atomicRefToHandlingThread.compareAndSet(this, null);
             }
           } catch (IllegalMonitorStateException e) {
             log.log(Level.SEVERE, null, e);
@@ -115,7 +114,7 @@ class HandlingThreadPooledShared extends HandlingThread {
 
   /**
    * This method should never be used within this object  thread!
-   * Note that initLock() initialises the lock on data handler.
+ Note that initLock() initialises the atomicRefToHandlingThread on data handler.
    * Make sure it is never run by any handling threads.
    * @param key
    * @return

@@ -42,7 +42,6 @@ public abstract class HandlingThread extends Thread {
     if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
       log.log(Level.INFO,
               "Max idle gained - closing, total: {0}", ++closedIdleCounter);
-      Server.close(dataHandler.getChannel()); // just close - timedout
       return true;
     }
 
@@ -53,7 +52,6 @@ public abstract class HandlingThread extends Thread {
     if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
       log.log(Level.INFO, "Max size reached - closing: {0}",
               dataHandler.getSize());
-      Server.close(dataHandler.getChannel());
       return true;
     }
 
@@ -97,7 +95,7 @@ public abstract class HandlingThread extends Thread {
   
   /**
    * Returns false if not finished writing or
-   * "this.closeIfNecessaryAndTellIfShouldReleaseJob(...)" when finished. It
+ "this.canCloseOrResetAndPutBack(...)" when finished. It
    * tells if job can be released.
    *
    * @param key
@@ -112,7 +110,7 @@ public abstract class HandlingThread extends Thread {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {
         this.runOnFinishedHandler(dataHandler);
-        if (this.closeIfNecessaryAndTellIfShouldReleaseJob(
+        if (this.canCloseOrResetAndPutBack(
                 channel, dataHandler, true)) {
           return -1;
         } else {
@@ -125,7 +123,6 @@ public abstract class HandlingThread extends Thread {
   
   /**
    *
-   * @param key
    * @param dataHandler
    * @return true only if key should be released
    * @throws IOException
@@ -133,7 +130,7 @@ public abstract class HandlingThread extends Thread {
   protected int processKey(DataHandler dataHandler)
           throws IOException {
     SocketChannel channel = dataHandler.getChannel();
-    if (channel.finishConnect()) {
+    if (channel.isConnected()) {
       if (dataHandler.writingResponse) { // in progress of writing
         return this.writeResponse(channel, dataHandler);
       } else {
@@ -145,8 +142,7 @@ public abstract class HandlingThread extends Thread {
             // writingResponse will be unchecked by writeResponse(...)
             return this.writeResponse(channel, dataHandler);
           } else if (many == -1) {
-            // end of stream reached early! this is an error.
-            Server.close(channel);
+            log.fine("Premature EOS from channel.");
           }
         }
         
@@ -164,12 +160,11 @@ public abstract class HandlingThread extends Thread {
    * @param finishedWriting
    * @return true if closed connection, false otherwise and will reset handler
    */
-  protected boolean closeIfNecessaryAndTellIfShouldReleaseJob(
+  protected boolean canCloseOrResetAndPutBack(
           SocketChannel channel,
           DataHandler dataHandler,
           boolean finishedWriting) {
     if (dataHandler.canClose(finishedWriting)) {
-      Server.close(channel);
       return true;
     } else {
       dataHandler.reset();

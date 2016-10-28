@@ -18,12 +18,11 @@ import java.util.logging.Logger;
  */
 class HandlingThreadQueued extends HandlingThread {
 
-  private final ConcurrentLinkedDeque<DataHandler> jobs = 
-          new ConcurrentLinkedDeque<>();
+  private final ConcurrentLinkedDeque<DataHandler> jobs
+          = new ConcurrentLinkedDeque<>();
   private final long maxIdle;
   private int limit = 16;
   private final Server server;
-  
   private boolean lockingHandlers = false;
 
   static final Logger log = Logger.getLogger(
@@ -44,74 +43,44 @@ class HandlingThreadQueued extends HandlingThread {
   public int runSinglePass() {
     DataHandler job;
     int totalWroteRead = 0;
+    
     while ((job = this.getJobs().pollFirst()) != null) {
-      // important step! skip those busy
-      if (job != null) {
-        
-        ReentrantLock lock = null;
-        boolean proceed = true;
-        
-        try {
-          if (isLockingHandlers()) {
-            job.makeLockable();
-            if (!job.getLock().tryLock()) {
-              proceed = false;
-            } else {
-              lock = job.getLock();
-            }
-          }
-          // PROCESSING BLOCK ***
-          if (proceed) {
-            boolean isFinished = true;
-            
-            try {
 
-              //check if connection is not open too long! Prevent DDoS
-              if (this.handleMaxIdle(job, maxIdle)) {
-                continue;
-              }
+      boolean isFinished = true;
 
-              int processed = this.processKey(job);
+      try {
 
-              if (processed < 0) {
+        //check if connection is not open too long! Prevent DDoS
+        if (this.handleMaxIdle(job, maxIdle)) {
+          continue;
+        }
+
+        int processed = this.processKey(job);
+
+        if (processed < 0) {
                   // job not necessary anymore
-                // isFinished = true;
-              } else {
-                // keep job
-                totalWroteRead += processed;
-                isFinished = false;
-              }
+          // isFinished = true;
+        } else {
+          // keep job
+          totalWroteRead += processed;
+          isFinished = false;
+        }
 
-            } catch (Exception es) {
-              log.log(Level.SEVERE, "Exception during handling data.", es);
-              isFinished = true;
-              Server.close(job.getChannel());
-            } finally {
-              if (!isFinished) { // will be closed
-                this.getJobs().addLast(job); // put back to queue
-              }
-            }
-          }
-          // *** PROCESSING BLOCK
-        } finally {
-          try {
-            
-            this.onJobFinished(job);
-            
-            if (lock != null) {
-              job.getLock().unlock();
-            }
-          } catch (IllegalMonitorStateException e) {
-            log.log(Level.SEVERE, null, e);
-          }
+      } catch (Exception es) {
+        log.log(Level.SEVERE, "Exception during handling data.", es);
+        isFinished = true;
+      } finally {
+        if (!isFinished) { // will be closed
+          this.getJobs().addLast(job); // put back to queue
+        } else {
+          this.onJobFinished(job);
+          Server.close(job.getChannel());
         }
       }
-      
-      if (getJobs().isEmpty()) {
-        break; // take some rest!
-      }
-      
+
+        // *** PROCESSING BLOCK
       try {
+        // added last is the last
         if (job == getJobs().getLast()) {
           break; // take some rest!
         }
@@ -119,7 +88,7 @@ class HandlingThreadQueued extends HandlingThread {
         // can occur when multi threaded, very rare
       }
     }
-    
+
     return totalWroteRead;
   }
 
@@ -182,19 +151,4 @@ class HandlingThreadQueued extends HandlingThread {
   public Server getServer() {
     return server;
   }
-
-  /**
-   * @return the lockingHandlers
-   */
-  public boolean isLockingHandlers() {
-    return lockingHandlers;
-  }
-
-  /**
-   * @param lockingHandlers the lockingHandlers to set
-   */
-  public void setLockingHandlers(boolean lockingHandlers) {
-    this.lockingHandlers = lockingHandlers;
-  }
-
 }

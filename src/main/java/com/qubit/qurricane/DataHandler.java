@@ -19,7 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,7 +35,7 @@ public class DataHandler {
 
   private final Map<String, String> headers = new HashMap<>();
   
-  private volatile ReentrantLock lock;
+  public AtomicReference<HandlingThread> atomicRefToHandlingThread;
 
   private String method;
   private String fullPath;
@@ -678,13 +678,6 @@ public class DataHandler {
   }
 
   /**
-   * @return the lock
-   */
-  public ReentrantLock getLock() {
-    return lock;
-  }
-
-  /**
    * @return the acceptedTime
    */
   public long getAcceptedTime() {
@@ -697,17 +690,10 @@ public class DataHandler {
   public void setAcceptedTime(long acceptedTime) {
     this.acceptedTime = acceptedTime;
   }
-
-  boolean tryLock() {
-    if (lock == null) {
-      return false;
-    }
-    return lock.tryLock();
-  }
   
   void initLock() {
-    if (lock == null) {
-      lock = new ReentrantLock();
+    if (atomicRefToHandlingThread == null) {
+      atomicRefToHandlingThread = new AtomicReference<>();
     }
   }
 }
