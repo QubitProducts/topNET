@@ -35,7 +35,7 @@ public class DataHandler {
 
   private final Map<String, String> headers = new HashMap<>();
   
-  private ReentrantLock lock;
+  private volatile ReentrantLock lock;
 
   private String method;
   private String fullPath;
@@ -539,8 +539,7 @@ public class DataHandler {
           try {
             handler.doProcess(this.getRequest(), this.getResponse());
           } catch (Throwable ex) {
-            Logger.getLogger(DataHandler.class.getName())
-                    .log(Level.SEVERE, "Error in error handler.", ex);
+            log.log(Level.SEVERE, "Error in error handler.", ex);
           }
 
           return this.errorOccured;
