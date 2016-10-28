@@ -38,7 +38,7 @@ class HandlingThreadPooledShared extends HandlingThread {
       }
     }
     
-    this.setBuffer(ByteBuffer.allocate(bufSize));
+    this.setBuffer(ByteBuffer.allocateDirect(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -70,9 +70,13 @@ class HandlingThreadPooledShared extends HandlingThread {
               if (this.handleMaxIdle(dataHandler, maxIdle)) {
                 continue;
               }
-
-              // -2 close, -1 hold
-              int processed = this.processKey(dataHandler);
+              
+              int processed = 0;
+              
+              synchronized (dataHandler) {
+                // -2 close, -1 hold
+                processed = this.processJob(dataHandler);
+              }
 
               if (processed < 0) {
                 // job not necessary anymore

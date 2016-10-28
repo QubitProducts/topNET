@@ -27,6 +27,7 @@ class HandlingThreadQueued extends HandlingThread {
 
   static final Logger log = Logger.getLogger(
           HandlingThreadQueued.class.getName());
+  boolean syncPlease = false;
 
   public HandlingThreadQueued(
           Server server,
@@ -34,7 +35,7 @@ class HandlingThreadQueued extends HandlingThread {
           int defaultMaxMessageSize, long maxIdle) {
     this.server = server;
     limit = jobsSize + 1;
-    this.setBuffer(ByteBuffer.allocate(bufSize));
+    this.setBuffer(ByteBuffer.allocateDirect(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -55,7 +56,16 @@ class HandlingThreadQueued extends HandlingThread {
           continue;
         }
 
-        int processed = this.processKey(job);
+        int processed;
+        
+        if (this.syncPlease) {
+          synchronized (job) {
+            processed = this.processJob(job);
+          }
+        } else {
+          processed = this.processJob(job);
+          
+        }
 
         if (processed < 0) {
                   // job not necessary anymore

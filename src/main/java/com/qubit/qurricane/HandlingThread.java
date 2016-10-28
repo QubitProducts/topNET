@@ -24,16 +24,16 @@ public abstract class HandlingThread extends Thread {
   private ByteBuffer buffer;
   
   private int defaultMaxMessageSize;
-  private volatile long delayForNoIO = 1;
-  private volatile boolean running;
+  private long delayForNoIO = 1;
+  private boolean running;
   
   abstract boolean addJob(DataHandler dataHandler);
 
   abstract boolean canAddJob();
   
-  private volatile long singlePassDelay = 0;
+  private long singlePassDelay = 0;
   
-  private static volatile long closedIdleCounter = 0;
+  private static volatile long closedIdleCounter = 0; // less more counter...
   
   protected boolean handleMaxIdle(
           DataHandler dataHandler, long maxIdle) {
@@ -110,8 +110,7 @@ public abstract class HandlingThread extends Thread {
       dataHandler.writingResponse = false; // finished writing
       if (written == -1) {
         this.runOnFinishedHandler(dataHandler);
-        if (this.canCloseOrResetAndPutBack(
-                channel, dataHandler, true)) {
+        if (dataHandler.canCloseOrResetAndPutBack(channel, true)) {
           return -1;
         } else {
           return 0;
@@ -127,7 +126,7 @@ public abstract class HandlingThread extends Thread {
    * @return true only if key should be released
    * @throws IOException
    */
-  protected int processKey(DataHandler dataHandler)
+  protected int processJob(DataHandler dataHandler)
           throws IOException {
     SocketChannel channel = dataHandler.getChannel();
     if (channel.isConnected()) {
@@ -160,17 +159,7 @@ public abstract class HandlingThread extends Thread {
    * @param finishedWriting
    * @return true if closed connection, false otherwise and will reset handler
    */
-  protected boolean canCloseOrResetAndPutBack(
-          SocketChannel channel,
-          DataHandler dataHandler,
-          boolean finishedWriting) {
-    if (dataHandler.canClose(finishedWriting)) {
-      return true;
-    } else {
-      dataHandler.reset();
-      return false;
-    }
-  }
+  
   
   /**
    * @return the defaultMaxMessageSize
@@ -255,7 +244,7 @@ public abstract class HandlingThread extends Thread {
   /**
    * @param singlePassDelay the singlePassDelay to set
    */
-  public void setSinglePassDelay(long singlePassDelay) {
+  public synchronized void setSinglePassDelay(long singlePassDelay) {
     this.singlePassDelay = singlePassDelay;
   }
 
@@ -291,7 +280,7 @@ public abstract class HandlingThread extends Thread {
   /**
    * @param started the running to set
    */
-  public void setRunning(boolean started) {
+  public synchronized void setRunning(boolean started) {
     this.running = started;
   }
 }

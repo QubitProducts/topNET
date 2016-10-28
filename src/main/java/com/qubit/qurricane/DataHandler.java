@@ -41,7 +41,7 @@ public class DataHandler {
   private String fullPath;
   private String path;
   private boolean headersReady;
-  public volatile boolean writingResponse = false;
+  public boolean writingResponse = false;
   private boolean bodyRequired = false;
 
   private boolean firstLine = true;
@@ -71,7 +71,7 @@ public class DataHandler {
   private final SocketChannel channel;
   private long acceptedTime;
 
-  protected void reset() {
+  private void reset() {
     size = 0;
     headers.clear();
     method = null;
@@ -103,7 +103,7 @@ public class DataHandler {
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
   //-2 means that logically read is over, -1 that EOF stream occured 
-  public synchronized int read(SocketChannel channel, ByteBuffer buf)
+  public int read(SocketChannel channel, ByteBuffer buf)
           throws IOException {
 
     buf.clear();
@@ -215,7 +215,7 @@ public class DataHandler {
   private byte previous = -1;
 
   // returns true if reading is finished. any error handling should happend after reading foinished.
-  private synchronized boolean flushReads(ByteBuffer buffer)
+  private boolean flushReads(ByteBuffer buffer)
           throws UnsupportedEncodingException {
 
     buffer.flip();
@@ -397,7 +397,7 @@ public class DataHandler {
 
   
   
-  public synchronized int write(
+  public int write(
           SocketChannel channel)
           throws IOException {
     
@@ -694,6 +694,17 @@ public class DataHandler {
   void initLock() {
     if (atomicRefToHandlingThread == null) {
       atomicRefToHandlingThread = new AtomicReference<>();
+    }
+  }
+  
+  protected boolean canCloseOrResetAndPutBack(
+          SocketChannel channel,
+          boolean finishedWriting) {
+    if (this.canClose(finishedWriting)) {
+      return true;
+    } else {
+      this.reset();
+      return false;
     }
   }
 }

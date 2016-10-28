@@ -44,7 +44,7 @@ class MainAcceptAndDispatchThread extends Thread {
   private boolean allowingMoreAcceptsThanSlots = false;
   private long acceptDelay;
   private final long maxIdleAfterAccept;
-  private volatile boolean running;
+  private boolean running;
 
   MainAcceptAndDispatchThread(Server server,
           final Selector acceptSelector,
@@ -258,7 +258,7 @@ class MainAcceptAndDispatchThread extends Thread {
   /**
    * @param running the running to set
    */
-  public void setRunning(boolean running) {
+  public synchronized void setRunning(boolean running) {
     this.running = running;
   }
 }

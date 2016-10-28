@@ -44,7 +44,7 @@ public class Response {
   private int httpCode = 200;
   Map<String, String> headers = new HashMap<>();
   private ResponseStream responseStream;
-  private volatile boolean tooLateToChangeHeaders;
+  private boolean tooLateToChangeHeaders;
   private long contentLength = -1;
   private String contentType = "text/html";
   private String charset;

@@ -36,7 +36,7 @@ class HandlingThreadPooled extends HandlingThread {
       jobs[i] = new DataHandlerHolder();
     }
     
-    this.setBuffer(ByteBuffer.allocate(bufSize));
+    this.setBuffer(ByteBuffer.allocateDirect(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -61,7 +61,7 @@ class HandlingThreadPooled extends HandlingThread {
             }
             
             // -2 close, -1 hold
-            int processed = this.processKey(dataHandler);
+            int processed = this.processJob(dataHandler);
             
             if (processed < 0) {
               // job not necessary anymore
