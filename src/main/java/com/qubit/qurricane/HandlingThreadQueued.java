@@ -8,7 +8,6 @@ package com.qubit.qurricane;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -23,7 +22,6 @@ class HandlingThreadQueued extends HandlingThread {
   private final long maxIdle;
   private int limit = 16;
   private final Server server;
-  private boolean lockingHandlers = false;
 
   static final Logger log = Logger.getLogger(
           HandlingThreadQueued.class.getName());

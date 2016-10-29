@@ -52,7 +52,7 @@ public abstract class Handler {
   protected Pair<Handler, Throwable> 
         doProcess(Request request, Response response) {
     Handler tmp = this;
-        
+    
     while(tmp != null) {
       try {
         if (!tmp.process(request, response)) {

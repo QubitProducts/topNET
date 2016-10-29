@@ -14,6 +14,7 @@ import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
 import com.qubit.qurricane.utils.Pair;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
@@ -294,10 +295,12 @@ public class DataHandler {
           this.contentLengthCounter += amount;
 
           try {
-            getRequest().getOutputStream().write(
-                    buffer.array(),
-                    pos,
-                    amount);
+            OutputStream destination = getRequest().getOutputStream();
+            int count = 0;
+            while (count < amount) {
+              destination.write(buffer.get());
+              count++;
+            }
           } catch (IOException ex) {
             this.errorOccured = ErrorTypes.IO_ERROR;
             this.errorException = ex;
