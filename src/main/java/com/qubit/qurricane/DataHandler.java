@@ -33,18 +33,18 @@ public class DataHandler {
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
   
   
-  public static PrePostGeneralHandler postPreProcessingHandler;
+  public static GeneralGlobalHandlingHooks postPreProcessingHandler;
   /**
    * @return the postPreProcessingHandler
    */
-  public static PrePostGeneralHandler getPostPreProcessingHandler() {
+  public static GeneralGlobalHandlingHooks getPostPreProcessingHandler() {
     return postPreProcessingHandler;
   }
 
   /**
    * @param handler
    */
-  public static void setPostPreProcessingHandler(PrePostGeneralHandler handler) {
+  public static void setGeneralGlobalHandlingHooks(GeneralGlobalHandlingHooks handler) {
     postPreProcessingHandler = handler;
   }
   

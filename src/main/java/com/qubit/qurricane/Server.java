@@ -515,4 +515,13 @@ public class Server {
     }
     return false;
   }
+  
+  /**
+   * Runs DataHandler.setGeneralGlobalHandlingHooks(...)
+   * @param hooks 
+   */
+  public static void setGeneralGlobalHandlingHooks(
+          GeneralGlobalHandlingHooks hooks) {
+    DataHandler.setGeneralGlobalHandlingHooks(hooks);
+  }
 }

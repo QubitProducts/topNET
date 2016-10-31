@@ -9,7 +9,7 @@ package com.qubit.qurricane;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public interface PrePostGeneralHandler {
+public interface GeneralGlobalHandlingHooks {
 
   public void handleStarted(DataHandler dh);
 
