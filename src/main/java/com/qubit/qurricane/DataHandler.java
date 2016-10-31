@@ -31,6 +31,23 @@ import java.util.logging.Logger;
 public class DataHandler {
 
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
+  
+  
+  public static PrePostGeneralHandler postPreProcessingHandler;
+  /**
+   * @return the postPreProcessingHandler
+   */
+  public static PrePostGeneralHandler getPostPreProcessingHandler() {
+    return postPreProcessingHandler;
+  }
+
+  /**
+   * @param handler
+   */
+  public static void setPostPreProcessingHandler(PrePostGeneralHandler handler) {
+    postPreProcessingHandler = handler;
+  }
+  
   private volatile long touch; // check if its needed volatile
   private volatile int size = 0; // check if its needed volatile
 
@@ -42,7 +59,7 @@ public class DataHandler {
   private String fullPath;
   private String path;
   private boolean headersReady;
-  public boolean writingResponse = false;
+  protected boolean writingResponse = false;
   private boolean bodyRequired = false;
 
   private boolean firstLine = true;
@@ -61,7 +78,7 @@ public class DataHandler {
   static final String utfTextHtmlHeader
           = "Content-Type: text/html; charset=utf-8\n\r";
   static final String EOL = "\n";
-  private String params;
+  private String parameters;
   private String httpProtocol = HTTP_1_0;
   
   private boolean headersOnly = false;
@@ -204,10 +221,10 @@ public class DataHandler {
       int idx = this.fullPath.indexOf("?");
       if (idx == -1) {
         this.path = this.fullPath;
-        this.params = "";
+        this.parameters = "";
       } else {
         this.path = this.fullPath.substring(0, idx);
-        this.params = this.fullPath.substring(idx + 1);
+        this.parameters = this.fullPath.substring(idx + 1);
       }
     }
     return this.path;
@@ -263,7 +280,7 @@ public class DataHandler {
       
       // paths must be ready by headers setup
       this.handlerUsed = 
-        this.server.getHandlerForPath(this.fullPath, this.path, this.params);
+        this.server.getHandlerForPath(this.fullPath, this.path, this.parameters);
       
       this.errorOccured = 
               this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
@@ -391,17 +408,15 @@ public class DataHandler {
           }
         } else {
           this.headersReady = true;
+          headersReadyHandler(this);
         }
       }
     }
 
     return false;
   }
-
   
-  
-  public int write(
-          SocketChannel channel)
+  protected int write(SocketChannel channel)
           throws IOException {
     
     ResponseReader responseReader;
@@ -478,7 +493,7 @@ public class DataHandler {
     } else {
       this.getRequest().setPath(this.path);
       this.getRequest().setFullPath(this.fullPath);
-      this.getRequest().setPathParameters(this.params);
+      this.getRequest().setPathParameters(this.parameters);
       this.getRequest().setMethod(this.method);
       
       // this prepares space for BODY to be written to, once headers are sorted,
@@ -525,10 +540,12 @@ public class DataHandler {
       handler = getErrorHandler(handler);
     }
 
+    beforeHandlingReadyHandler(this);
+    
     if (handler != null) {
 
       Pair<Handler, Throwable> execResult = 
-              handler.doProcess(this.getRequest(), this.getResponse());
+              handler.doProcess(this.getRequest(), this.getResponse(), this);
       
       try {
         if (execResult != null) {
@@ -540,7 +557,7 @@ public class DataHandler {
           handler = getErrorHandler(handler);
 
           try {
-            handler.doProcess(this.getRequest(), this.getResponse());
+            handler.doProcess(this.getRequest(), this.getResponse(), this);
           } catch (Throwable ex) {
             log.log(Level.SEVERE, "Error in error handler.", ex);
           }
@@ -558,7 +575,11 @@ public class DataHandler {
           }
           this.handlerUsed.onError(this.errorException);
         }
+        
+        afterHandlingReadyHandler(this);
       }
+    } else {
+      afterHandlingReadyHandler(this);
     }
 
     return null;
@@ -575,7 +596,7 @@ public class DataHandler {
   private int getErrorCode() {
     if (this.errorOccured != null) {
       // @todo clean this up
-      switch (this.errorOccured) {
+      switch (this.getErrorOccured()) {
         case HTTP_NOT_FOUND:
           return 404;
         case HTTP_SERVER_ERROR:
@@ -592,7 +613,7 @@ public class DataHandler {
     return 200;
   }
 
-  boolean canClose(boolean finishedWriting) {
+  private boolean canClose(boolean finishedWriting) {
     if (this.getResponse() != null && 
             this.getResponse().isForcingNotKeepingAlive()) {
       return true;
@@ -623,7 +644,7 @@ public class DataHandler {
     return false;
   }
 
-  int getMaxMessageSize(int defaultMaxMessageSize) {
+  public int getMaxMessageSize(int defaultMaxMessageSize) {
     if (this.handlerUsed != null) {
       int maxSize = this.handlerUsed.getMaxIncomingDataSize();
       Handler tmp = this.handlerUsed.getNext();
@@ -641,10 +662,10 @@ public class DataHandler {
     return defaultMaxMessageSize;
   }
 
-  long getMaxIdle(long defaultMaxIdle) {
-    if (this.handlerUsed != null) {
-      int maxIdle = this.handlerUsed.getMaxIdle();
-      Handler tmp = this.handlerUsed.getNext();
+  public long getMaxIdle(long defaultMaxIdle) {
+    if (this.getHandlerUsed() != null) {
+      int maxIdle = this.getHandlerUsed().getMaxIdle();
+      Handler tmp = this.getHandlerUsed().getNext();
       
       while (tmp != null) {
         maxIdle = Math.max(tmp.getMaxIdle(), maxIdle);
@@ -690,11 +711,11 @@ public class DataHandler {
   /**
    * @param acceptedTime the acceptedTime to set
    */
-  public void setAcceptedTime(long acceptedTime) {
+  protected void setAcceptedTime(long acceptedTime) {
     this.acceptedTime = acceptedTime;
   }
   
-  void initLock() {
+  protected void initLock() {
     if (atomicRefToHandlingThread == null) {
       atomicRefToHandlingThread = new AtomicReference<>();
     }
@@ -709,5 +730,118 @@ public class DataHandler {
       this.reset();
       return false;
     }
+  }
+
+  protected final void connectionClosedHandler() {
+    try {
+      if (this.handlerUsed != null) {
+        this.handlerUsed.connectionClosedHandler(this);
+      }
+    } catch (Throwable t) {
+      log.log(Level.SEVERE, "Exception in on close handler.", t);
+    } finally {
+      try {
+        finishedAndClosedHandler(this);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void startedAnyHandler(DataHandler dh) {
+    dh.setAcceptedTime(System.currentTimeMillis());
+    dh.touch();
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.handleStarted(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void headersReadyHandler(DataHandler dh) {
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.handleHeadersReady(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void bodyReadyHandler(DataHandler dh) {
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.handleBodyReady(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void beforeHandlingReadyHandler(DataHandler dh) {
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.handleBeforeHandlingProcessing(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void afterHandlingReadyHandler(DataHandler dh) {
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.handleAfterHandlingProcessed(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void finishedAndClosedHandler(DataHandler dh) {
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.onFinishedAndClosedHandler(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  /**
+   * @return the path
+   */
+  public String getPath() {
+    return path;
+  }
+
+  /**
+   * @return the errorOccured
+   */
+  public ErrorTypes getErrorOccured() {
+    return errorOccured;
+  }
+
+  /**
+   * @return the errorException
+   */
+  public Throwable getErrorException() {
+    return errorException;
+  }
+
+  /**
+   * @return the handlerUsed
+   */
+  public Handler getHandlerUsed() {
+    return handlerUsed;
+  }
+
+  /**
+   * @return the parameters
+   */
+  public String getParameters() {
+    return parameters;
   }
 }

@@ -94,9 +94,9 @@ class HandlingThreadPooledShared extends HandlingThread {
               //key cancell!
               try {
                 this.removeJobFromPool(i);
-                this.onJobFinished(dataHandler);
               } finally {
                 Server.close(channel);
+                this.onJobFinished(dataHandler);
               }
             }
           }

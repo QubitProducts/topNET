@@ -5,6 +5,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.DataHandler.startedAnyHandler;
 import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
@@ -108,8 +109,8 @@ class MainAcceptAndDispatchThread extends Thread {
                         channel.register(acceptSelector, OP_READ);
                   DataHandler dataHandler = new DataHandler(
                           server, (SocketChannel) newKey.channel());
-                  dataHandler.setAcceptedTime(System.currentTimeMillis());
-                  dataHandler.touch();
+                  startedAnyHandler(dataHandler);
+                  
                   newKey.attach(dataHandler);
                   // consider Thread.wait(1) here instead registration
                 }
@@ -177,8 +178,7 @@ class MainAcceptAndDispatchThread extends Thread {
       if (handlingThread != null) {
         if (dataHandler == null) { // if its not passed, create one
           dataHandler = new DataHandler(server, channel);
-          dataHandler.setAcceptedTime(System.currentTimeMillis());
-          dataHandler.touch();
+          startedAnyHandler(dataHandler);
         }
 
         if (handlingThread.addJob(dataHandler)) {

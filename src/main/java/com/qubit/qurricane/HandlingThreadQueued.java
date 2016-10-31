@@ -81,8 +81,8 @@ class HandlingThreadQueued extends HandlingThread {
         if (!isFinished) { // will be closed
           this.getJobs().addLast(job); // put back to queue
         } else {
-          this.onJobFinished(job);
           Server.close(job.getChannel());
+          this.onJobFinished(job);
         }
       }
 

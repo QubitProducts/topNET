@@ -5,6 +5,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.DataHandler.bodyReadyHandler;
 import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -133,12 +134,13 @@ public abstract class HandlingThread extends Thread {
       if (dataHandler.writingResponse) { // in progress of writing
         return this.writeResponse(channel, dataHandler);
       } else {
-        int many = dataHandler.read(channel, getBuffer());
+        int many = dataHandler.read(channel, buffer);
         
         if (many < 0) { // reading is over
           if (many == -2) {// finished reading correctly, otherwise many is -1
             dataHandler.writingResponse = true; // running writing
             // writingResponse will be unchecked by writeResponse(...)
+            bodyReadyHandler(dataHandler);
             return this.writeResponse(channel, dataHandler);
           } else if (many == -1) {
             log.fine("Premature EOS from channel.");
@@ -173,13 +175,6 @@ public abstract class HandlingThread extends Thread {
    */
   public void setDefaultMaxMessageSize(int defaultMaxMessageSize) {
     this.defaultMaxMessageSize = defaultMaxMessageSize;
-  }
-
-  /**
-   * @return the buffer
-   */
-  public ByteBuffer getBuffer() {
-    return buffer;
   }
 
   /**
@@ -268,6 +263,7 @@ public abstract class HandlingThread extends Thread {
   }
   
   protected void onJobFinished(DataHandler dataHandler) {
+    dataHandler.connectionClosedHandler();
   }
 
   /**

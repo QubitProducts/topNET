@@ -50,12 +50,12 @@ public abstract class Handler {
   }
   
   protected Pair<Handler, Throwable> 
-        doProcess(Request request, Response response) {
+        doProcess(Request request, Response response, DataHandler dh) {
     Handler tmp = this;
     
     while(tmp != null) {
       try {
-        if (!tmp.process(request, response)) {
+        if (!tmp.process(request, response, dh)) {
           break;
         } else {
           tmp = tmp.getNext();
@@ -68,6 +68,12 @@ public abstract class Handler {
     return null;
   }
   
+  // request is ready, with full body, unless different stream been passed
+  public boolean process(Request request, Response response, DataHandler dh) 
+                 throws Exception {
+    return this.process(request, response);
+  }
+         
   // request is ready, with full body, unless different stream been passed
   public abstract boolean
          process(Request request, Response response) throws Exception;
@@ -129,7 +135,11 @@ public abstract class Handler {
     this.next = next;
   }
   
-  public void closeConnection (Request request) {
+  public void closeConnectionImmediately (Request request) {
     Server.close(request.getChannel());
+  }
+
+  protected void connectionClosedHandler(DataHandler dataHandler) {
+    
   }
 }

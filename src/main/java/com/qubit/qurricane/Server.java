@@ -259,9 +259,6 @@ public class Server {
 
   protected static void close(SocketChannel channel) {
     try {
-      // this method is used on "bad occurence - to cleanup any stuff left
-      // cleaning will be reviewed again
-//      key.cancel();
       channel.close();
     } catch (Exception ex) {
       log.log(Level.SEVERE, null, ex);

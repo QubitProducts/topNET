@@ -85,7 +85,7 @@ public class Response {
 
   public ByteArrayInputStream getHeadersToSend() {
 
-    StringBuffer buffer = getHeadersBuffer(this.customHttpCode());
+    StringBuffer buffer = getHeadersBuffer();
 
     ByteArrayInputStream stream
             = new ByteArrayInputStream(
@@ -94,10 +94,9 @@ public class Response {
     return stream;
   }
 
-  public StringBuffer getHeadersBuffer(String customFirstHttpLine) {
+  public StringBuffer getHeadersBuffer() {
     StringBuffer buffer
             = getHeadersBufferWithoutEOL(
-                    customFirstHttpLine,
                     this.httpCode,
                     this.getHttpProtocol());
 
@@ -114,41 +113,29 @@ public class Response {
 
   public static StringBuffer getHeadersBufferWithoutEOL(
           int httpCode, String httpProtocol) {
-    return getHeadersBufferWithoutEOL(null, httpCode, httpProtocol);
-  }
-
-  public static StringBuffer getHeadersBufferWithoutEOL(
-          String customFirstHttpLine, int httpCode, String httpProtocol) {
 
     StringBuffer buffer = new StringBuffer();
     int httpCodeNum = httpCode;
 
-    
-    
-    if (customFirstHttpLine != null) {
-      buffer.append(customFirstHttpLine);
+    buffer.append(httpProtocol);
+    buffer.append(" ");
+
+    if (httpCodeNum == 200) {
+      buffer.append(OK_200);
+    } else if (httpCodeNum == 204) {
+      buffer.append(OK_204);
+    } else if (httpCodeNum == 404) {
+      buffer.append("404 Not Found");
+      buffer.append(CRLF);
+    } else if (httpCodeNum == 400) {
+      buffer.append("400 Bad Request");
+      buffer.append(CRLF);
+    } else if (httpCodeNum == 503) {
+      buffer.append("503 Server Error");
       buffer.append(CRLF);
     } else {
-      buffer.append(httpProtocol);
-      buffer.append(" ");
-      
-      if (httpCodeNum == 200) {
-        buffer.append(OK_200);
-      } else if (httpCodeNum == 204) {
-        buffer.append(OK_204);
-      } else if (httpCodeNum == 404) {
-        buffer.append("404 Not Found");
-        buffer.append(CRLF);
-      } else if (httpCodeNum == 400) {
-        buffer.append("400 Bad Request");
-        buffer.append(CRLF);
-      } else if (httpCodeNum == 503) {
-        buffer.append("503 Server Error");
-        buffer.append(CRLF);
-      } else {
-        buffer.append(httpCodeNum);
-        buffer.append(CRLF);
-      }
+      buffer.append(httpCodeNum);
+      buffer.append(CRLF);
     }
 
     buffer.append("Date: ");
@@ -193,16 +180,6 @@ public class Response {
   }
 
   /**
-   * Function returning suffix to first line of HTTP message, suffix to:
-   * "HTTP/1.1 "
-   *
-   * @return returned string will be used as: "HTTP/1.1 " + returned
-   */
-  protected String customHttpCode() {
-    return null;
-  }
-
-  /**
    * @param httpCode the httpCodeNum to set
    * @throws com.qubit.qurricane.exceptions.TooLateToChangeHeadersException
    */
@@ -213,6 +190,10 @@ public class Response {
     this.httpCode = httpCode;
   }
 
+  public int getHttpCode()  {
+    return this.httpCode;
+  }
+  
   /**
    * To print to response output - use this function - note this is textual
    * method of sending response. To send binary data, preapare input stream to
@@ -475,5 +456,4 @@ public class Response {
   public InputStream getStreamToReadFrom() {
     return inputStreamForBody;
   }
-
 }
