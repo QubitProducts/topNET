@@ -49,15 +49,16 @@ public static void main(String[] args) {
   	server.setDataHandlerWriteBufferSize(1024); // this is buffer for writing back, those buffers are hold by 
   												// data handler objects. 
   												// Data handler objects are the jobs in threads queues.
-  	server.setDefaultIdleTime(25 * 1000);		// This is how long server will wait for R/W before closing connection.
+  	server.setDefaultIdleTime(25 * 1000);		// This is how long server will wait for R/W before closing.
   												// This property is configurable on handler level.
   	server.setDelayForNoIOReadsInSuite(30);		// This property indicates how many milisconds thread will sleep 
   												// if there is no I/O occuring in its queue (queue having jobs!).
-  												// Threads sleeping can be waked at any time if accepting connection
-  												// thread is updating the queue.
+  												// Threads sleeping can be waked up at any time if accepting 
+  												// connection thread is updating the queue.
   	server.setSinglePoolPassThreadDelay(0);		// This is how to set any delay between "rounds" of 
-  												// reading/writing from/to jobs. Value larger than zero will cause a sleep
-  												// every time thread is checking queue for I/O (read/write -> wait etc.).
+  												// reading/writing from/to jobs. Value larger than zero will 
+  												// cause a sleep every time thread is checking queue for I/O 
+  												// (read/write -> wait etc.).
   												// This is a direct way to slow down server - when necessary.
 
   	server.registerHandlerByPath("/echo", new EchoHandler()); //register demo handler (echoing data back)
