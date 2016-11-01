@@ -11,25 +11,27 @@ Qurricane is one of Qubit's open source projects. The idea was to create a very 
 * Configurability
 
 ### Performance
-Qurricane uses Java asynchronous NIO API for handling connections traffic, it consist on a thread pools that handle R/W operations. There is a separate thread that is dedicated for accepting only connections stage and it is working in non-blocking mode. Qurricane is designed to be able to put hardware to it's limits, but can be configured to be slown down via server options.
-Each thread from handling pool maintain its own "jobs" queue which correspond to incoming connections. There is 3 types of handling threads:
+Qurricane uses Java asynchronous NIO API for handling connections traffic, it consists on thread pools that handle R/W operations. There is a separate thread that is dedicated for accepting only connections stage and it is working in non-blocking mode. Qurricane is designed to be able to put hardware to it's limits, but can be configured to slown down by using server options.
+Each thread from a pool maintain its own or shared "jobs" queue which correspond to incoming connections. There is 3 types of handling threads:
 * pool - this type is a simplest one and uses atomic reference array with constant size created upon server start. It is safest and lightest way that stores thread jobs. 
 * pool-shared - same type as pool but all threads share same pool.
-* queue - this type is similar to "pool" but uses concurrent list instead of statically sized array like in "pool" case. While "pool" type thread scans the array to find jobs to do, this thread peeks jobs from head and add to tail. Each thread of "queue" type maintain its own local queue.
+* queue - this type is similar to "pool" but uses concurrent list instead of statically sized array like in "pool" case. While "pool" type thread scans the array to find jobs to do, this thread peeks jobs from head and add to tail in typical FILO manner. Each thread of "queue" type maintain its own local queue instance.
 * queue-shared - this is same as "queue" type with the difference that all threads share same concurrent queue. This type of jobs may work better for servers that perform slow asynchronous operations and threads can stuck for long time in one place.
 
-In most of the cases, "pool" will be absolutely fine choice (and best). If you are not sure, just leave defaults - server by default is configured to use "pool" type of thread jobs collection. It does also check how many cpu-s is in the system in orther to estimate amount of used threads.
+In most of the cases, "pool" will be absolutely fine and best choice. If you are not sure, just leave the defaults - server by default use "pool" type. Default configuration does also check how many cpu-s is in the system in orther to estimate amount of used threads (if there is many cpus/core there will be more threads assigned).
 
-Server processing for requests is limited to almost absolute minimum, while request URL and headers will be recognised, extended functionality like parsing url parameters or POST body parameters is not included. There is a wide choice of API that can be used for parsing parameters.
-Qurricane focuses solely on performance and flexibilty, it is able to quickly test your hardware I/O limits.
+Server processing is limited to almost absolute minimum, while request URL and headers will be recognised, extended functionality like parsing url parameters or POST body parameters is not included. There is a wide choice of API that can be used for parsing parameters.
+Qurricane focuses solely on performance and flexibilty and it is able to test your hardware I/O limits.
 
 ### Usage Simplicity
-Qurricane requires a Server instance to be created to start processing requests. Service handlers can be added at any time to the server class. To create typical server application all is needed is a server instance and handler classes that will implement how to handle request. See examples section for more details.
+Qurricane requires a Server instance to be created to start processing requests. Service handlers can be added to server class and can be chained, there is many way how your application can chain processign and choose which url/method is bounded to which handler. There is plenty of choice in terms of customization.
+To create typical server application all is needed is a server instance and handler classes that will implement how to handle request. See examples section for more details.
 
 ### Flexibility
-Server configuration is very configurable. Handling threads amounts (pools), jobs queues size, processing delays and many more options are adjustable to system needs. By default system checks available cpus and will create 4 handling threads for each cpu to handle requests. Server can be easily configured to use little resources and to slow down IO, throughput of the server is a result of setting buffer size and "breaks" latencies during data polling in the queues. It can be configured to response very fast but to limit transfer speeds or vice versa. Delays can be controlled on each processing level.
+Handling threads amounts (pools), jobs queues size, processing delays and many more options are adjustable to system needs. By default system checks available cpus and will create adequate handling threads amount for each cpu to handle requests. Server can be easily configured to use little resources and to slow down it's IO, throughput of the server is a result of setting buffer size and "breaks" latencies during data polling in the queues. It can be configured to response very fast but to limit transfer speeds or vice versa. Delays can be controlled on each processing level.
 
-Qurricane is extremely small but can serve same heavy loads and application complexity as fully featured "official" servers such as tomcat, jboss or glassfish.
+Qurricane is extremely small but can serve same heavy loads and application complexity as fully featured "official" servers such as tomcat, jboss or glassfish. Being very small and highly customizable it's an excellent solution as for mobile devices as for powerful desktop stations.
+
 
 ##Examples
 
