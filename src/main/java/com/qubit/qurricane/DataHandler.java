@@ -1,7 +1,21 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Qurrican
+ * Fast HTTP Server Solution.
+ * Copyright 2016, Qubit Group
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  
+ * If not, see <https://www.gnu.org/licenses/lgpl-3.0.en.html>
+ * 
+ * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 package com.qubit.qurricane;
 
@@ -543,7 +557,8 @@ public class DataHandler {
     beforeHandlingReadyHandler(this);
     
     if (handler != null) {
-
+      // @todo review if ctually pair usage is necesary... this passing and 
+      // processing can be put into the handle method.
       Pair<Handler, Throwable> execResult = 
               handler.doProcess(this.getRequest(), this.getResponse(), this);
       
