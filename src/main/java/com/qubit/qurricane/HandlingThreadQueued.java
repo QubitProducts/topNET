@@ -41,7 +41,7 @@ class HandlingThreadQueued extends HandlingThread {
   @Override
   public int runSinglePass() {
     DataHandler job;
-    int totalWroteRead = 0;
+    int ifIOOccuredCount = 0;
     
     while ((job = this.jobs.pollFirst()) != null) {
 
@@ -51,6 +51,7 @@ class HandlingThreadQueued extends HandlingThread {
 
         //check if connection is not open too long! Prevent DDoS
         if (this.handleMaxIdle(job, maxIdle)) {
+          ifIOOccuredCount += 1;
           continue;
         }
 
@@ -66,11 +67,14 @@ class HandlingThreadQueued extends HandlingThread {
         }
 
         if (processed < 0) {
-                  // job not necessary anymore
+          // job not necessary anymore
           // isFinished = true;
+          ifIOOccuredCount += 1; // job finished, io occured
         } else {
           // keep job
-          totalWroteRead += processed;
+          if (processed > 0) {
+            ifIOOccuredCount += 1;
+          }
           isFinished = false;
         }
 
@@ -100,7 +104,7 @@ class HandlingThreadQueued extends HandlingThread {
       }
     }
 
-    return totalWroteRead;
+    return ifIOOccuredCount;
   }
 
   /**

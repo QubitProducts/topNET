@@ -64,23 +64,17 @@ public abstract class HandlingThread extends Thread {
     try {
       this.setRunning(true);
       while (this.isRunning()) {
-        boolean noIOOccured = false;
-        
         while (this.hasJobs()) {
-          if (this.runSinglePass() == 0) {
-            noIOOccured = true;
+          if (!this.waitForSomethingToIO(this.runSinglePass())) {
+            // if it is not waiting for IO, try standard break
+            this.takeSomeBreak();
           }
-          this.takeSomeBreak();
         }
 
         try {
           if (!this.hasJobs()) {
             synchronized (this) {
               this.wait();
-            }
-          } else {
-            if (noIOOccured) {
-              this.waitForSomethingToIO();
             }
           }
         } catch (InterruptedException ex) {
@@ -188,26 +182,27 @@ public abstract class HandlingThread extends Thread {
   
   public static volatile long totalWaitedIO = 0;
   
-  protected void waitForSomethingToIO() {
-    if (this.getDelayForNoIO() > 0) {
-      long timeToWait =
-              (long)(this.getDelayForNoIO());
+  protected boolean waitForSomethingToIO(int code) {
+    if (this.delayForNoIO > 0 && code != 0) {// code is 0 if no IO occured
+      long timeToWait = (long)(this.delayForNoIO);
       totalWaitedIO += timeToWait;
       synchronized (this) {
         try {
           this.wait(timeToWait);
+          return true;
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "waitForSomethingToIO delay interrupted.", ex);
         }
       }
     }
+    return false;
   }
 
   protected void takeSomeBreak() {
-    if (this.getSinglePassDelay() > 0) {
+    if (this.singlePassDelay > 0) {
       synchronized (this) {
         try {
-          this.wait(this.getSinglePassDelay());
+          this.wait(this.singlePassDelay);
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "takeSomeBreak delay interrupted.", ex);
         }
@@ -227,6 +222,11 @@ public abstract class HandlingThread extends Thread {
     }
   }
 
+  /**
+   * Returns how many jobs had some IO operations.
+   * IO operations.
+   * @return 
+   */
   protected abstract int runSinglePass();
 
   /**

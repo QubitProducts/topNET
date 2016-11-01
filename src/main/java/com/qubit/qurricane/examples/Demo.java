@@ -24,9 +24,9 @@ public class Demo {
     int jobs = 64;
     int buf = 8192;
     int th = 8;
-    long delay = 50;
+    long noIOdelay = 50;
     long acceptDelay = 0;
-    long breakStop = 15;
+    long breakStop = 0; // if no io delay occures, this has chance
     
     Server s = new Server("localhost", 3456);
     
@@ -35,7 +35,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("pool");
-    s.setDelayForNoIOReadsInSuite(delay);
+    s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.start();
@@ -54,7 +54,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("pool-shared");
-    s.setDelayForNoIOReadsInSuite(delay);
+    s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.start();
@@ -75,7 +75,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("queue");
-    s.setDelayForNoIOReadsInSuite(delay);
+    s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.start();
@@ -94,7 +94,7 @@ public class Demo {
     s.setRequestBufferSize(buf);
     s.setThreadsAmount(th);
     s.setPoolType("queue-shared");
-    s.setDelayForNoIOReadsInSuite(delay);
+    s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.start();

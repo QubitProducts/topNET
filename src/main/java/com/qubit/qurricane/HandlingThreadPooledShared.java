@@ -45,7 +45,7 @@ class HandlingThreadPooledShared extends HandlingThread {
 
   @Override
   public int runSinglePass() {
-    int totalWroteRead = 0;
+    int ifIOOccuredCount = 0;
 
     for (int i = 0; i < HandlingThreadPooledShared.jobs.length; i++) {
       DataHandler dataHandler = 
@@ -68,6 +68,7 @@ class HandlingThreadPooledShared extends HandlingThread {
             if (channel != null) {
 
               if (this.handleMaxIdle(dataHandler, maxIdle)) {
+                ifIOOccuredCount += 1;
                 continue;
               }
               
@@ -79,10 +80,13 @@ class HandlingThreadPooledShared extends HandlingThread {
               }
 
               if (processed < 0) {
+                ifIOOccuredCount += 1; // job finished, io occured
                 // job not necessary anymore
               } else {
                 // keep job
-                totalWroteRead += processed;
+                if (processed > 0) {
+                  ifIOOccuredCount += 1;
+                }
                 isFinished = false;
               }
             }
@@ -113,7 +117,7 @@ class HandlingThreadPooledShared extends HandlingThread {
       }
     }
 
-    return totalWroteRead;
+    return ifIOOccuredCount;
   }
 
   /**
