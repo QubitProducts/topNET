@@ -24,7 +24,7 @@ public class Demo {
     int jobs = 64;
     int buf = 8192;
     int th = 8;
-    long noIOdelay = 50;
+    long noIOdelay = 5;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     
