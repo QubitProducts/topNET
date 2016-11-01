@@ -35,7 +35,7 @@ Qurricane is extremely small but can serve same heavy loads and application comp
 
 To create server instance:
 
-```
+```java
 import com.qubit.qurricane.Server;
 import com.qubit.qurricane.examples.EchoHandler;
 
