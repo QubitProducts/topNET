@@ -36,34 +36,34 @@ Qurricane is extremely small but can serve same heavy loads and application comp
 To create server instance:
 
 ```
-	import com.qubit.qurricane.Server;
-	import com.qubit.qurricane.examples.EchoHandler;
+import com.qubit.qurricane.Server;
+import com.qubit.qurricane.examples.EchoHandler;
 
-	public static void main(String[] args) {
-		Server server = new Server("localhost", 3456);
+public static void main(String[] args) {
+	Server server = new Server("localhost", 3456);
 
-		// custom setup
-		server.setRequestBufferSize(32 * 1024); // this is buffer for readin, buffers for reading are hold by threads
-    	server.setJobsPerThread(256);
-      	server.setThreadsAmount(16);
-      	server.setDataHandlerWriteBufferSize(1024); // this is buffer for writing back, those buffers are hold by 
-      												// data handler objects. 
-      												// Data handler objects are the jobs in threads queues.
-      	server.setDefaultIdleTime(25 * 1000);		// This is how long server will wait for R/W before closing connection.
-      												// This property is configurable on handler level.
-      	server.setDelayForNoIOReadsInSuite(30);		// This will how many milisconds thread will sleep ("wait" precisely!) 
-      												// for is none of jobs had any I/O operation performed.
-      												// Threads sleeping can be waked at any time if accepting connection
-      												// thread is updating the queue.
-      	server.setSinglePoolPassThreadDelay(0);		// This is how to set any delay between "rounds" of 
-      												// reading/writing from/to jobs. Value larger than zero will cause a sleep
-      												// every time thread is checking queue for I/O (read/write -> wait etc.).
-      												// This is a direct way to slow down server - when necessary.
+	// custom setup
+	server.setRequestBufferSize(32 * 1024); // this is buffer for readin, buffers for reading are hold by threads
+	server.setJobsPerThread(256);
+  	server.setThreadsAmount(16);
+  	server.setDataHandlerWriteBufferSize(1024); // this is buffer for writing back, those buffers are hold by 
+  												// data handler objects. 
+  												// Data handler objects are the jobs in threads queues.
+  	server.setDefaultIdleTime(25 * 1000);		// This is how long server will wait for R/W before closing connection.
+  												// This property is configurable on handler level.
+  	server.setDelayForNoIOReadsInSuite(30);		// This property indicates how many milisconds thread will sleep 
+  												// if there is no I/O occuring in its queue (queue having jobs!).
+  												// Threads sleeping can be waked at any time if accepting connection
+  												// thread is updating the queue.
+  	server.setSinglePoolPassThreadDelay(0);		// This is how to set any delay between "rounds" of 
+  												// reading/writing from/to jobs. Value larger than zero will cause a sleep
+  												// every time thread is checking queue for I/O (read/write -> wait etc.).
+  												// This is a direct way to slow down server - when necessary.
 
-      	server.registerHandlerByPath("/echo", new EchoHandler()); //register demo handler (echoing data back)
+  	server.registerHandlerByPath("/echo", new EchoHandler()); //register demo handler (echoing data back)
 
-      	server.start(); // start the server
-	}
+  	server.start(); // start the server
+}
 ```
 
 To see more usage exapmles, check out the examples 'com.qubit.qurricane.examples'.
