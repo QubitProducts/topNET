@@ -43,7 +43,7 @@ class HandlingThreadQueued extends HandlingThread {
     DataHandler job;
     int totalWroteRead = 0;
     
-    while ((job = this.getJobs().pollFirst()) != null) {
+    while ((job = this.jobs.pollFirst()) != null) {
 
       boolean isFinished = true;
 
@@ -79,8 +79,11 @@ class HandlingThreadQueued extends HandlingThread {
         isFinished = true;
       } finally {
         if (!isFinished) { // will be closed
-          this.getJobs().addLast(job); // put back to queue
+          this.jobs.addLast(job); // put back to queue
         } else {
+          synchronized (this) {
+            jobcounter--;
+          }
           Server.close(job.getChannel());
           this.onJobFinished(job);
         }
@@ -89,7 +92,7 @@ class HandlingThreadQueued extends HandlingThread {
         // *** PROCESSING BLOCK
       try {
         // added last is the last
-        if (job == getJobs().getLast()) {
+        if (job == jobs.getLast()) {
           break; // take some rest!
         }
       } catch (NoSuchElementException ne) {
@@ -107,21 +110,20 @@ class HandlingThreadQueued extends HandlingThread {
    */
   @Override
   public boolean addJob(DataHandler dataHandler) {
-    if (limit > 0 && this.getJobs().size() < limit) { // @todo getSize is not good
-      boolean added = this.getJobs().add(dataHandler);
-      if (added) {
-        synchronized (this) {
-          this.notify();
-        }
+    if (limit > 0 && jobcounter < limit) { // @todo getSize is not good
+      synchronized (this) { 
+        this.jobs.addLast(dataHandler);
+        jobcounter++;
+        this.notify();
       }
-      return added;
+      return true;
     }
     return false;
   }
 
   @Override
   protected boolean hasJobs() {
-    return !this.getJobs().isEmpty();
+    return !this.jobs.isEmpty();
   }
 
   /**
@@ -137,10 +139,12 @@ class HandlingThreadQueued extends HandlingThread {
   public void setLimit(int limit) {
     this.limit = limit;
   }
-
+  
+  private int jobcounter = 0;
+  
   @Override
   boolean canAddJob() {
-    if (limit > this.getJobs().size()) {
+    if (limit > jobcounter) {
       return true;
     }
     return false;

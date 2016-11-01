@@ -24,9 +24,9 @@ public class Demo {
     int jobs = 64;
     int buf = 8192;
     int th = 8;
-    long delay = 1;
+    long delay = 50;
     long acceptDelay = 0;
-    long breakStop = 0;
+    long breakStop = 15;
     
     Server s = new Server("localhost", 3456);
     
