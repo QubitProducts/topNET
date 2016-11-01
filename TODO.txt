@@ -1,0 +1,3 @@
+1) Add efficient and synchronized add/remove handlers at runtime.
+2) Add some neat URL/Body parameters processing.
+3) Add some typical handlers (file system view handlers etc.)
