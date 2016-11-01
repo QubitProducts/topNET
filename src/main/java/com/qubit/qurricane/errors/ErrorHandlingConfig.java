@@ -1,7 +1,7 @@
 /*
  * Qurrican
  * Fast HTTP Server Solution.
- * Copyright 2016, Qubit Group
+ * Copyright 2016, Qubit Group <www.qubit.com>
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
