@@ -53,8 +53,9 @@ public class Server {
   private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
 
   static {
-    THREADS_POOL_SIZE =  Runtime.getRuntime().availableProcessors() * 4;
-    THREAD_JOBS_SIZE = (int)(1024 / THREADS_POOL_SIZE);
+    THREADS_POOL_SIZE = 
+      Math.max(2, Runtime.getRuntime().availableProcessors() -1);
+    THREAD_JOBS_SIZE = 64;
   }
   
 //  public static Log log = new Log(Server.class);
@@ -84,7 +85,7 @@ public class Server {
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingPathHandlers = 
           new ArrayList<>();
-  private boolean allowingMoreAcceptsThanSlots = true;
+  private boolean allowingMoreAcceptsThanSlots = false;
   private boolean stoppingNow = false;
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;
