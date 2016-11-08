@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 
 String mavenGroupId = 'com.qubit'
-String mavenVersion = '1.2.6'
+String mavenVersion = '1.4.0'
 String mavenArtifactId = name.replace("modules/", "")
 
 group = mavenGroupId
