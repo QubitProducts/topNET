@@ -134,7 +134,7 @@ class HandlingThreadQueued extends HandlingThread {
       synchronized (sleepingLocker) {
         DataHandler job = new DataHandler(server, channel);
         job.owningThread = this;
-        job.startedAnyHandler(ts);
+        job.setAcceptAndRunHandleStarted(ts);
         this.jobs.addLast(job);
         jobcounter++;
         sleepingLocker.notify();

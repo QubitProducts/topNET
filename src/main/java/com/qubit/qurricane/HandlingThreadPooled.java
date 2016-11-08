@@ -120,7 +120,7 @@ class HandlingThreadPooled extends HandlingThread {
         job = new DataHandler(server, channel);
         jobsCounter.incrementAndGet();
         job.owningThread = this;
-        job.startedAnyHandler(ts);
+        job.setAcceptAndRunHandleStarted(ts);
         this.jobs[i].dataHandler = job;
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
@@ -131,7 +131,7 @@ class HandlingThreadPooled extends HandlingThread {
         job.reset();
         job.init(server, channel);
         job.owningThread = this;
-        job.startedAnyHandler(ts);
+        job.setAcceptAndRunHandleStarted(ts);
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
         }

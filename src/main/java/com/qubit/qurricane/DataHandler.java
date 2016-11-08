@@ -815,7 +815,7 @@ public class DataHandler {
     }
   }
   
-  protected final void startedAnyHandler(Long ts) {
+  protected final void setAcceptAndRunHandleStarted(Long ts) {
     if (ts == null) {
       this.setAcceptedTime(System.currentTimeMillis());
     } else {
