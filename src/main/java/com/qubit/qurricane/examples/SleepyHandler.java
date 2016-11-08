@@ -23,36 +23,21 @@ package com.qubit.qurricane.examples;
 import com.qubit.qurricane.Handler;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
-//import java.io.ByteArrayInputStream;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class EchoHandler extends Handler {
-
-  
-  
-  public EchoHandler() { // must be always constructor empty available
-  }
-  
-  @Override
-  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
-    // happens before processing and preparing any response.
-    return true;
-  }
+public class SleepyHandler extends Handler {
 
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
-    response.print(request.getBodyString());
+    
+    Thread.sleep(10);
+    
+    response.print("I was sleeping 10 ms...");
 
-    // using stream example (if you start using print, streaming will fail):
-//    ByteArrayInputStream is = new ByteArrayInputStream(
-//    request.getBodyString().getBytes());
-//    response.setStreamToReadFrom(is);
-    response.setForcingNotKeepingAlive(false);
-    response.setTellingConnectionClose(false);
     return true;
   }
 

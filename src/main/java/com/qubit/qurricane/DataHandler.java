@@ -95,7 +95,7 @@ public class DataHandler {
   
   private boolean headersOnly = false;
   private volatile Server server;
-  private final int writeBufSize;
+  private final int maxGrowningBufferChunkSize;
   private boolean wasMarkedAsMoreDataIsComing;
   private volatile SocketChannel channel;
   private long acceptedTime;
@@ -131,7 +131,7 @@ public class DataHandler {
 
   public DataHandler(Server server, SocketChannel channel) {
     this.init(server, channel);
-    this.writeBufSize = server.getDataHandlerWriteBufferSize();
+    this.maxGrowningBufferChunkSize = server.getDataHandlerWriteBufferSize();
   }
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
@@ -150,7 +150,7 @@ public class DataHandler {
     ByteBuffer buf = this.request.getBytesStream().getNotEmptyCurrentBuffer();
     
     while (read != -2 && (read = this.channel.read(buf)) > 0) {
-      size += read;
+      this.size += read;
       
       if (read > 0) {
         currentSum += read;
@@ -277,7 +277,8 @@ public class DataHandler {
 
           if (this.headersReady) {
             if (this.contentLength > stream.getBufferElementSize() * 2) {
-              stream.setBufferElementSize(this.calculateBufferSizeByContentSize(this.contentLength));
+              stream.setBufferElementSize(
+                  this.calculateBufferSizeByContentSize(this.contentLength));
             }
             break;
           }
@@ -420,8 +421,7 @@ public class DataHandler {
   int currentBufferWrittenIndex = 0;
   int currentReadingPositionInWrittenBufByWrite = 0;
   
-  protected int write()
-          throws IOException {
+  protected int write() throws IOException {
     this.markWriting();
     
     ResponseReader responseReader;
@@ -774,7 +774,7 @@ public class DataHandler {
     }
   }
   
-  protected boolean canCloseOrResetAndPutBack(boolean finishedWriting) {
+  protected boolean finishedOrWaitForMoreRequests(boolean finishedWriting) {
     if (this.canClose(finishedWriting)) {
       this.reset();
       return true;
@@ -911,7 +911,7 @@ public class DataHandler {
   }
   
   private int calculateBufferSizeByContentSize(long cl) {
-    return Math.min(this.writeBufSize, (int) (cl / 2));
+    return Math.min(this.maxGrowningBufferChunkSize, (int) (cl / 2));
   }
 
   protected void init(Server server, SocketChannel channel) {

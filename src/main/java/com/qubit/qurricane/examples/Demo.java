@@ -36,10 +36,10 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 256;
-    int buf = 8192;
-    int th = 3;
-    long noIOdelay = 10;
+    int jobs = 64;
+    int bufChunkMax = 16 * 8192;
+    int th = 4;
+    long noIOdelay = 0;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     
@@ -47,7 +47,7 @@ public class Demo {
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setRequestBufferSize(buf);
+    s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
     s.setPoolType("pool");
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -59,35 +59,17 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler(s));
+    s.registerHandlerByPath("/sleep", new SleepyHandler());
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
-    s = new Server("localhost", 3457);
-    
-    s.setJobsPerThread(jobs * 8);
-    // one byte buffer!
-    s.setRequestBufferSize(buf);
-    s.setThreadsAmount(th);
-    s.setPoolType("pool-shared");
-    s.setDelayForNoIOReadsInSuite(noIOdelay);
-    s.setSinglePoolPassThreadDelay(breakStop);
-    s.setAcceptDelay(acceptDelay);
-    s.start();
-    Thread.sleep(200);
-    s.stop();
-    s.start();
-    
-    s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler(s));
-    s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    
-    // second version
     
     s = new Server("localhost", 3458);
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setRequestBufferSize(buf);
+    s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
     s.setPoolType("queue");
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -99,14 +81,16 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler(s));
+    s.registerHandlerByPath("/sleep", new SleepyHandler());
+    s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
+    s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     s = new Server("localhost", 3459);
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setRequestBufferSize(buf);
+    s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
     s.setPoolType("queue-shared");
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -118,7 +102,9 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler(s));
+    s.registerHandlerByPath("/sleep", new SleepyHandler());
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
   }
 }

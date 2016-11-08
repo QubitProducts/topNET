@@ -73,6 +73,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private int acceptedCnt = 0;
   private int currentThread = 0;
+  private final Object localLocker = new Object();
   
   @Override
   public void run() {
@@ -85,8 +86,8 @@ class MainAcceptAndDispatchThread extends Thread {
       
        if (this.getAcceptDelay() > 0) {
         try {
-          synchronized (this) {
-            this.wait(this.getAcceptDelay());
+          synchronized (localLocker) {
+            localLocker.wait(this.getAcceptDelay());
           }
         } catch (InterruptedException ex) {}
       }
@@ -98,8 +99,7 @@ class MainAcceptAndDispatchThread extends Thread {
           log.log(Level.SEVERE, null, ex);
       }
 
-      Set<SelectionKey> selectionKeys
-              = acceptSelector.selectedKeys();
+      Set<SelectionKey> selectionKeys = acceptSelector.selectedKeys();
       
       for (SelectionKey key : selectionKeys) {
         
@@ -109,23 +109,27 @@ class MainAcceptAndDispatchThread extends Thread {
               if (!isAllowingMoreAcceptsThanSlots()) {
                 while(!thereAreFreeJobs(handlingThreads)) {
                   try {
-                    synchronized (this) {
-                      this.wait(this.getAcceptDelay());
+                    synchronized (localLocker) {
+                      localLocker.wait(this.getAcceptDelay());
                     }
                   } catch (InterruptedException ex) {}
                 }
               }
               
               SocketChannel channel = this.server.accept(key, acceptSelector);
-              acceptedCnt++;
+              
               
               if (channel != null) {
+                  acceptedCnt++;
+                  if (!this.startReading(handlingThreads, channel)) {
+                  
                   // too many jobs! drop key to registry and pick later
                   SelectionKey newKey = 
                         channel.register(acceptSelector, OP_READ);
 
                   newKey.attach(new Long(System.currentTimeMillis()));
                   // consider Thread.wait(1) here instead registration
+                }
               }
             } else if (key.isReadable()) {
               // jobs that werent added immediatelly on accept
@@ -140,11 +144,12 @@ class MainAcceptAndDispatchThread extends Thread {
                   // job added, remove from selector
                   key.cancel();
                 } else {
-                  log.info(" >>>>>>>>>>>>>>>>>>>>>> ");
+                  log.info(">>>>>>>>>>>>>>>>>>> ");
                 }
               }
             }
           } else {
+            key.cancel();
             key.channel().close();
           }
         } catch (CancelledKeyException ex) {

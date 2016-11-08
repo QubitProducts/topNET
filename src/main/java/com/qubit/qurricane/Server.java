@@ -44,12 +44,12 @@ public class Server {
   
   private HandlingThread[] handlingThreads;
   
-  public final static String SERVER_VERSION = "1.2.4";
+  public final static String SERVER_VERSION = "1.4.0";
   
   private static int THREAD_JOBS_SIZE;
   private static int THREADS_POOL_SIZE;
-  private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
-  private static final int MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
+  private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
+  private static final int MAX_IDLE_TOUT = 3 * 1000; // miliseconds
   private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
   static final int BUF_GROWING_LIMIT = 64 * 1024;
 
@@ -74,7 +74,7 @@ public class Server {
   private ServerSocketChannel serverChannel;
   private int jobsPerThread = THREAD_JOBS_SIZE;
   private int threadsAmount = THREADS_POOL_SIZE;
-  private int requestBufferSize = DEFAULT_BUFFER_SIZE;
+  private int maxGrowningBufferChunkSize = DEFAULT_BUFFER_SIZE;
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
@@ -209,7 +209,7 @@ public class Server {
     boolean announced = false;
     String type = this.getPoolType();
     int jobsSize = this.getJobsPerThread();
-    int bufSize = this.getRequestBufferSize();
+    int bufSize = this.maxGrowningBufferChunkSize;
     int defaultMaxMessage = this.getMaxMessageSize();
     
     for (int i = 0; i < handlingThreads.length; i++) {
@@ -221,17 +221,6 @@ public class Server {
             log.info("Atomic Array  Pools type used.");
             announced = true;
           } t = new HandlingThreadPooled(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        case POOL_SHARED:
-          if (!announced) {
-            log.info("Atomic Array  Pools type used.");
-            announced = true;
-          } t = new HandlingThreadPooledShared(
                   this,
                   jobsSize,
                   bufSize,
@@ -308,20 +297,6 @@ public class Server {
    */
   public void setThreadsAmount(int threadsAmount) {
     this.threadsAmount = threadsAmount;
-  }
-
-  /**
-   * @return the requestBufferSize
-   */
-  public int getRequestBufferSize() {
-    return requestBufferSize;
-  }
-
-  /**
-   * @param bufferSize the requestBufferSize to set
-   */
-  public void setRequestBufferSize(int bufferSize) {
-    this.requestBufferSize = bufferSize;
   }
 
   /**
@@ -540,5 +515,19 @@ public class Server {
   public static void setGeneralGlobalHandlingHooks(
           GeneralGlobalHandlingHooks hooks) {
     DataHandler.setGeneralGlobalHandlingHooks(hooks);
+  }
+
+  /**
+   * @return the maxGrowningBufferChunkSize
+   */
+  public int getMaxGrowningBufferChunkSize() {
+    return maxGrowningBufferChunkSize;
+  }
+
+  /**
+   * @param maxGrowningBufferChunkSize the maxGrowningBufferChunkSize to set
+   */
+  public void setMaxGrowningBufferChunkSize(int maxGrowningBufferChunkSize) {
+    this.maxGrowningBufferChunkSize = maxGrowningBufferChunkSize;
   }
 }

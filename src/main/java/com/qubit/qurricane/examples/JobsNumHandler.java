@@ -21,38 +21,38 @@
 package com.qubit.qurricane.examples;
 
 import com.qubit.qurricane.Handler;
+import com.qubit.qurricane.HandlingThread;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
-//import java.io.ByteArrayInputStream;
+import com.qubit.qurricane.Server;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class EchoHandler extends Handler {
+public class JobsNumHandler extends Handler {
+  static List<Server> servers = new ArrayList<>();
 
+  public JobsNumHandler(){}
   
-  
-  public EchoHandler() { // must be always constructor empty available
-  }
-  
-  @Override
-  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
-    // happens before processing and preparing any response.
-    return true;
+  public JobsNumHandler(Server s) {
+    servers.add(s);
   }
 
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
-    response.print(request.getBodyString());
-
-    // using stream example (if you start using print, streaming will fail):
-//    ByteArrayInputStream is = new ByteArrayInputStream(
-//    request.getBodyString().getBytes());
-//    response.setStreamToReadFrom(is);
-    response.setForcingNotKeepingAlive(false);
-    response.setTellingConnectionClose(false);
+    for (Server server : servers) {
+      int havingJobs = 0;
+      for (HandlingThread handlingThread : server.getHandlingThreads()) {
+        if (handlingThread.hasJobs()) {
+          havingJobs++;
+        }
+      }
+      response.print("Current threads jobs: " + havingJobs + "\n");
+    }
     return true;
   }
 

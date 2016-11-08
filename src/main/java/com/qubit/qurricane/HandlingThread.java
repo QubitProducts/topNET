@@ -79,7 +79,7 @@ public abstract class HandlingThread extends Thread {
 
   /**
    * Returns false if not finished writing or
-   * "this.canCloseOrResetAndPutBack(...)" when finished. It tells if job can be
+ "this.finishedOrWaitForMoreRequests(...)" when finished. It tells if job can be
    * released.
    *
    * @param key
@@ -93,7 +93,8 @@ public abstract class HandlingThread extends Thread {
     if (written < 0) {
       if (written == -1) {
         this.runOnFinishedHandler(dataHandler);
-        if (dataHandler.canCloseOrResetAndPutBack(true)) {
+        if (dataHandler.finishedOrWaitForMoreRequests(true)) {
+          // finished
           return -1;
         } else {
           return 0; /// REGISTER KEY RATHER THAN THIS
