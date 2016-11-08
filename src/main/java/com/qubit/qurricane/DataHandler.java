@@ -815,8 +815,12 @@ public class DataHandler {
     }
   }
   
-  protected final void startedAnyHandler() {
-    this.setAcceptedTime(System.currentTimeMillis());
+  protected final void startedAnyHandler(Long ts) {
+    if (ts == null) {
+      this.setAcceptedTime(System.currentTimeMillis());
+    } else {
+      this.setAcceptedTime(ts);
+    }
     this.touch();
     if (postPreProcessingHandler != null) {
       try {

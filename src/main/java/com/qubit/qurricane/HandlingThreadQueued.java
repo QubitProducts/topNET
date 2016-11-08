@@ -129,12 +129,12 @@ class HandlingThreadQueued extends HandlingThread {
    * @return
    */
   @Override
-  public boolean addJob(SocketChannel channel) {
+  public boolean addJob(SocketChannel channel, Long ts) {
     if (limit > 0 && jobcounter < limit) { // @todo getSize is not good
       synchronized (sleepingLocker) {
         DataHandler job = new DataHandler(server, channel);
         job.owningThread = this;
-        job.startedAnyHandler();
+        job.startedAnyHandler(ts);
         this.jobs.addLast(job);
         jobcounter++;
         sleepingLocker.notify();

@@ -42,7 +42,7 @@ public abstract class HandlingThread extends Thread {
   private long delayForNoIO = 1;
   private boolean running;
 
-  abstract public boolean addJob(SocketChannel channel);
+  abstract public boolean addJob(SocketChannel channel, Long acceptTime);
 
   abstract boolean canAddJob();
 

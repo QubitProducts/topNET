@@ -116,7 +116,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
               if (channel != null) {
                 acceptedCnt++;
-                if (!this.startReading(handlingThreads, channel)) {
+                if (true || !this.startReading(handlingThreads, channel, null)) {
                   SelectionKey newKey
                       = channel.register(acceptSelector, OP_READ);
 
@@ -125,13 +125,13 @@ class MainAcceptAndDispatchThread extends Thread {
               }
             } else if (key.isReadable()) {
               // jobs that werent added immediatelly on accept
-              Long ts = (Long) key.attachment();
-              if (this.handleMaxIdle(ts, this.maxIdleAfterAccept)) {
+              Long acceptTime = (Long) key.attachment();
+              if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept)) {
                 key.cancel(); // already too long 
                 Server.close((SocketChannel) key.channel());
-              } else if (this.startReading(
-                  handlingThreads,
-                  (SocketChannel) key.channel())) {
+              } else if (this.startReading(handlingThreads,
+                                  (SocketChannel) key.channel(),
+                                  acceptTime)) {
                 // job added, remove from selector
                 key.cancel();
               }
@@ -172,7 +172,7 @@ class MainAcceptAndDispatchThread extends Thread {
 //  int i = 0;
   private boolean startReading(
       HandlingThread[] handlingThreads,
-      SocketChannel channel) {
+      SocketChannel channel, Long acceptTime) {
 
     int len = handlingThreads.length;
     for (int c = 0; c < len; c++) {
@@ -181,7 +181,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
       if (handlingThread != null) {
 
-        if (handlingThread.addJob(channel)) {
+        if (handlingThread.addJob(channel, acceptTime)) {
           //key.cancel(); // remove key, handled channel is
           // now by job processor
           return true;

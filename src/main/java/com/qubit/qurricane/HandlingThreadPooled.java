@@ -113,14 +113,14 @@ class HandlingThreadPooled extends HandlingThread {
   AtomicInteger jobsCounter = new AtomicInteger(0);
   
   @Override
-  public boolean addJob(SocketChannel channel) {
+  public boolean addJob(SocketChannel channel, Long ts) {
     for (int i = 0; i < this.jobs.length; i++) {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
         job = new DataHandler(server, channel);
         jobsCounter.incrementAndGet();
         job.owningThread = this;
-        job.startedAnyHandler();
+        job.startedAnyHandler(ts);
         this.jobs[i].dataHandler = job;
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
@@ -131,7 +131,7 @@ class HandlingThreadPooled extends HandlingThread {
         job.reset();
         job.init(server, channel);
         job.owningThread = this;
-        job.startedAnyHandler();
+        job.startedAnyHandler(ts);
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
         }
