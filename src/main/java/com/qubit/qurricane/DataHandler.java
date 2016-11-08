@@ -107,6 +107,11 @@ public class DataHandler {
   int currentReadingPositionInWrittenBufByWrite = 0;
 
   protected void reset() {
+    resetForNewRequest();
+    server = null;
+  }
+
+  protected void resetForNewRequest() {
     previous = -1;
     parameters = null;
     size = 0;
@@ -136,11 +141,11 @@ public class DataHandler {
     currentReadingPositionInWrittenBufByWrite = 0;
     reqInitialized = false;
     httpProtocol = HTTP_1_0;
-    server = null;
+    
     wasMarkedAsMoreDataIsComing = false;
     acceptedTime = 0;
   }
-
+  
   public DataHandler(Server server, SocketChannel channel) {
     this.init(server, channel);
     this.maxGrowningBufferChunkSize = server.getDataHandlerWriteBufferSize();
@@ -316,13 +321,11 @@ public class DataHandler {
       if (this.errorOccured != null) {
         return true;
       }
-      try {
+      
       // paths must be ready by headers setup
       this.handlerUsed = 
         this.server.getHandlerForPath(this.fullPath, this.path, this.parameters);
-      } catch (Exception e) {
-        log.log(Level.INFO, "{0}", 324534);
-      }
+      
       this.errorOccured = 
               this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
       
@@ -794,7 +797,7 @@ public class DataHandler {
     if (this.canClose(finishedWriting)) {
       return true;
     } else {
-      this.reset();
+      this.resetForNewRequest();
       return false;
     }
   }

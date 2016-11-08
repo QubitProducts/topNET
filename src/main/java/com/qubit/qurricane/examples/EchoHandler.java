@@ -30,11 +30,6 @@ import com.qubit.qurricane.Response;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class EchoHandler extends Handler {
-
-  
-  
-  public EchoHandler() { // must be always constructor empty available
-  }
   
   @Override
   public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
