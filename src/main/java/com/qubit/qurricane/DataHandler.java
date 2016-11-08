@@ -101,12 +101,14 @@ public class DataHandler {
   private long acceptedTime;
   private boolean bufferSizeCalculatedForWriting = false;
   protected volatile HandlingThread owningThread = null;
+  private boolean reqInitialized = false;
+  private int previous = -1;
+  int currentBufferWrittenIndex = 0;
+  int currentReadingPositionInWrittenBufByWrite = 0;
 
   protected void reset() {
-    if (request != null && request.getBytesStream() != null) {
-      request.getBytesStream().shrinkLessMore();
-      request.getBytesStream().clear();
-    }
+    previous = -1;
+    parameters = null;
     size = 0;
     headers.clear();
     method = null;
@@ -119,14 +121,24 @@ public class DataHandler {
     lastHeaderName = null;
     currentLine.setLength(0);
     contentLength = 0;
-    request = null;
-    response = null;
+    if (request != null) {
+      request.reset();
+    }
+    if (response != null) {
+      response.reset();
+    }
     errorOccured = null;
     errorException = null;
     handlerUsed = null;
     headersOnly = false;
     bufferSizeCalculatedForWriting = false;
+    currentBufferWrittenIndex = 0;
     currentReadingPositionInWrittenBufByWrite = 0;
+    reqInitialized = false;
+    httpProtocol = HTTP_1_0;
+    server = null;
+    wasMarkedAsMoreDataIsComing = false;
+    acceptedTime = 0;
   }
 
   public DataHandler(Server server, SocketChannel channel) {
@@ -140,8 +152,15 @@ public class DataHandler {
           throws IOException {
 
     if (this.request == null) {
-      this.request = new Request(this.channel, this.headers);
-      this.response = new Response(this.httpProtocol);
+      this.request = new Request();
+      this.response = new Response();
+    }
+    
+    if (!this.reqInitialized) {
+      this.reqInitialized = true;
+      this.request.init(this.channel, this.headers);
+      this.response.init(this.httpProtocol);
+      this.request.getBytesStream().clear();
     }
     
     int read = 0;
@@ -257,8 +276,6 @@ public class DataHandler {
     return this.path;
   }
 
-  private int previous = -1;
-
   // returns true if reading is finished. any error handling should happend after reading foinished.
   private boolean flushReads(BytesStream stream)
           throws UnsupportedEncodingException {
@@ -299,11 +316,13 @@ public class DataHandler {
       if (this.errorOccured != null) {
         return true;
       }
-      
+      try {
       // paths must be ready by headers setup
       this.handlerUsed = 
         this.server.getHandlerForPath(this.fullPath, this.path, this.parameters);
-      
+      } catch (Exception e) {
+        log.log(Level.INFO, "{0}", 324534);
+      }
       this.errorOccured = 
               this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
       
@@ -417,9 +436,6 @@ public class DataHandler {
 
     return false;
   }
-  
-  int currentBufferWrittenIndex = 0;
-  int currentReadingPositionInWrittenBufByWrite = 0;
   
   protected int write() throws IOException {
     this.markWriting();
@@ -776,7 +792,6 @@ public class DataHandler {
   
   protected boolean finishedOrWaitForMoreRequests(boolean finishedWriting) {
     if (this.canClose(finishedWriting)) {
-      this.reset();
       return true;
     } else {
       this.reset();

@@ -38,8 +38,8 @@ public class Demo {
     
     int jobs = 64;
     int bufChunkMax = 16 * 8192;
-    int th = 4;
-    long noIOdelay = 0;
+    int th = 8;
+    long noIOdelay = 1;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     

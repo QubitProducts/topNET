@@ -23,6 +23,8 @@ import static com.qubit.qurricane.DataHandler.bodyReadyHandler;
 import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
+import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -289,4 +291,6 @@ public abstract class HandlingThread extends Thread {
   public synchronized void setRunning(boolean started) {
     this.running = started;
   }
+  
+  abstract public List<DataHandler> getValidJobs();
 }

@@ -22,6 +22,9 @@ package com.qubit.qurricane;
 
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -70,7 +73,7 @@ class HandlingThreadPooled extends HandlingThread {
 
         try {
           if (this.handleMaxIdle(dataHandler, maxIdle)) {
-            ifIOOccuredCount += 1;
+//            ifIOOccuredCount += 1;
             continue;
           }
 
@@ -86,16 +89,14 @@ class HandlingThreadPooled extends HandlingThread {
             }
             isFinished = false;
           }
-        } catch (ClosedChannelException e) {
-          log.info("Closed early connection.");
-        } catch (Exception es) {
+        } catch (Throwable es) {
           log.log(Level.SEVERE, "Exception during handling data.", es);
           isFinished = true;
         } finally {
           if (isFinished) {
             //key cancell!
             try {
-              ifIOOccuredCount++;
+//              ifIOOccuredCount++;
               Server.close(channel);
               this.onJobFinished(dataHandler);
             } finally {
@@ -127,6 +128,7 @@ class HandlingThreadPooled extends HandlingThread {
         return true;
       } else if (job.owningThread == null) {
         jobsCounter.incrementAndGet();
+        job.reset();
         job.init(server, channel);
         job.owningThread = this;
         job.startedAnyHandler();
@@ -176,5 +178,16 @@ class HandlingThreadPooled extends HandlingThread {
    */
   public Server getServer() {
     return server;
+  }
+
+  @Override
+  public List<DataHandler> getValidJobs() {
+    List<DataHandler> tmp = new ArrayList<>();
+    for (DataHandlerHolder job : jobs) {
+      if (job.dataHandler != null && job.dataHandler.owningThread != null) {
+        tmp.add(job.dataHandler);
+      }
+    }
+    return tmp;
   }
 }

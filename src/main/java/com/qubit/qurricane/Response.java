@@ -72,7 +72,7 @@ public class Response {
   private Object attachment;
   private String httpProtocol;
 
-  public Response (String httpProtocol) {
+  public void init (String httpProtocol) {
     this.httpProtocol = httpProtocol;
   }
   
@@ -474,5 +474,25 @@ public class Response {
    */
   public InputStream getStreamToReadFrom() {
     return inputStreamForBody;
+  }
+
+  protected void reset() {
+    httpCode = 200;
+    if (headers != null) {
+      headers.clear();
+    }
+    responseStream = null;
+    tooLateToChangeHeaders = false;
+    contentLength = -1;
+    contentType = "text/html";
+    charset = null;
+    forcingNotKeepingAlive = true;
+    tellingConnectionClose = true;
+    moreDataComing = false;
+
+    stringBuffer = null;
+    inputStreamForBody = null;
+    attachment = null;
+    httpProtocol = null;
   }
 }

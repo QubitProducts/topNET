@@ -17,7 +17,6 @@
  * 
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
-
 package com.qubit.qurricane;
 
 import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
@@ -40,7 +39,7 @@ import java.util.logging.Logger;
 class MainAcceptAndDispatchThread extends Thread {
 
   private static long infoLogsFrequency = 1 * 1000;
-  
+
   /**
    * @return the infoLogsFrequency
    */
@@ -63,9 +62,9 @@ class MainAcceptAndDispatchThread extends Thread {
   private boolean running;
 
   MainAcceptAndDispatchThread(Server server,
-          final Selector acceptSelector,
-          long maxIdleAfterAccept) 
-          throws IOException {
+      final Selector acceptSelector,
+      long maxIdleAfterAccept)
+      throws IOException {
     this.server = server;
     this.acceptSelector = acceptSelector;
     this.maxIdleAfterAccept = maxIdleAfterAccept;
@@ -73,62 +72,55 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private int acceptedCnt = 0;
   private int currentThread = 0;
-  private final Object localLocker = new Object();
-  
+
   @Override
   public void run() {
     HandlingThread[] handlingThreads = this.server.getHandlingThreads();
-    
+
     long lastMeassured = System.currentTimeMillis();
     long totalWaitingAcceptMsCounter = 0;
     this.setRunning(true);
     while (this.isRunning()) {
-      
-       if (this.getAcceptDelay() > 0) {
+
+      if (this.getAcceptDelay() > 0) {
         try {
-          synchronized (localLocker) {
-            localLocker.wait(this.getAcceptDelay());
-          }
-        } catch (InterruptedException ex) {}
+          Thread.sleep(10);
+        } catch (InterruptedException ex) {
+        }
       }
-      
+
       try {
         // pick current events list:
         acceptSelector.select();
       } catch (IOException ex) {
-          log.log(Level.SEVERE, null, ex);
+        log.log(Level.SEVERE, null, ex);
       }
 
       Set<SelectionKey> selectionKeys = acceptSelector.selectedKeys();
-      
+
       for (SelectionKey key : selectionKeys) {
-        
+
         try {
           if (key.isValid()) {
             if (key.isAcceptable()) {
               if (!isAllowingMoreAcceptsThanSlots()) {
-                while(!thereAreFreeJobs(handlingThreads)) {
+                while (!thereAreFreeJobs(handlingThreads)) {
                   try {
-                    synchronized (localLocker) {
-                      localLocker.wait(this.getAcceptDelay());
-                    }
-                  } catch (InterruptedException ex) {}
+                    Thread.sleep(5);
+                  } catch (InterruptedException ex) {
+                  }
                 }
               }
-              
+
               SocketChannel channel = this.server.accept(key, acceptSelector);
-              
-              
+
               if (channel != null) {
-                  acceptedCnt++;
-                  if (!this.startReading(handlingThreads, channel)) {
-                  
-                  // too many jobs! drop key to registry and pick later
-                  SelectionKey newKey = 
-                        channel.register(acceptSelector, OP_READ);
+                acceptedCnt++;
+                if (!this.startReading(handlingThreads, channel)) {
+                  SelectionKey newKey
+                      = channel.register(acceptSelector, OP_READ);
 
                   newKey.attach(new Long(System.currentTimeMillis()));
-                  // consider Thread.wait(1) here instead registration
                 }
               }
             } else if (key.isReadable()) {
@@ -137,15 +129,11 @@ class MainAcceptAndDispatchThread extends Thread {
               if (this.handleMaxIdle(ts, this.maxIdleAfterAccept)) {
                 key.cancel(); // already too long 
                 Server.close((SocketChannel) key.channel());
-              } else {
-                if (this.startReading(
-                    handlingThreads,
-                    (SocketChannel) key.channel())) {
-                  // job added, remove from selector
-                  key.cancel();
-                } else {
-                  log.info(">>>>>>>>>>>>>>>>>>> ");
-                }
+              } else if (this.startReading(
+                  handlingThreads,
+                  (SocketChannel) key.channel())) {
+                // job added, remove from selector
+                key.cancel();
               }
             }
           } else {
@@ -160,42 +148,41 @@ class MainAcceptAndDispatchThread extends Thread {
       }
 
       selectionKeys.clear();
-      
+
       if (System.currentTimeMillis() > lastMeassured + getInfoLogsFrequency()) {
         log.log(Level.INFO,
-                "Accepted connections: {0}, total accept waited: {1}ms, total waited IO: {2}",
-                new Object[]{
-                  acceptedCnt,
-                  totalWaitingAcceptMsCounter,
-                  totalWaitedIO});
+            "Accepted connections: {0}, total accept waited: {1}ms, total waited IO: {2}",
+            new Object[]{
+              acceptedCnt,
+              totalWaitingAcceptMsCounter,
+              totalWaitedIO});
         lastMeassured = System.currentTimeMillis();
       }
     }
-    
+
     try {
       acceptSelector.close();
     } catch (IOException ex) {
       log.log(Level.SEVERE, null, ex);
     }
   }
-  
+
   LinkedList<DataHandler> waitingJobs = new LinkedList<>();
-  
+
 //  int i = 0;
   private boolean startReading(
-          HandlingThread[] handlingThreads,
-          SocketChannel channel) {
-    
+      HandlingThread[] handlingThreads,
+      SocketChannel channel) {
+
     int len = handlingThreads.length;
     for (int c = 0; c < len; c++) {
       HandlingThread handlingThread = handlingThreads[currentThread];
       currentThread = (currentThread + 1) % len;
 
       if (handlingThread != null) {
-        
 
         if (handlingThread.addJob(channel)) {
-            //key.cancel(); // remove key, handled channel is
+          //key.cancel(); // remove key, handled channel is
           // now by job processor
           return true;
         }
@@ -212,7 +199,7 @@ class MainAcceptAndDispatchThread extends Thread {
         return true;
       }
     }
-    
+
     return false;
   }
 
@@ -245,13 +232,13 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private long closedIdleCounter = 0;
-  
+
   protected boolean handleMaxIdle(Long ts, long idle) {
     //check if connection is not open too long! Prevent DDoS
     if (idle != 0 && (System.currentTimeMillis() - ts) > idle) {
       log.log(Level.INFO,
-              "ML Max accept idle gained - closing, total: {0}",
-              ++closedIdleCounter);
+          "ML Max accept idle gained - closing, total: {0}",
+          ++closedIdleCounter);
       return true;
     }
     return false;

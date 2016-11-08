@@ -21,6 +21,8 @@
 package com.qubit.qurricane;
 
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.logging.Level;
@@ -183,5 +185,14 @@ class HandlingThreadQueued extends HandlingThread {
    */
   public Server getServer() {
     return server;
+  }
+  
+  @Override
+  public List<DataHandler> getValidJobs() {
+    List<DataHandler> tmp = new ArrayList<>();
+    for (DataHandler job : jobs.toArray(new DataHandler[]{})) {
+      tmp.add(job);
+    }
+    return tmp;
   }
 }

@@ -44,14 +44,15 @@ public class JobsNumHandler extends Handler {
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
+    int counts = 0;
     for (Server server : servers) {
-      int havingJobs = 0;
+      int count = 0;
+      response.print("SERVER " + counts++ + ":");
       for (HandlingThread handlingThread : server.getHandlingThreads()) {
-        if (handlingThread.hasJobs()) {
-          havingJobs++;
-        }
+        response.print("  [" + (count++) + "] jobs: " +
+            handlingThread.getValidJobs().size() + "\n");
       }
-      response.print("Current threads jobs: " + havingJobs + "\n");
+      response.print("\n");
     }
     return true;
   }

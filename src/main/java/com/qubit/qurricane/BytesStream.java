@@ -130,12 +130,17 @@ class BytesStream {
     }
   }
 
-  public void reset() {
-    currentBufferReading = null;
+  private void reset() {
+    if (buffers.isEmpty()) {
+      currentBufferReading = null;
+      currentBufferWriting = null;
+      currBufAt = -1;
+    } else {
+      currentBufferReading = currentBufferWriting = buffers.get(0);
+      currBufAt = 0;
+    }
     currentBufferReadIndex = 0;
     currentBufferReadPosition = 0;
-    currentBufferWriting = null;
-    currBufAt = 0;
   }
 
   public void clear() {

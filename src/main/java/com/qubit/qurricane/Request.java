@@ -34,8 +34,8 @@ import java.util.Set;
  */
 public class Request {
 
-  private final Map<String, String> headers;
-  private final SocketChannel channel;
+  private Map<String, String> headers;
+  private SocketChannel channel;
   private String bodyStringCache;
 
   private BytesStream bytesStream = new BytesStream();
@@ -47,16 +47,14 @@ public class Request {
   private Object attachment;
 
   private Map<String, Object> attributes;
-  private final long createdTime;
+  private long createdTime;
   private Runnable writeFinishedHandler;
-
-  protected Request(SocketChannel channel, Map<String, String> headers) {
+  
+  protected void init(SocketChannel channel, Map<String, String> headers) {
     this.headers = headers;
     this.channel = channel;
     this.createdTime = new Date().getTime();
   }
-
-  byte[] byteArray = null;
 
   public String getBodyString() throws OutputStreamAlreadySetException {
     if (this.bodyStringCache == null) {
@@ -74,7 +72,6 @@ public class Request {
       } else {
         charset = Charset.defaultCharset();
       }
-
       
       this.bodyStringCache = getBytesStream()
           .readAvailableToReadAsString(charset).toString();
@@ -217,5 +214,28 @@ public class Request {
    */
   public BytesStream getBytesStream() {
     return bytesStream;
+  }
+  
+  protected void reset() {
+    if (this.getBytesStream() != null) {
+      this.getBytesStream().shrinkLessMore();
+      this.getBytesStream().clear();
+    }
+    headers.clear();
+    channel = null;
+    bodyStringCache = null;
+
+    path = null;
+    method = null;
+    pathParameters = null;
+    fullPath = null;
+    associatedException = null;
+    attachment = null;
+
+    if (attributes != null) {
+      attributes.clear();
+    }
+    createdTime = 0;
+    writeFinishedHandler = null;
   }
 }
