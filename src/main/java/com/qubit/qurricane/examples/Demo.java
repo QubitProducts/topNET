@@ -36,9 +36,9 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 64;
-    int bufChunkMax = 16 * 8192;
-    int th = 8;
+    int jobs = 32;
+    int bufChunkMax = 4 * 16 * 8192;
+    int th = 4;
     long noIOdelay = 1;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
@@ -62,6 +62,7 @@ public class Demo {
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
+    s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     
@@ -84,6 +85,7 @@ public class Demo {
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     s = new Server("localhost", 3459);
@@ -105,6 +107,7 @@ public class Demo {
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
+    s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
   }
 }

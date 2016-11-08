@@ -21,39 +21,19 @@
 package com.qubit.qurricane.examples;
 
 import com.qubit.qurricane.Handler;
-import com.qubit.qurricane.HandlingThread;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
-import com.qubit.qurricane.Server;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class JobsNumHandler extends Handler {
-  static List<Server> servers = new ArrayList<>();
-
-  public JobsNumHandler(){}
-  
-  public JobsNumHandler(Server s) {
-    servers.add(s);
-  }
+public class DumpHandler extends Handler {
 
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
-    int counts = 0;
-    for (Server server : servers) {
-      int count = 0;
-      response.print("SERVER " + counts++ + ":\n");
-      for (HandlingThread handlingThread : server.getHandlingThreads()) {
-        response.print("  [" + (count++) + "] jobs: " +
-            handlingThread.getValidJobs().size() + "\n");
-      }
-      response.print("\n");
-    }
+
     return true;
   }
 
