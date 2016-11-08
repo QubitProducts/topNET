@@ -44,7 +44,7 @@ public class AsyncAppenderHandler extends Handler {
     ResponseAppendableReader source = new ResponseAppendableReader();
     
     if (response.getStringBuffer() != null) {
-      source.print(response.getStringBuffer());
+      source.print(response.getStringBuffer().toString());
       response.setStringBuffer(null);
     }
     

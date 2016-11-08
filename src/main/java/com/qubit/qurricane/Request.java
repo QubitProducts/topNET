@@ -21,8 +21,6 @@
 package com.qubit.qurricane;
 
 import com.qubit.qurricane.exceptions.OutputStreamAlreadySetException;
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.Date;
@@ -37,10 +35,10 @@ import java.util.Set;
 public class Request {
 
   private final Map<String, String> headers;
-  private OutputStream outputStream;
   private final SocketChannel channel;
   private String bodyStringCache;
 
+  private BytesStream bytesStream = new BytesStream();
   private String path;
   private String method;
   private String pathParameters;
@@ -60,34 +58,26 @@ public class Request {
 
   byte[] byteArray = null;
 
-  public byte[] getBodyBytes() throws OutputStreamAlreadySetException {
-    if (!(this.outputStream instanceof ByteArrayOutputStream)) {
-      throw new OutputStreamAlreadySetException();
-    }
-
-    if (byteArray == null) {
-      byteArray = ((ByteArrayOutputStream) outputStream).toByteArray();
-    }
-
-    return byteArray;
-  }
-
   public String getBodyString() throws OutputStreamAlreadySetException {
     if (this.bodyStringCache == null) {
+        
+      if (!(this.bytesStream instanceof BytesStream)) {
+        throw new OutputStreamAlreadySetException();
+      }
+        
       Charset charset = null;
-      try {
-        String contentType = this.getHeader("Content-Type");
-        if (contentType != null) {
-          int idx = contentType.indexOf("charset=");
-          String charsetString = contentType.substring(idx + 8).trim();
-          charset = Charset.forName(charsetString);
-        } else {
-          charset = Charset.defaultCharset();
-        }
-      } finally {
+      String contentType = this.getHeader("Content-Type");
+      if (contentType != null) {
+        int idx = contentType.indexOf("charset=");
+        String charsetString = contentType.substring(idx + 8).trim();
+        charset = Charset.forName(charsetString);
+      } else {
+        charset = Charset.defaultCharset();
       }
 
-      this.bodyStringCache = new String(this.getBodyBytes(), charset);
+      
+      this.bodyStringCache = getBytesStream()
+          .readAvailableToReadAsString(charset).toString();
     }
 
     return this.bodyStringCache;
@@ -99,35 +89,6 @@ public class Request {
 
   public Set<String> getHeadersKeySet() {
     return headers.keySet();
-  }
-
-  /**
-   * @return the outputStream
-   */
-  protected OutputStream getOutputStream() {
-    return outputStream;
-  }
-
-  /**
-   * @param streamSet the streamSet to set
-   */
-  protected void makeSureOutputStreamIsReady() {
-    if (this.outputStream == null) {
-      this.outputStream = new ByteArrayOutputStream();
-    }
-  }
-
-  /**
-   * @param outputStream the outputStream to set
-   */
-  public void setOutputStream(OutputStream outputStream)
-          throws OutputStreamAlreadySetException {
-    if (outputStream != null) {
-      // ignore nonsense, or throw...
-      throw new OutputStreamAlreadySetException();
-    }
-
-    this.outputStream = outputStream;
   }
 
   public SocketChannel getChannel() {
@@ -249,5 +210,12 @@ public class Request {
    */
   public Runnable getWriteFinishedHandler() {
     return writeFinishedHandler;
+  }
+
+  /**
+   * @return the bytesStream
+   */
+  public BytesStream getBytesStream() {
+    return bytesStream;
   }
 }

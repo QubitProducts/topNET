@@ -20,7 +20,7 @@
 
 package com.qubit.qurricane;
 
-import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,7 +53,6 @@ class HandlingThreadPooledShared extends HandlingThread {
       }
     }
     
-    this.setBuffer(ByteBuffer.allocateDirect(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -67,9 +66,7 @@ class HandlingThreadPooledShared extends HandlingThread {
               HandlingThreadPooledShared.jobs[i].dataHandler;
 
       if (dataHandler != null) {
-        try {
-          if (dataHandler.atomicRefToHandlingThread == null || 
-             !dataHandler.atomicRefToHandlingThread.compareAndSet(null, this)) {
+          if (dataHandler.atomicRefToHandlingThread.get() != this) {
             continue;
             // something else already works on it
           }
@@ -87,12 +84,7 @@ class HandlingThreadPooledShared extends HandlingThread {
                 continue;
               }
               
-              int processed = 0;
-              
-              synchronized (dataHandler) {
-                // -2 close, -1 hold
-                processed = this.processJob(dataHandler);
-              }
+              int processed = this.processJob(dataHandler);
 
               if (processed < 0) {
                 ifIOOccuredCount += 1; // job finished, io occured
@@ -105,6 +97,8 @@ class HandlingThreadPooledShared extends HandlingThread {
                 isFinished = false;
               }
             }
+          } catch (ClosedChannelException e) {
+            log.info("Closed early connection.");
           } catch (Exception es) {
             log.log(Level.SEVERE, "Exception during handling data.", es);
             isFinished = true;
@@ -112,22 +106,15 @@ class HandlingThreadPooledShared extends HandlingThread {
             if (isFinished) {
               //key cancell!
               try {
-                this.removeJobFromPool(i);
+                try {
+                  this.removeJobFromPool(i);
+                } catch (IllegalMonitorStateException e) {}
               } finally {
                 Server.close(channel);
                 this.onJobFinished(dataHandler);
               }
             }
-          }
           // PROCESSING BLOCK ***
-        } finally {
-          try {
-            if (dataHandler.atomicRefToHandlingThread != null) {
-              dataHandler.atomicRefToHandlingThread.compareAndSet(this, null);
-            }
-          } catch (IllegalMonitorStateException e) {
-            log.log(Level.SEVERE, null, e);
-          }
         }
       }
     }
@@ -143,26 +130,40 @@ class HandlingThreadPooledShared extends HandlingThread {
    * @return
    */
   @Override
-  public boolean addJob(DataHandler dataHandler) {
-    for (int i = 0; i < HandlingThreadPooledShared.jobs.length; i++) {
-      DataHandler job = HandlingThreadPooledShared.jobs[i].dataHandler;
+  public boolean addJob(SocketChannel channel) {
+    for (int i = 0; i < this.jobs.length; i++) {
+      DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
-        dataHandler.initLock();
-        HandlingThreadPooledShared.jobs[i].dataHandler = dataHandler;
-        synchronized (this) {
-          this.notify();
+        job = new DataHandler(server, channel);
+        job.initLock();
+        if (job.atomicRefToHandlingThread.compareAndSet(null, this)) {
+          this.jobs[i].dataHandler = job;
+          job.owningThread = this;
+          job.startedAnyHandler();
+          synchronized (sleepingLocker) {
+            sleepingLocker.notify();
+          }
+          return true;
+        }
+      } else if (job.owningThread == null) {
+        job.owningThread = this;
+        job.init(server, channel);
+        job.startedAnyHandler();
+        synchronized (sleepingLocker) {
+          sleepingLocker.notify();
         }
         return true;
       }
     }
-
     return false;
   }
 
   @Override
-  protected boolean hasJobs() {
+  public boolean hasJobs() {
     for (int i = 0; i < this.jobs.length; i++) {
-      if (HandlingThreadPooledShared.jobs[i].dataHandler != null) {
+      if (this.jobs[i].dataHandler != null &&
+          this.jobs[i].dataHandler.owningThread != null &&
+          this.jobs[i].dataHandler.atomicRefToHandlingThread.get() == this) {
         return true;
       }
     }
@@ -170,13 +171,15 @@ class HandlingThreadPooledShared extends HandlingThread {
   }
 
   private void removeJobFromPool(int i) {
-    this.jobs[i].dataHandler = null;
+    this.jobs[i].dataHandler.atomicRefToHandlingThread.compareAndSet(this, null);
+    this.jobs[i].dataHandler.owningThread = null;
   }
 
   @Override
   boolean canAddJob() {
     for (int i = 0; i < this.jobs.length; i++) {
-      if (HandlingThreadPooledShared.jobs[i].dataHandler == null) {
+      if (this.jobs[i].dataHandler == null
+          || this.jobs[i].dataHandler.owningThread == null) {
         return true;
       }
     }

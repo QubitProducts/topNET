@@ -67,7 +67,7 @@ public class Response {
   private boolean tellingConnectionClose = true;
   private volatile boolean moreDataComing = false;
 
-  private StringBuffer stringBuffer = null;
+  private StringBuilder stringBuffer = null;
   private InputStream inputStreamForBody;
   private Object attachment;
   private String httpProtocol;
@@ -100,7 +100,7 @@ public class Response {
 
   public ByteArrayInputStream getHeadersToSend() {
 
-    StringBuffer buffer = getHeadersBuffer();
+    StringBuilder buffer = getHeadersBuffer();
 
     ByteArrayInputStream stream
             = new ByteArrayInputStream(
@@ -109,8 +109,8 @@ public class Response {
     return stream;
   }
 
-  public StringBuffer getHeadersBuffer() {
-    StringBuffer buffer
+  public StringBuilder getHeadersBuffer() {
+    StringBuilder buffer
             = getHeadersBufferWithoutEOL(
                     this.httpCode,
                     this.getHttpProtocol());
@@ -126,10 +126,10 @@ public class Response {
     return buffer;
   }
 
-  public static StringBuffer getHeadersBufferWithoutEOL(
+  public static StringBuilder getHeadersBufferWithoutEOL(
           int httpCode, String httpProtocol) {
 
-    StringBuffer buffer = new StringBuffer();
+    StringBuilder buffer = new StringBuilder();
     int httpCodeNum = httpCode;
 
     buffer.append(httpProtocol);
@@ -164,7 +164,7 @@ public class Response {
     return buffer;
   }
 
-  private void addHeaders(StringBuffer buffer)
+  private void addHeaders(StringBuilder buffer)
           throws TooLateToChangeHeadersException {
     for (Map.Entry<String, String> entrySet : headers.entrySet()) {
       buffer.append(entrySet.getKey());
@@ -222,7 +222,7 @@ public class Response {
       throw new ResponseBuildingStartedException();
     }
     if (this.getStringBuffer() == null) {
-      this.setStringBuffer(new StringBuffer());
+      this.setStringBuffer(new StringBuilder());
     }
     this.getStringBuffer().append(str);
   }
@@ -270,8 +270,12 @@ public class Response {
             prepareResponseStreamFromInputStream(bodyStream);
         
       } else {
+        InputStream readingFrom = this.getStreamToReadFrom();
+        if (readingFrom == null) {
+          this.setContentLength(0);
+        }
         this.responseStream = 
-            prepareResponseStreamFromInputStream(this.getStreamToReadFrom());
+            prepareResponseStreamFromInputStream(readingFrom);
       }
     }
     
@@ -447,14 +451,14 @@ public class Response {
   /**
    * @return the stringBuffer
    */
-  public StringBuffer getStringBuffer() {
+  public StringBuilder getStringBuffer() {
     return stringBuffer;
   }
 
   /**
    * @param stringBuffer the stringBuffer to set
    */
-  public void setStringBuffer(StringBuffer stringBuffer) {
+  public void setStringBuffer(StringBuilder stringBuffer) {
     this.stringBuffer = stringBuffer;
   }
 

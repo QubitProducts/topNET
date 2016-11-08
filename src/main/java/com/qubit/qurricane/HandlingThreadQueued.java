@@ -20,7 +20,7 @@
 
 package com.qubit.qurricane;
 
-import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.logging.Level;
@@ -48,7 +48,6 @@ class HandlingThreadQueued extends HandlingThread {
           int defaultMaxMessageSize, long maxIdle) {
     this.server = server;
     limit = jobsSize + 1;
-    this.setBuffer(ByteBuffer.allocateDirect(bufSize));
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -100,7 +99,7 @@ class HandlingThreadQueued extends HandlingThread {
         if (!isFinished) { // will be closed
           this.jobs.addLast(job); // put back to queue
         } else {
-          synchronized (this) {
+          synchronized (sleepingLocker) {
             jobcounter--;
           }
           Server.close(job.getChannel());
@@ -128,12 +127,15 @@ class HandlingThreadQueued extends HandlingThread {
    * @return
    */
   @Override
-  public boolean addJob(DataHandler dataHandler) {
+  public boolean addJob(SocketChannel channel) {
     if (limit > 0 && jobcounter < limit) { // @todo getSize is not good
-      synchronized (this) { 
-        this.jobs.addLast(dataHandler);
+      synchronized (sleepingLocker) {
+        DataHandler job = new DataHandler(server, channel);
+        job.owningThread = this;
+        job.startedAnyHandler();
+        this.jobs.addLast(job);
         jobcounter++;
-        this.notify();
+        sleepingLocker.notify();
       }
       return true;
     }
@@ -141,7 +143,7 @@ class HandlingThreadQueued extends HandlingThread {
   }
 
   @Override
-  protected boolean hasJobs() {
+  public boolean hasJobs() {
     return !this.jobs.isEmpty();
   }
 

@@ -52,11 +52,11 @@ public abstract class Handler {
 
   protected Handler() {}
 
-  protected void onBeforeOutputStreamIsSet(Request request, Response response) {
-    if (this.prepare(request, response)) {
+  protected void triggerOnBeforeOutputStreamIsSet(Request request, Response response) {
+    if (this.onBeforeOutputStreamIsSet(request, response)) {
       Handler tmp = this.getNext();
       while(tmp != null) {
-        if (!tmp.prepare(request, response)) {
+        if (!tmp.onBeforeOutputStreamIsSet(request, response)) {
           break;
         } else {
           tmp = tmp.getNext();
@@ -65,10 +65,12 @@ public abstract class Handler {
     }
   }
 
-  public boolean prepare(Request request, Response response) {
+  public boolean onBeforeOutputStreamIsSet(
+                                    Request request,
+                                    Response response) {
     return true;
   }
-  
+  //@todo zmien nazwy na onBodyReady, onHeadersReady, onBeforeReadingBody
   protected Pair<Handler, Throwable> 
         doProcess(Request request, Response response, DataHandler dh) {
     Handler tmp = this;
@@ -160,6 +162,13 @@ public abstract class Handler {
   }
 
   protected void connectionClosedHandler(DataHandler dataHandler) {
+    
+  }
+
+  /**
+   * Triggered when bytes are read from channel.
+   */
+  public void onBytesRead() {
     
   }
 }

@@ -36,10 +36,10 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 64;
+    int jobs = 256;
     int buf = 8192;
-    int th = 8;
-    long noIOdelay = 5;
+    int th = 3;
+    long noIOdelay = 10;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     
@@ -59,7 +59,7 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/echo", new EchoHandler(s));
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     s = new Server("localhost", 3457);
@@ -78,7 +78,7 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/echo", new EchoHandler(s));
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     // second version
@@ -99,7 +99,7 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/echo", new EchoHandler(s));
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     s = new Server("localhost", 3459);
@@ -118,7 +118,7 @@ public class Demo {
     s.start();
     
     s.registerPathMatchingHandler(new PrefixToAllHandlers());
-    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/echo", new EchoHandler(s));
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
   }
 }

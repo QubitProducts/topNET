@@ -49,8 +49,9 @@ public class Server {
   private static int THREAD_JOBS_SIZE;
   private static int THREADS_POOL_SIZE;
   private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
-  private static final int MAX_IDLE_TOUT = 10 * 1000; // miliseconds
+  private static final int MAX_IDLE_TOUT = 5000 * 1000; // miliseconds
   private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
+  static final int BUF_GROWING_LIMIT = 64 * 1024;
 
   static {
     THREADS_POOL_SIZE = 
@@ -78,7 +79,7 @@ public class Server {
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   private String poolType = POOL;
-  private int dataHandlerWriteBufferSize = 4096;
+  private int dataHandlerWriteBufferSize = BUF_GROWING_LIMIT;
   private long singlePoolPassThreadDelay = 0;
 
  

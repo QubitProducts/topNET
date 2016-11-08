@@ -19,6 +19,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.BytesStream.BUF_SIZE_DEF;
 import static com.qubit.qurricane.Handler.HTTP_0_9;
 import static com.qubit.qurricane.Handler.HTTP_1_0;
 import static com.qubit.qurricane.Handler.HTTP_1_1;
@@ -28,7 +29,6 @@ import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
 import com.qubit.qurricane.utils.Pair;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
@@ -45,7 +45,6 @@ import java.util.logging.Logger;
 public class DataHandler {
 
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
-  
   
   public static GeneralGlobalHandlingHooks postPreProcessingHandler;
   /**
@@ -79,8 +78,7 @@ public class DataHandler {
   private boolean firstLine = true;
   private String lastHeaderName = null;
 
-  private final StringBuffer currentLine = new StringBuffer();
-  private int contentLengthCounter = 0;
+  private final StringBuilder currentLine = new StringBuilder();
   private long contentLength = 0; // -1 is used to distinguish cases when no 
 
   private Request request;
@@ -89,21 +87,26 @@ public class DataHandler {
   private Throwable errorException;
   private Handler handlerUsed;
 
-  static final String utfTextHtmlHeader
+  static final String UTF_TEXT_HTML_HEADER
           = "Content-Type: text/html; charset=utf-8\n\r";
   static final String EOL = "\n";
   private String parameters;
   private String httpProtocol = HTTP_1_0;
   
   private boolean headersOnly = false;
-  private final Server server;
-  private ByteBuffer writeBuffer;
-  private int writeBufSize;
+  private volatile Server server;
+  private final int writeBufSize;
   private boolean wasMarkedAsMoreDataIsComing;
-  private final SocketChannel channel;
+  private volatile SocketChannel channel;
   private long acceptedTime;
+  private boolean bufferSizeCalculatedForWriting = false;
+  protected volatile HandlingThread owningThread = null;
 
-  private void reset() {
+  protected void reset() {
+    if (request != null && request.getBytesStream() != null) {
+      request.getBytesStream().shrinkLessMore();
+      request.getBytesStream().clear();
+    }
     size = 0;
     headers.clear();
     method = null;
@@ -115,7 +118,6 @@ public class DataHandler {
     firstLine = true;
     lastHeaderName = null;
     currentLine.setLength(0);
-    contentLengthCounter = 0;
     contentLength = 0;
     request = null;
     response = null;
@@ -123,38 +125,49 @@ public class DataHandler {
     errorException = null;
     handlerUsed = null;
     headersOnly = false;
-    writeBuffer = null;
+    bufferSizeCalculatedForWriting = false;
+    currentReadingPositionInWrittenBufByWrite = 0;
   }
 
   public DataHandler(Server server, SocketChannel channel) {
-    this.channel = channel;
-    this.server = server;
+    this.init(server, channel);
     this.writeBufSize = server.getDataHandlerWriteBufferSize();
-    touch = System.currentTimeMillis();
   }
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
   //-2 means that logically read is over, -1 that EOF stream occured 
-  public int read(SocketChannel channel, ByteBuffer buf)
+  public int read()
           throws IOException {
 
-    buf.clear();
-    int read;
-
-    if ((read = channel.read(buf)) > 0) {
+    if (this.request == null) {
+      this.request = new Request(this.channel, this.headers);
+      this.response = new Response(this.httpProtocol);
+    }
+    
+    int read = 0;
+    int currentSum = 0;
+    
+    ByteBuffer buf = this.request.getBytesStream().getNotEmptyCurrentBuffer();
+    
+    while (read != -2 && (read = this.channel.read(buf)) > 0) {
       size += read;
       
       if (read > 0) {
+        currentSum += read;
         this.touch();
       }
       
-      if (this.flushReads(buf)) {
+      if (this.flushReads(this.request.getBytesStream())) {
         read = -2; // -1: reading is finished, -2 means done
         this.handleData();
       }
     }
 
-    return read;
+    if (read < 0) {
+      return read;
+    } else {
+      return currentSum;
+    }
   }
 
   public long getTouch() {
@@ -244,25 +257,16 @@ public class DataHandler {
     return this.path;
   }
 
-  private byte previous = -1;
+  private int previous = -1;
 
   // returns true if reading is finished. any error handling should happend after reading foinished.
-  private boolean flushReads(ByteBuffer buffer)
+  private boolean flushReads(BytesStream stream)
           throws UnsupportedEncodingException {
 
-    buffer.flip();
-
     if (!this.headersReady) {
+      int current;
       
-      if (this.getRequest() == null) {
-        this.request = new Request(this.getChannel(), this.headers);
-        this.response = new Response(this.httpProtocol);
-      }
-
-      while (buffer.hasRemaining()) {
-
-        byte current = buffer.get();
-
+      while ((current = stream.read()) != -1) {
         if (current == '\n' && previous == '\r') {
 
           previous = -1;
@@ -272,6 +276,9 @@ public class DataHandler {
           }
 
           if (this.headersReady) {
+            if (this.contentLength > stream.getBufferElementSize() * 2) {
+              stream.setBufferElementSize(this.calculateBufferSizeByContentSize(this.contentLength));
+            }
             break;
           }
         } else {
@@ -286,7 +293,7 @@ public class DataHandler {
 
     if (this.headersReady) {
       // request can be processed
-      getResponse().setHttpProtocol(httpProtocol);
+      response.setHttpProtocol(httpProtocol);
     
       if (this.errorOccured != null) {
         return true;
@@ -303,7 +310,9 @@ public class DataHandler {
         return true; // stop reading now because of errors! 
       }
       
-      this.handlerUsed.onBeforeOutputStreamIsSet(this.getRequest(), this.getResponse());
+      this.handlerUsed.triggerOnBeforeOutputStreamIsSet(
+                                                  this.request,
+                                                  this.response);
       
       if (this.bodyRequired) {
         if (this.contentLength < 0) {
@@ -317,41 +326,19 @@ public class DataHandler {
         previous = -1;
       }
 
-      if (this.contentLength > 0) { // this also validates this.bodyRequired
-        if (buffer.hasRemaining()) {
-
-          int pos = buffer.position();
-          int amount = buffer.limit() - pos;
-
-          this.contentLengthCounter += amount;
-
-          try {
-            OutputStream destination = getRequest().getOutputStream();
-            int count = 0;
-            while (count < amount) {
-              destination.write(buffer.get());
-              count++;
-            }
-          } catch (IOException ex) {
-            this.errorOccured = ErrorTypes.IO_ERROR;
-            this.errorException = ex;
-            log.log(Level.SEVERE, null, errorException);
-            // some problem - just stop
-            return true;
-          }
-        }
-
-        if (this.contentLengthCounter >= this.contentLength) {
+      if (this.contentLength > 0) {
+        handlerUsed.onBytesRead();
+        // this also validates this.bodyRequired
+        if (request.getBytesStream().leftToRead() >= this.contentLength) {
           return true;
         }
-
       } else {
         // stop reading now coz there is nothing to read (not bcoz of error)
         return true;
       }
     }
 
-    buffer.clear();
+//    buffer.clear();
     return false;
   }
 
@@ -430,8 +417,12 @@ public class DataHandler {
     return false;
   }
   
-  protected int write(SocketChannel channel)
+  int currentBufferWrittenIndex = 0;
+  int currentReadingPositionInWrittenBufByWrite = 0;
+  
+  protected int write()
           throws IOException {
+    this.markWriting();
     
     ResponseReader responseReader;
     if (this.headersOnly) {
@@ -442,43 +433,90 @@ public class DataHandler {
     }
 
     if (responseReader == null) {
-      if (this.getResponse() == null) {// should never happen
+      if (this.response == null) {// should never happen
         log.warning("Response set to null - check threads.");
-        return -1;
+        return this.getFinishedWritingResponse();
       }
-      if (this.getResponse().isMoreDataComing()) {
+      if (this.response.isMoreDataComing()) {
         this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
-        return -1;//finished reading
+        return this.getFinishedWritingResponse();
       }
     }
 
-    if (writeBuffer == null) {
-      this.writeBuffer = ByteBuffer.allocate(this.writeBufSize);
-    } else {
-      this.writeBuffer.compact();
+    
+    if (!this.response.isTooLateToChangeHeaders()) {
+      this.response.setTooLateToChangeHeaders(true);
     }
     
-    if (!this.getResponse().isTooLateToChangeHeaders()) {
-      this.getResponse().setTooLateToChangeHeaders(true);
+    ByteBuffer writeBuffer ;
+    BytesStream bs = request.getBytesStream();
+    
+    if (!this.bufferSizeCalculatedForWriting) {
+      this.bufferSizeCalculatedForWriting = true;
+      if (response.getContentLength() > 0) {
+        long bufSize = response.getContentLength() - bs.dataSize();
+        if (bufSize <= BUF_SIZE_DEF) {
+          bufSize = BUF_SIZE_DEF;
+        } else {
+          bufSize = this.calculateBufferSizeByContentSize(bufSize);
+        }
+        bs.setBufferElementSize((int)bufSize);
+      }
     }
     
+    int written = 0;
+    boolean touchIt = false;
     int ch = 0;
-    while (writeBuffer.hasRemaining() && (ch = responseReader.read()) != -1) {
-      writeBuffer.put((byte) ch);
-    }
+    int writtenFromBuffer = 0;
+    
+    do {
+      writtenFromBuffer = 0;
+      
+      if (currentReadingPositionInWrittenBufByWrite == 0) {
+        writeBuffer = bs.getNotEmptyCurrentBuffer();
+      } else {
+        writeBuffer = bs.getCurrentBufferWriting();
+        // havent finished reading from buffer, and will wait here
+      }
+      
+      while (writeBuffer.hasRemaining() && (ch = responseReader.read()) != -1) {
+        writeBuffer.put((byte) ch);
+      }
+      
+      // store old position
+      int tmpPos = writeBuffer.position();
+      
+      writeBuffer.limit(tmpPos);
+      writeBuffer.position(currentReadingPositionInWrittenBufByWrite);
+      
+      if (currentReadingPositionInWrittenBufByWrite < tmpPos) {
+        writtenFromBuffer = this.channel.write(writeBuffer);
+        currentReadingPositionInWrittenBufByWrite += writtenFromBuffer;
+        written += writtenFromBuffer;
+        
+        if (!touchIt && writtenFromBuffer > 0) {
+          touchIt = true;
+        }
+      }
+      
+      //bring back buffer for writing
+      writeBuffer.position(tmpPos);
+      writeBuffer.limit(writeBuffer.capacity());
+      
+      if (!writeBuffer.hasRemaining()) {
+        currentReadingPositionInWrittenBufByWrite = 0;
+      }
+      
+    } while (writtenFromBuffer > 0);
 
-    writeBuffer.flip();
-    int written = channel.write(writeBuffer);
-
-    if (written > 0) {
+    if (touchIt) {
       this.touch();
     }
-
-
+    
     if ((ch == -1)) {
-      if (this.getResponse().isMoreDataComing()) {
+      if (this.response.isMoreDataComing()) {
         this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
@@ -490,11 +528,11 @@ public class DataHandler {
           this.wasMarkedAsMoreDataIsComing = false;
           return 0;
         } else {
-          return -1;
+          return this.getFinishedWritingResponse();
         }
       }
     } else {
-      return ch;
+      return written;
     }
   }
 
@@ -505,14 +543,14 @@ public class DataHandler {
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
     } else {
-      this.getRequest().setPath(this.path);
-      this.getRequest().setFullPath(this.fullPath);
-      this.getRequest().setPathParameters(this.parameters);
-      this.getRequest().setMethod(this.method);
+      this.request.setPath(this.path);
+      this.request.setFullPath(this.fullPath);
+      this.request.setPathParameters(this.parameters);
+      this.request.setMethod(this.method);
       
       // this prepares space for BODY to be written to, once headers are sorted,
       // possibly body will be written
-      getRequest().makeSureOutputStreamIsReady();
+//      request.makeSureOutputStreamIsReady();
       Handler tmp = handler;
       
       while(tmp != null) {
@@ -531,7 +569,7 @@ public class DataHandler {
             = ErrorHandlingConfig.getErrorHandlingConfig()
             .getDefaultErrorHandler(getErrorCode());
 
-    getRequest().setAssociatedException(this.errorException);
+    request.setAssociatedException(this.errorException);
 
     if (handler != null) {
       Handler tmp = handler.getErrorHandler();
@@ -560,7 +598,7 @@ public class DataHandler {
       // @todo review if ctually pair usage is necesary... this passing and 
       // processing can be put into the handle method.
       Pair<Handler, Throwable> execResult = 
-              handler.doProcess(this.getRequest(), this.getResponse(), this);
+              handler.doProcess(this.request, this.response, this);
       
       try {
         if (execResult != null) {
@@ -572,7 +610,7 @@ public class DataHandler {
           handler = getErrorHandler(handler);
 
           try {
-            handler.doProcess(this.getRequest(), this.getResponse(), this);
+            handler.doProcess(this.request, this.response, this);
           } catch (Throwable ex) {
             log.log(Level.SEVERE, "Error in error handler.", ex);
           }
@@ -601,11 +639,11 @@ public class DataHandler {
   }
 
   private ResponseStream getInputStreamForResponse() {
-    if (this.getResponse() == null) {
+    if (this.response == null) {
       log.warning("Response is null - check threads.");
       return null;
     }
-    return this.getResponse().getResponseReaderReadyToRead();
+    return this.response.getResponseReaderReadyToRead();
   }
 
   private int getErrorCode() {
@@ -629,11 +667,18 @@ public class DataHandler {
   }
 
   private boolean canClose(boolean finishedWriting) {
-    if (this.getResponse() != null && 
-            this.getResponse().isForcingNotKeepingAlive()) {
+    if (this.response != null && 
+            this.response.isForcingNotKeepingAlive()) {
       return true;
     }
 
+    if (finishedWriting && this.response != null) {
+      long cl = this.response.getContentLength();
+      if (cl == -1) {
+        return true; // close unknown contents once finished reading
+      }
+    }
+    
     String connection = this.headers.get("Connection");
 
     if (connection != null) {
@@ -647,13 +692,6 @@ public class DataHandler {
     
     if (!this.httpProtocol.equals(HTTP_1_1)) {
       return true;
-    }
-
-    if (finishedWriting && this.getResponse() != null) {
-      long cl = this.getResponse().getContentLength();
-      if (cl == -1) {
-        return true; // close unknown contents once finished reading
-      }
     }
     
     return false;
@@ -736,10 +774,9 @@ public class DataHandler {
     }
   }
   
-  protected boolean canCloseOrResetAndPutBack(
-          SocketChannel channel,
-          boolean finishedWriting) {
+  protected boolean canCloseOrResetAndPutBack(boolean finishedWriting) {
     if (this.canClose(finishedWriting)) {
+      this.reset();
       return true;
     } else {
       this.reset();
@@ -763,12 +800,12 @@ public class DataHandler {
     }
   }
   
-  protected final static void startedAnyHandler(DataHandler dh) {
-    dh.setAcceptedTime(System.currentTimeMillis());
-    dh.touch();
+  protected final void startedAnyHandler() {
+    this.setAcceptedTime(System.currentTimeMillis());
+    this.touch();
     if (postPreProcessingHandler != null) {
       try {
-        postPreProcessingHandler.handleStarted(dh);
+        postPreProcessingHandler.handleStarted(this);
       } catch (Throwable t) {
         log.log(Level.SEVERE, null, t);
       }
@@ -858,5 +895,28 @@ public class DataHandler {
    */
   public String getParameters() {
     return parameters;
+  }
+
+  private void markWriting() {
+    if (!this.writingResponse) {
+      this.bufferSizeCalculatedForWriting = false;
+      request.getBytesStream().clear();
+      this.writingResponse = true; // running writing
+    }
+  }
+
+  private int getFinishedWritingResponse() {
+    this.writingResponse = false; // finished writing
+    return -1;
+  }
+  
+  private int calculateBufferSizeByContentSize(long cl) {
+    return Math.min(this.writeBufSize, (int) (cl / 2));
+  }
+
+  protected void init(Server server, SocketChannel channel) {
+    this.channel = channel;
+    this.server = server;
+    touch = System.currentTimeMillis();
   }
 }

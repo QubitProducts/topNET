@@ -32,7 +32,7 @@ import com.qubit.qurricane.Response;
 public class PrefixToAllHandlers extends Handler {
 
   @Override
-  public boolean prepare(Request request, Response response) {
+  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
     // happens before processing and preparing any response.
     return true;
   }

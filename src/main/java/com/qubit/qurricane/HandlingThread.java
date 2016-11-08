@@ -17,13 +17,11 @@
  * 
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
-
 package com.qubit.qurricane;
 
 import static com.qubit.qurricane.DataHandler.bodyReadyHandler;
 import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -33,47 +31,25 @@ import java.util.logging.Logger;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public abstract class HandlingThread extends Thread {
-  
+
   static final Logger log
-          = Logger.getLogger(HandlingThread.class.getName());
-  
-  private ByteBuffer buffer;
-  
+      = Logger.getLogger(HandlingThread.class.getName());
+
+//  private ByteBuffer buffer;
   private int defaultMaxMessageSize;
   private long delayForNoIO = 1;
   private boolean running;
-  
-  abstract boolean addJob(DataHandler dataHandler);
+
+  abstract public boolean addJob(SocketChannel channel);
 
   abstract boolean canAddJob();
-  
+
   private long singlePassDelay = 0;
-  
+
   private static volatile long closedIdleCounter = 0; // less more counter...
+
+  final Object sleepingLocker = new Object();
   
-  protected boolean handleMaxIdle(
-          DataHandler dataHandler, long maxIdle) {
-    //check if connection is not open too long! Prevent DDoS
-    long idle = dataHandler.getMaxIdle(maxIdle);
-    if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
-      log.log(Level.INFO,
-              "Max idle gained - closing, total: {0}", ++closedIdleCounter);
-      return true;
-    }
-
-    // check if not too large
-    int maxSize = dataHandler
-            .getMaxMessageSize(getDefaultMaxMessageSize());
-
-    if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
-      log.log(Level.INFO, "Max size reached - closing: {0}",
-              dataHandler.getSize());
-      return true;
-    }
-
-    return false;
-  }
-
   @Override
   public void run() {
     try {
@@ -88,8 +64,8 @@ public abstract class HandlingThread extends Thread {
 
         try {
           if (!this.hasJobs()) {
-            synchronized (this) {
-              this.wait();
+            synchronized (sleepingLocker) {
+              sleepingLocker.wait();
             }
           }
         } catch (InterruptedException ex) {
@@ -101,35 +77,32 @@ public abstract class HandlingThread extends Thread {
     }
   }
 
-  
-  
   /**
    * Returns false if not finished writing or
- "this.canCloseOrResetAndPutBack(...)" when finished. It
-   * tells if job can be released.
+   * "this.canCloseOrResetAndPutBack(...)" when finished. It tells if job can be
+   * released.
    *
    * @param key
    * @param dataHandler
    * @return
    * @throws IOException
    */
-  private int writeResponse(SocketChannel channel, DataHandler dataHandler)
-          throws IOException {
-    int written = dataHandler.write(channel);
+  private int writeResponse(DataHandler dataHandler)
+      throws IOException {
+    int written = dataHandler.write();
     if (written < 0) {
-      dataHandler.writingResponse = false; // finished writing
       if (written == -1) {
         this.runOnFinishedHandler(dataHandler);
-        if (dataHandler.canCloseOrResetAndPutBack(channel, true)) {
+        if (dataHandler.canCloseOrResetAndPutBack(true)) {
           return -1;
         } else {
-          return 0;
+          return 0; /// REGISTER KEY RATHER THAN THIS
         }
       }
     }
     return written;
   }
-  
+
   /**
    *
    * @param dataHandler
@@ -137,41 +110,37 @@ public abstract class HandlingThread extends Thread {
    * @throws IOException
    */
   protected int processJob(DataHandler dataHandler)
-          throws IOException {
+      throws IOException {
     SocketChannel channel = dataHandler.getChannel();
     if (channel.isConnected()) {
       if (dataHandler.writingResponse) { // in progress of writing
-        return this.writeResponse(channel, dataHandler);
+        return this.writeResponse(dataHandler);
       } else {
-        int many = dataHandler.read(channel, buffer);
-        
+        int many = dataHandler.read();
         if (many < 0) { // reading is over
           if (many == -2) {// finished reading correctly, otherwise many is -1
-            dataHandler.writingResponse = true; // running writing
             // writingResponse will be unchecked by writeResponse(...)
             bodyReadyHandler(dataHandler);
-            return this.writeResponse(channel, dataHandler);
+            return this.writeResponse(dataHandler);
           } else if (many == -1) {
-            log.fine("Premature EOS from channel.");
+//            log.fine("Premature EOS from channel.");
           }
         }
-        
+
         return many;
       }
     } else {
       return 0; //no IO occured
     }
   }
-  
+
   /**
-   * 
+   *
    * @param channel
    * @param dataHandler
    * @param finishedWriting
    * @return true if closed connection, false otherwise and will reset handler
    */
-  
-  
   /**
    * @return the defaultMaxMessageSize
    */
@@ -186,24 +155,23 @@ public abstract class HandlingThread extends Thread {
     this.defaultMaxMessageSize = defaultMaxMessageSize;
   }
 
-  /**
-   * @param buffer the buffer to set
-   */
-  public void setBuffer(ByteBuffer buffer) {
-    this.buffer = buffer;
-  }
-  
-  protected abstract boolean hasJobs();
-  
+//  /**
+//   * @param buffer the buffer to set
+//   */
+//  public void setBuffer(ByteBuffer buffer) {
+//    this.buffer = buffer;
+//  }
+  public abstract boolean hasJobs();
+
   public static volatile long totalWaitedIO = 0;
-  
+
   protected boolean waitForSomethingToIO(int code) {
-    if (this.delayForNoIO > 0 && code != 0) {// code is 0 if no IO occured
-      long timeToWait = (long)(this.delayForNoIO);
+    if (this.delayForNoIO > 0 && code == 0) {// code is 0 if no IO occured
+      long timeToWait = (long) (this.delayForNoIO);
       totalWaitedIO += timeToWait;
-      synchronized (this) {
+      synchronized (sleepingLocker) {
         try {
-          this.wait(timeToWait);
+          sleepingLocker.wait(timeToWait);
           return true;
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "waitForSomethingToIO delay interrupted.", ex);
@@ -215,16 +183,16 @@ public abstract class HandlingThread extends Thread {
 
   protected void takeSomeBreak() {
     if (this.singlePassDelay > 0) {
-      synchronized (this) {
+      synchronized (sleepingLocker) {
         try {
-          this.wait(this.singlePassDelay);
+          sleepingLocker.wait(this.singlePassDelay);
         } catch (InterruptedException ex) {
           log.log(Level.FINE, "takeSomeBreak delay interrupted.", ex);
         }
       }
     }
   }
-  
+
   private void runOnFinishedHandler(DataHandler dataHandler) {
     if (dataHandler.getRequest() != null) {
       if (dataHandler.getRequest().getWriteFinishedHandler() != null) {
@@ -236,11 +204,37 @@ public abstract class HandlingThread extends Thread {
       }
     }
   }
+  
+  protected boolean handleMaxIdle(
+      DataHandler dataHandler, long maxIdle) {
+    
+    if (dataHandler.owningThread == null) return false;
+    
+    //check if connection is not open too long! Prevent DDoS
+    long idle = dataHandler.getMaxIdle(maxIdle);
+    if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
+      log.log(Level.INFO,
+          "HT Max idle gained - closing, total: {0}", ++closedIdleCounter);
+      return true;
+    }
 
+    // check if not too large
+    int maxSize = dataHandler
+        .getMaxMessageSize(getDefaultMaxMessageSize());
+
+    if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
+      log.log(Level.INFO, "Max size reached - closing: {0}",
+          dataHandler.getSize());
+      return true;
+    }
+
+    return false;
+  }
+  
   /**
-   * Returns how many jobs had some IO operations.
-   * IO operations.
-   * @return 
+   * Returns how many jobs had some IO operations. IO operations.
+   *
+   * @return
    */
   protected abstract int runSinglePass();
 
@@ -276,7 +270,7 @@ public abstract class HandlingThread extends Thread {
   public void setDelayForNoIO(long delayForNoIO) {
     this.delayForNoIO = delayForNoIO;
   }
-  
+
   protected void onJobFinished(DataHandler dataHandler) {
     dataHandler.connectionClosedHandler();
   }

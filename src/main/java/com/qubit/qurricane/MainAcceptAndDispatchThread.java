@@ -20,7 +20,6 @@
 
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.DataHandler.startedAnyHandler;
 import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
@@ -32,6 +31,7 @@ import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -85,9 +85,10 @@ class MainAcceptAndDispatchThread extends Thread {
       
        if (this.getAcceptDelay() > 0) {
         try {
-          Thread.sleep(this.getAcceptDelay());
-        } catch (InterruptedException ex) {
-        }
+          synchronized (this) {
+            this.wait(this.getAcceptDelay());
+          }
+        } catch (InterruptedException ex) {}
       }
       
       try {
@@ -108,9 +109,10 @@ class MainAcceptAndDispatchThread extends Thread {
               if (!isAllowingMoreAcceptsThanSlots()) {
                 while(!thereAreFreeJobs(handlingThreads)) {
                   try {
-                    totalWaitingAcceptMsCounter++;
-                    Thread.sleep(1);
-                  } finally {}
+                    synchronized (this) {
+                      this.wait(this.getAcceptDelay());
+                    }
+                  } catch (InterruptedException ex) {}
                 }
               }
               
@@ -118,37 +120,32 @@ class MainAcceptAndDispatchThread extends Thread {
               acceptedCnt++;
               
               if (channel != null) {
-                if (this.startReading(handlingThreads, channel, null) == null) {
                   // too many jobs! drop key to registry and pick later
                   SelectionKey newKey = 
                         channel.register(acceptSelector, OP_READ);
-                  DataHandler dataHandler = new DataHandler(
-                          server, (SocketChannel) newKey.channel());
-                  startedAnyHandler(dataHandler);
-                  
-                  newKey.attach(dataHandler);
+
+                  newKey.attach(new Long(System.currentTimeMillis()));
                   // consider Thread.wait(1) here instead registration
-                }
               }
             } else if (key.isReadable()) {
               // jobs that werent added immediatelly on accept
-              DataHandler dh = (DataHandler) key.attachment();
-              if (this.handleMaxIdle(dh, this.maxIdleAfterAccept)) {
+              Long ts = (Long) key.attachment();
+              if (this.handleMaxIdle(ts, this.maxIdleAfterAccept)) {
                 key.cancel(); // already too long 
                 Server.close((SocketChannel) key.channel());
               } else {
-                DataHandler handler = this.startReading(
-                        handlingThreads,
-                        (SocketChannel) key.channel(),
-                        dh);
-                if (handler != null) {
+                if (this.startReading(
+                    handlingThreads,
+                    (SocketChannel) key.channel())) {
                   // job added, remove from selector
                   key.cancel();
+                } else {
+                  log.info(" >>>>>>>>>>>>>>>>>>>>>> ");
                 }
               }
             }
           } else {
-            //key.channel().close();
+            key.channel().close();
           }
         } catch (CancelledKeyException ex) {
           log.info("Key already closed.");
@@ -180,10 +177,9 @@ class MainAcceptAndDispatchThread extends Thread {
   LinkedList<DataHandler> waitingJobs = new LinkedList<>();
   
 //  int i = 0;
-  private DataHandler startReading(
+  private boolean startReading(
           HandlingThread[] handlingThreads,
-          SocketChannel channel,
-          DataHandler dataHandler) {
+          SocketChannel channel) {
     
     int len = handlingThreads.length;
     for (int c = 0; c < len; c++) {
@@ -191,19 +187,16 @@ class MainAcceptAndDispatchThread extends Thread {
       currentThread = (currentThread + 1) % len;
 
       if (handlingThread != null) {
-        if (dataHandler == null) { // if its not passed, create one
-          dataHandler = new DataHandler(server, channel);
-          startedAnyHandler(dataHandler);
-        }
+        
 
-        if (handlingThread.addJob(dataHandler)) {
+        if (handlingThread.addJob(channel)) {
             //key.cancel(); // remove key, handled channel is
           // now by job processor
-          return dataHandler;
+          return true;
         }
       }
     }
-    return null;
+    return false;
   }
 
   private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
@@ -248,18 +241,14 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private long closedIdleCounter = 0;
   
-  protected boolean handleMaxIdle(
-          DataHandler dataHandler, long maxIdle) {
+  protected boolean handleMaxIdle(Long ts, long idle) {
     //check if connection is not open too long! Prevent DDoS
-    long idle = dataHandler.getMaxIdle(maxIdle);
-    if (idle != 0 &&
-            (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
+    if (idle != 0 && (System.currentTimeMillis() - ts) > idle) {
       log.log(Level.INFO,
-              "Max accept idle gained - closing, total: {0}",
+              "ML Max accept idle gained - closing, total: {0}",
               ++closedIdleCounter);
       return true;
     }
-
     return false;
   }
 
