@@ -48,7 +48,7 @@ public class Server {
   
   private static final int THREAD_JOBS_SIZE;
   private static final int THREADS_POOL_SIZE;
-  private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
+  private static final int DEFAULT_MAX_BUFFER_CHUNK_SIZE = 64 * 1024;
   private static final int MAX_IDLE_TOUT = 3 * 1000; // miliseconds
   private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 64 MB
   static final int BUF_GROWING_LIMIT = 64 * 1024;
@@ -74,12 +74,12 @@ public class Server {
   private ServerSocketChannel serverChannel;
   private int jobsPerThread = THREAD_JOBS_SIZE;
   private int threadsAmount = THREADS_POOL_SIZE;
-  private int maxGrowningBufferChunkSize = DEFAULT_BUFFER_SIZE;
+  private int maxGrowningBufferChunkSize = DEFAULT_MAX_BUFFER_CHUNK_SIZE;
   private int maxMessageSize = MAX_MESSAGE_SIZE_DEFAULTS;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   private String poolType = POOL;
-  private int dataHandlerWriteBufferSize = BUF_GROWING_LIMIT;
+  private int maximumGrowingBufferChunkSize = BUF_GROWING_LIMIT;
   private long singlePoolPassThreadDelay = 0;
   private boolean waitingForReadEvents = true;
  
@@ -370,17 +370,17 @@ public class Server {
   
   
   /**
-   * @return the dataHandlerWriteBufferSize
+   * @return the maximumGrowingBufferChunkSize
    */
-  public int getDataHandlerWriteBufferSize() {
-    return dataHandlerWriteBufferSize;
+  public int getMaximumGrowingBufferChunkSize() {
+    return maximumGrowingBufferChunkSize;
   }
 
   /**
-   * @param dataHandlerWriteBufferSize the dataHandlerWriteBufferSize to set
+   * @param val the maximumGrowingBufferChunkSize to set
    */
-  public void setDataHandlerWriteBufferSize(int dataHandlerWriteBufferSize) {
-    this.dataHandlerWriteBufferSize = dataHandlerWriteBufferSize;
+  public void setMaximumGrowingBufferChunkSize(int val) {
+    this.maximumGrowingBufferChunkSize = val;
   }
 
   /**

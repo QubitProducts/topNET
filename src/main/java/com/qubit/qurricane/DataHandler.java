@@ -148,7 +148,7 @@ public class DataHandler {
   
   public DataHandler(Server server, SocketChannel channel) {
     this.init(server, channel);
-    this.maxGrowningBufferChunkSize = server.getDataHandlerWriteBufferSize();
+    this.maxGrowningBufferChunkSize = server.getMaximumGrowingBufferChunkSize();
   }
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
