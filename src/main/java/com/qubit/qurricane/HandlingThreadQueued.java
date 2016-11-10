@@ -81,7 +81,6 @@ class HandlingThreadQueued extends HandlingThread {
           }
         } else {
           processed = this.processJob(job);
-          
         }
 
         if (processed < 0) {
@@ -105,9 +104,7 @@ class HandlingThreadQueued extends HandlingThread {
         } else {
           Server.close(job.getChannel());
           this.onJobFinished(job);
-          synchronized (sleepingLocker) {
-            jobcounter--;
-          }
+          jobsRemoved--;
           if (server.isCachingBuffers()) {
             this.recycledJobs.addLast(job);
           }
@@ -135,13 +132,13 @@ class HandlingThreadQueued extends HandlingThread {
    */
   @Override
   public boolean addJob(SocketChannel channel, Long ts) {
-    if (limit < 0 || jobcounter < limit) { // @todo getSize is not good
+    if (limit < 0 || this.jobsLeft() < limit) { // @todo getSize is not good
       DataHandler job = this.getNewJob(channel);
       job.owningThread = this;
       job.setAcceptAndRunHandleStarted(ts);
       this.jobs.addLast(job);
+      jobsAdded++;
       synchronized (sleepingLocker) {
-        jobcounter++;
         sleepingLocker.notify();
       }
       return true;
@@ -171,11 +168,12 @@ class HandlingThreadQueued extends HandlingThread {
     this.limit = limit;
   }
   
-  protected volatile int jobcounter = 0;
+  volatile long jobsAdded = 0;
+  volatile long jobsRemoved = 0;
   
   @Override
   boolean canAddJob() {
-    if (limit < 0 || limit > jobcounter) {
+    if (limit < 0 || limit > this.jobsLeft()) {
       return true;
     }
     return false;
@@ -220,6 +218,18 @@ class HandlingThreadQueued extends HandlingThread {
       return job;
     } else {
       return new DataHandler(server, channel);
+    }
+  }
+
+  private long jobsLeft() {
+    if (jobsAdded < 0) {
+      if (jobsRemoved > 0) {
+        return (Long.MAX_VALUE - jobsRemoved) + (jobsAdded - Long.MIN_VALUE);
+      } else {
+        return jobsAdded - jobsRemoved;
+      }
+    } else {
+      return jobsAdded - jobsRemoved;
     }
   }
 }

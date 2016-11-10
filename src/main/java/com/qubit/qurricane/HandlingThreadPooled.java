@@ -113,9 +113,6 @@ class HandlingThreadPooled extends HandlingThread {
   
   @Override
   public boolean addJob(SocketChannel channel, Long ts) {
-    if (jobsAdded > 0 && jobsAdded == jobsRemoved) {
-      jobsAdded = jobsRemoved = 0;
-    }
     for (int i = 0; i < this.jobs.length; i++) {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
@@ -140,7 +137,7 @@ class HandlingThreadPooled extends HandlingThread {
         job.setAcceptAndRunHandleStarted(ts);
         int newValue = 0;
         
-        if ((jobsAdded - jobsRemoved) < (highestJobNr * 0.6)) {
+        if (this.jobsLeft() < (highestJobNr * 0.6)) {
           for (int j = 0; j < this.jobs.length; j++) {
             if (this.jobs[i].dataHandler != null &&
                 this.jobs[i].dataHandler.owningThread != null) {
@@ -167,7 +164,7 @@ class HandlingThreadPooled extends HandlingThread {
 
   @Override
   public boolean hasJobs() {
-    return (jobsAdded - jobsRemoved) > 0;
+    return this.jobsLeft() > 0;
   }
 
   private void removeJobFromPool(int i) {
@@ -181,7 +178,7 @@ class HandlingThreadPooled extends HandlingThread {
 
   @Override
   boolean canAddJob() {
-    return (jobsAdded - jobsRemoved) < this.jobs.length;
+    return this.jobsLeft() < this.jobs.length;
   }
 
   /**
@@ -200,5 +197,17 @@ class HandlingThreadPooled extends HandlingThread {
       }
     }
     return tmp;
+  }
+
+  private long jobsLeft() {
+    if (jobsAdded < 0) {
+      if (jobsRemoved > 0) {
+        return (Long.MAX_VALUE - jobsRemoved) + (jobsAdded - Long.MIN_VALUE);
+      } else {
+        return jobsAdded - jobsRemoved; 
+      }
+    } else {
+      return jobsAdded - jobsRemoved; 
+    }
   }
 }
