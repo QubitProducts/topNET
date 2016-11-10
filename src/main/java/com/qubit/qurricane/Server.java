@@ -81,7 +81,7 @@ public class Server {
   private String poolType = POOL;
   private int dataHandlerWriteBufferSize = BUF_GROWING_LIMIT;
   private long singlePoolPassThreadDelay = 0;
-
+  private boolean waitingForReadEvents = true;
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingPathHandlers = new ArrayList<>();
@@ -127,8 +127,13 @@ public class Server {
     this.setupThreadsList();
 
     mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
-    mainAcceptDispatcher.setNotAllowingMoreAcceptsThanSlots(
+    
+    mainAcceptDispatcher
+        .setNotAllowingMoreAcceptsThanSlots(
             this.isNotAllowingMoreAcceptsThanSlots());
+    
+    mainAcceptDispatcher.setWaitingForReadEvents(this.waitingForReadEvents);
+    
     mainAcceptDispatcher.start();
  
     log.log(Level.INFO,
@@ -543,5 +548,19 @@ public class Server {
    */
   public void setCachingBuffers(boolean cacheBuffers) {
     this.cachingBuffers = cacheBuffers;
+  }
+
+  /**
+   * @return the waitingForReadEvents
+   */
+  public boolean isWaitingForReadEvents() {
+    return waitingForReadEvents;
+  }
+
+  /**
+   * @param waitingForReadEvents the waitingForReadEvents to set
+   */
+  public void setWaitingForReadEvents(boolean waitingForReadEvents) {
+    this.waitingForReadEvents = waitingForReadEvents;
   }
 }

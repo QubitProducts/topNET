@@ -31,7 +31,7 @@ import java.util.List;
 class BytesStream {
 
   public static int BUF_SIZE_DEF = 4 * 1024;
-  static public int minimumBytesToKeepAfterJobShrink = 256 * 1024;
+  public static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
   public static boolean doNotShrinkBuffersAfterJob = false;
   
   public int bufferElementSize = BUF_SIZE_DEF;

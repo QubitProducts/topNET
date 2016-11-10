@@ -59,6 +59,7 @@ class MainAcceptAndDispatchThread extends Thread {
   private long acceptDelay;
   private final long maxIdleAfterAccept;
   private boolean running;
+  private boolean waitingForReadEvents = true;
 
   MainAcceptAndDispatchThread(Server server,
       final Selector acceptSelector,
@@ -116,7 +117,8 @@ class MainAcceptAndDispatchThread extends Thread {
 
               if (channel != null) {
                 acceptedCnt++;
-                if (true || !this.startReading(handlingThreads, channel, null)) {
+                if (this.isWaitingForReadEvents()
+                    || !this.startReading(handlingThreads, channel, null)) {
                   SelectionKey newKey
                       = channel.register(acceptSelector, OP_READ);
 
@@ -266,5 +268,19 @@ class MainAcceptAndDispatchThread extends Thread {
    */
   public synchronized void setRunning(boolean running) {
     this.running = running;
+  }
+
+  /**
+   * @return the waitingForReadEvents
+   */
+  public boolean isWaitingForReadEvents() {
+    return waitingForReadEvents;
+  }
+
+  /**
+   * @param waitingForReadEvents the waitingForReadEvents to set
+   */
+  public void setWaitingForReadEvents(boolean waitingForReadEvents) {
+    this.waitingForReadEvents = waitingForReadEvents;
   }
 }
