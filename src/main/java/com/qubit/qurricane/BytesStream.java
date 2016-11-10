@@ -30,7 +30,7 @@ import java.util.List;
  */
 class BytesStream {
 
-  public final static int BUF_SIZE_DEF = 1024;
+  public final static int BUF_SIZE_DEF = 4*1024;
   
   public int bufferElementSize = BUF_SIZE_DEF;
   private ByteBuffer currentBufferReading;
@@ -38,7 +38,7 @@ class BytesStream {
   int currentBufferReadPosition = 0;
   private final List<ByteBuffer> buffers = new ArrayList<>();
   private ByteBuffer currentBufferWriting;
-  public static boolean doNotShrinkBuffers = true;
+  public static boolean doNotShrinkBuffers = false;
 
   /**
    * @return the bufferElementSize
