@@ -55,7 +55,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private final Selector acceptSelector;
   private final Server server;
-  private boolean allowingMoreAcceptsThanSlots = false;
+  private boolean notAllowingMoreAcceptsThanSlots = false;
   private long acceptDelay;
   private final long maxIdleAfterAccept;
   private boolean running;
@@ -84,7 +84,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
       if (this.getAcceptDelay() > 0) {
         try {
-          Thread.sleep(10);
+          Thread.sleep(this.getAcceptDelay());
         } catch (InterruptedException ex) {
         }
       }
@@ -103,10 +103,10 @@ class MainAcceptAndDispatchThread extends Thread {
         try {
           if (key.isValid()) {
             if (key.isAcceptable()) {
-              if (false && !isAllowingMoreAcceptsThanSlots()) {
+              if (isNotAllowingMoreAcceptsThanSlots()) {
                 while (!thereAreFreeJobs(handlingThreads)) {
                   try {
-                    Thread.sleep(5);
+                    Thread.sleep(1);
                   } catch (InterruptedException ex) {
                   }
                 }
@@ -130,8 +130,8 @@ class MainAcceptAndDispatchThread extends Thread {
                 key.cancel(); // already too long 
                 Server.close((SocketChannel) key.channel());
               } else if (this.startReading(handlingThreads,
-                                  (SocketChannel) key.channel(),
-                                  acceptTime)) {
+                  (SocketChannel) key.channel(),
+                  acceptTime)) {
                 // job added, remove from selector
                 key.cancel();
               }
@@ -146,19 +146,18 @@ class MainAcceptAndDispatchThread extends Thread {
           log.log(Level.SEVERE, null, ex);
         }
       }
-      
+
       for (int i = 0; i < handlingThreads.length; i++) {
         if (handlingThreads[i].hasJobs()) {
-          Object locker = handlingThreads[i].sleepingLocker;
-          synchronized (locker) {
-            locker.notify();
+          synchronized (handlingThreads[i].sleepingLocker) {
+            handlingThreads[i].sleepingLocker.notify();
           }
         }
       }
-      
+
       selectionKeys.clear();
 
-      if (System.currentTimeMillis() > lastMeassured + getInfoLogsFrequency()) {
+      if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,
             "Accepted connections: {0}, total accept waited: {1}ms, added:{2} ,total waited IO: {3}",
             new Object[]{
@@ -214,17 +213,18 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   /**
-   * @return the allowingMoreAcceptsThanSlots
+   * @return the notAllowingMoreAcceptsThanSlots
    */
-  public boolean isAllowingMoreAcceptsThanSlots() {
-    return allowingMoreAcceptsThanSlots;
+  public boolean isNotAllowingMoreAcceptsThanSlots() {
+    return notAllowingMoreAcceptsThanSlots;
   }
 
   /**
-   * @param allowingMoreAcceptsThanSlots the allowingMoreAcceptsThanSlots to set
+   * @param allowingMoreAcceptsThanSlots the notAllowingMoreAcceptsThanSlots to
+   * set
    */
-  public void setAllowingMoreAcceptsThanSlots(boolean allowingMoreAcceptsThanSlots) {
-    this.allowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
+  public void setNotAllowingMoreAcceptsThanSlots(boolean allowingMoreAcceptsThanSlots) {
+    this.notAllowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
   }
 
   /**
