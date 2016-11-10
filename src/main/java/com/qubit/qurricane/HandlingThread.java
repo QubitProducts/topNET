@@ -23,7 +23,6 @@ import static com.qubit.qurricane.DataHandler.bodyReadyHandler;
 import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
-import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -51,7 +50,7 @@ public abstract class HandlingThread extends Thread {
   private static volatile long closedIdleCounter = 0; // less more counter...
 
   final Object sleepingLocker = new Object();
-  
+    
   @Override
   public void run() {
     try {
@@ -63,16 +62,13 @@ public abstract class HandlingThread extends Thread {
             this.takeSomeBreak();
           }
         }
-
+        
         try {
-          if (!this.hasJobs()) {
-            synchronized (sleepingLocker) {
-              sleepingLocker.wait();
-            }
+          synchronized (sleepingLocker) {
+            sleepingLocker.wait();
           }
-        } catch (InterruptedException ex) {
-          log.log(Level.SEVERE, null, ex);
-        }
+        } catch (InterruptedException ex) {}
+        
       }
     } finally {
       this.getServer().removeThread(this);

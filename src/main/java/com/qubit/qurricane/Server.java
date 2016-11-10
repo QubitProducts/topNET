@@ -46,8 +46,8 @@ public class Server {
   
   public final static String SERVER_VERSION = "1.4.0";
   
-  private static int THREAD_JOBS_SIZE;
-  private static int THREADS_POOL_SIZE;
+  private static final int THREAD_JOBS_SIZE;
+  private static final int THREADS_POOL_SIZE;
   private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
   private static final int MAX_IDLE_TOUT = 3 * 1000; // miliseconds
   private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
@@ -84,12 +84,12 @@ public class Server {
 
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
-  private final List<Handler> matchingPathHandlers = 
-          new ArrayList<>();
+  private final List<Handler> matchingPathHandlers = new ArrayList<>();
   private boolean allowingMoreAcceptsThanSlots = false;
   private boolean stoppingNow = false;
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;
+  private boolean cachingBuffers = true;
   
   public Server(String address, int port) {
     this.port = port;
@@ -529,5 +529,19 @@ public class Server {
    */
   public void setMaxGrowningBufferChunkSize(int maxGrowningBufferChunkSize) {
     this.maxGrowningBufferChunkSize = maxGrowningBufferChunkSize;
+  }
+
+  /**
+   * @return the cachingBuffers
+   */
+  public boolean isCachingBuffers() {
+    return cachingBuffers;
+  }
+
+  /**
+   * @param cacheBuffers the cachingBuffers to set
+   */
+  public void setCachingBuffers(boolean cacheBuffers) {
+    this.cachingBuffers = cacheBuffers;
   }
 }

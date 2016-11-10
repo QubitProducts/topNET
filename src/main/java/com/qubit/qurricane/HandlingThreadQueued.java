@@ -46,10 +46,12 @@ class HandlingThreadQueued extends HandlingThread {
 
   public HandlingThreadQueued(
           Server server,
-          int jobsSize, int bufSize,
-          int defaultMaxMessageSize, long maxIdle) {
+          int jobsSize,
+          int bufSize,
+          int defaultMaxMessageSize,
+          long maxIdle) {
     this.server = server;
-    limit = jobsSize + 1;
+    limit = jobsSize;
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -101,11 +103,14 @@ class HandlingThreadQueued extends HandlingThread {
         if (!isFinished) { // will be closed
           this.jobs.addLast(job); // put back to queue
         } else {
+          Server.close(job.getChannel());
+          this.onJobFinished(job);
           synchronized (sleepingLocker) {
             jobcounter--;
           }
-          Server.close(job.getChannel());
-          this.onJobFinished(job);
+          if (server.isCachingBuffers()) {
+            this.recycledJobs.addLast(job);
+          }
         }
       }
 
@@ -130,16 +135,19 @@ class HandlingThreadQueued extends HandlingThread {
    */
   @Override
   public boolean addJob(SocketChannel channel, Long ts) {
-    if (limit > 0 && jobcounter < limit) { // @todo getSize is not good
+    if (limit < 0 || jobcounter < limit) { // @todo getSize is not good
+      DataHandler job = this.getNewJob(channel);
+      job.owningThread = this;
+      job.setAcceptAndRunHandleStarted(ts);
+      this.jobs.addLast(job);
       synchronized (sleepingLocker) {
-        DataHandler job = new DataHandler(server, channel);
-        job.owningThread = this;
-        job.setAcceptAndRunHandleStarted(ts);
-        this.jobs.addLast(job);
         jobcounter++;
         sleepingLocker.notify();
       }
       return true;
+    }
+    synchronized (sleepingLocker) {
+      sleepingLocker.notify();
     }
     return false;
   }
@@ -163,11 +171,11 @@ class HandlingThreadQueued extends HandlingThread {
     this.limit = limit;
   }
   
-  private int jobcounter = 0;
+  protected volatile int jobcounter = 0;
   
   @Override
   boolean canAddJob() {
-    if (limit > jobcounter) {
+    if (limit < 0 || limit > jobcounter) {
       return true;
     }
     return false;
@@ -194,5 +202,24 @@ class HandlingThreadQueued extends HandlingThread {
       tmp.add(job);
     }
     return tmp;
+  }
+
+  private ConcurrentLinkedDeque<DataHandler> recycledJobs = 
+      new ConcurrentLinkedDeque<>();
+  
+  private DataHandler getNewJob(SocketChannel channel) {
+    
+    if (!server.isCachingBuffers()) {
+      return new DataHandler(server, channel);
+    }
+    
+    DataHandler job = recycledJobs.pollFirst();
+    if (job != null) {
+      job.reset();
+      job.init(server, channel);
+      return job;
+    } else {
+      return new DataHandler(server, channel);
+    }
   }
 }

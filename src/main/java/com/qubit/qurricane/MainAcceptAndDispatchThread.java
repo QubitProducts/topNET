@@ -71,6 +71,7 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private int acceptedCnt = 0;
+  private int addedCnt = 0;
   private int currentThread = 0;
 
   @Override
@@ -103,7 +104,7 @@ class MainAcceptAndDispatchThread extends Thread {
         try {
           if (key.isValid()) {
             if (key.isAcceptable()) {
-              if (!isAllowingMoreAcceptsThanSlots()) {
+              if (false && !isAllowingMoreAcceptsThanSlots()) {
                 while (!thereAreFreeJobs(handlingThreads)) {
                   try {
                     Thread.sleep(5);
@@ -141,20 +142,30 @@ class MainAcceptAndDispatchThread extends Thread {
             key.channel().close();
           }
         } catch (CancelledKeyException ex) {
-          log.info("Key already closed.");
+          log.info("Key already cancelled.");
         } catch (Exception ex) {
           log.log(Level.SEVERE, null, ex);
         }
       }
-
+      
+      for (int i = 0; i < handlingThreads.length; i++) {
+        if (handlingThreads[i].hasJobs()) {
+          Object locker = handlingThreads[i].sleepingLocker;
+          synchronized (locker) {
+            locker.notify();
+          }
+        }
+      }
+      
       selectionKeys.clear();
 
       if (System.currentTimeMillis() > lastMeassured + getInfoLogsFrequency()) {
         log.log(Level.INFO,
-            "Accepted connections: {0}, total accept waited: {1}ms, total waited IO: {2}",
+            "Accepted connections: {0}, total accept waited: {1}ms, added:{2} ,total waited IO: {3}",
             new Object[]{
               acceptedCnt,
               totalWaitingAcceptMsCounter,
+              addedCnt,
               totalWaitedIO});
         lastMeassured = System.currentTimeMillis();
       }

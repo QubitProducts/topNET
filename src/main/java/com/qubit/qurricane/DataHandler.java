@@ -824,7 +824,9 @@ public class DataHandler {
     } else {
       this.setAcceptedTime(ts);
     }
+    
     this.touch();
+    
     if (postPreProcessingHandler != null) {
       try {
         postPreProcessingHandler.handleStarted(this);

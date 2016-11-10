@@ -20,12 +20,9 @@
 
 package com.qubit.qurricane;
 
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -64,7 +61,7 @@ class HandlingThreadPooled extends HandlingThread {
   public int runSinglePass() {
     int ifIOOccuredCount = 0;
     
-    for (int i = 0; i < this.jobs.length; i++) {
+    for (int i = 0; i < highestJobNr; i++) {
       DataHandler dataHandler = this.jobs[i].dataHandler;
 
       if (dataHandler != null && dataHandler.owningThread == this) {
@@ -110,67 +107,81 @@ class HandlingThreadPooled extends HandlingThread {
     return ifIOOccuredCount;
   }
 
-  AtomicInteger jobsCounter = new AtomicInteger(0);
+  volatile long jobsAdded = 0;
+  volatile long jobsRemoved = 0;
+  private volatile int highestJobNr = 0;
   
   @Override
   public boolean addJob(SocketChannel channel, Long ts) {
+    if (jobsAdded > 0 && jobsAdded == jobsRemoved) {
+      jobsAdded = jobsRemoved = 0;
+    }
     for (int i = 0; i < this.jobs.length; i++) {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
         job = new DataHandler(server, channel);
-        jobsCounter.incrementAndGet();
+        jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
         this.jobs[i].dataHandler = job;
+        
+        highestJobNr = Math.max(highestJobNr, i + 1);
+        
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
         }
+
         return true;
       } else if (job.owningThread == null) {
-        jobsCounter.incrementAndGet();
         job.reset();
         job.init(server, channel);
+        jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
+        int newValue = 0;
+        
+        if ((jobsAdded - jobsRemoved) < (highestJobNr * 0.6)) {
+          for (int j = 0; j < this.jobs.length; j++) {
+            if (this.jobs[i].dataHandler != null &&
+                this.jobs[i].dataHandler.owningThread != null) {
+              newValue = j;
+            }
+          }
+          highestJobNr = newValue + 1;
+        }
+        
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
         }
+
         return true;
       }
     }
+
+    synchronized (sleepingLocker) {
+      sleepingLocker.notify();
+    }
+
     return false;
   }
 
   @Override
   public boolean hasJobs() {
-    return jobsCounter.get() > 0;
-//    for (int i = 0; i < this.jobs.length; i++) {
-//      if (this.jobs[i].dataHandler != null &&
-//          this.jobs[i].dataHandler.owningThread != null) {
-//        return true;
-//      }
-//    }
-//    return false;
+    return (jobsAdded - jobsRemoved) > 0;
   }
 
-
   private void removeJobFromPool(int i) {
-//    this.jobs[i].dataHandler = null;
-    this.jobs[i].dataHandler.owningThread = null;
-    jobsCounter.decrementAndGet();
+    if (server.isCachingBuffers()) {
+      this.jobs[i].dataHandler.owningThread = null;
+    } else {
+      this.jobs[i].dataHandler = null;
+    }
+    jobsRemoved++;
   }
 
   @Override
   boolean canAddJob() {
-    return jobsCounter.get() < this.jobs.length;
-//    
-//    for (int i = 0; i < this.jobs.length; i++) {
-//      if (this.jobs[i].dataHandler == null ||
-//          this.jobs[i].dataHandler.owningThread == null) {
-//        return true;
-//      }
-//    }
-//    return false;
+    return (jobsAdded - jobsRemoved) < this.jobs.length;
   }
 
   /**
