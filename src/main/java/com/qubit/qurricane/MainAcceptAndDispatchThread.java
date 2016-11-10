@@ -37,7 +37,7 @@ import java.util.logging.Level;
  */
 class MainAcceptAndDispatchThread extends Thread {
 
-  private static long infoLogsFrequency = 1 * 1000;
+  private static long infoLogsFrequency = 10 * 1000;
 
   /**
    * @return the infoLogsFrequency
