@@ -38,6 +38,7 @@ class BytesStream {
   int currentBufferReadPosition = 0;
   private final List<ByteBuffer> buffers = new ArrayList<>();
   private ByteBuffer currentBufferWriting;
+  public static boolean doNotShrinkBuffers = true;
 
   /**
    * @return the bufferElementSize
@@ -199,8 +200,13 @@ class BytesStream {
   }
   
   public void shrinkLessMore(long toValue) {
+    if (doNotShrinkBuffers) {
+      return;
+    }
+    
     long amount = 0;
     int len = buffers.size();
+    
     for (int i = 0; i < len; i++) {
       ByteBuffer buffer = buffers.get(i);
       amount += buffer.capacity();
