@@ -36,11 +36,11 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 1024;
+    int jobs = 512;
     int bufChunkMax = 4 * 16 * 8192;
-    int th = 4;
-    long noIOdelay = 5;
-    boolean unlimitedAccepts = true;
+    int th = 7;
+    long noIOdelay = 1;
+    boolean limitedAccepts = false;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     
@@ -54,7 +54,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
+    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -77,7 +77,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
+    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -100,7 +100,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
+    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -123,7 +123,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
+    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
