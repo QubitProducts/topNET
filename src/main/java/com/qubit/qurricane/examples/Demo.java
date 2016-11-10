@@ -36,7 +36,7 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 512;
+    int jobs = 32;
     int bufChunkMax = 4 * 16 * 8192;
     int th = 7;
     long noIOdelay = 1;
@@ -60,7 +60,7 @@ public class Demo {
     s.stop();
     s.start();
     
-    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
@@ -83,7 +83,7 @@ public class Demo {
     s.stop();
     s.start();
 
-    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/echo", new EchoHandler());
@@ -106,7 +106,7 @@ public class Demo {
     s.stop();
     s.start();
     
-    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/echo", new EchoHandler());
@@ -129,7 +129,7 @@ public class Demo {
     s.stop();
     s.start();
     
-    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));

@@ -31,7 +31,8 @@ import java.util.List;
 class BytesStream {
 
   public static int BUF_SIZE_DEF = 4 * 1024;
-  static public int maximumShrinkToBytesAmount = 256 * 1024;
+  static public int minimumBytesToKeepAfterJobShrink = 256 * 1024;
+  public static boolean doNotShrinkBuffersAfterJob = false;
   
   public int bufferElementSize = BUF_SIZE_DEF;
   private ByteBuffer currentBufferReading;
@@ -39,7 +40,6 @@ class BytesStream {
   int currentBufferReadPosition = 0;
   private final List<ByteBuffer> buffers = new ArrayList<>();
   private ByteBuffer currentBufferWriting;
-  public static boolean doNotShrinkBuffers = false;
 
   /**
    * @return the bufferElementSize
@@ -201,7 +201,7 @@ class BytesStream {
   }
   
   public void shrinkLessMore(long toValue) {
-    if (doNotShrinkBuffers) {
+    if (doNotShrinkBuffersAfterJob) {
       return;
     }
     
@@ -241,6 +241,6 @@ class BytesStream {
   }
 
   void shrinkLessMore() {
-   this.shrinkLessMore(maximumShrinkToBytesAmount);
+   this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
   }
 }
