@@ -30,7 +30,8 @@ import java.util.List;
  */
 class BytesStream {
 
-  public final static int BUF_SIZE_DEF = 4*1024;
+  public static int BUF_SIZE_DEF = 4 * 1024;
+  static public int maximumShrinkToBytesAmount = 256 * 1024;
   
   public int bufferElementSize = BUF_SIZE_DEF;
   private ByteBuffer currentBufferReading;
@@ -239,8 +240,7 @@ class BytesStream {
     this.currentBufferWriting = currentBufferWriting;
   }
 
-  static final int MAX_SHRINK = 4 * 64 * 1024;
   void shrinkLessMore() {
-   this.shrinkLessMore(MAX_SHRINK);
+   this.shrinkLessMore(maximumShrinkToBytesAmount);
   }
 }
