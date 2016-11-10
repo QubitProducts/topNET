@@ -107,9 +107,9 @@ class HandlingThreadPooled extends HandlingThread {
     return ifIOOccuredCount;
   }
 
-  volatile long jobsAdded = 0;
-  volatile long jobsRemoved = 0;
-  private volatile int highestJobNr = 0;
+  protected volatile long jobsAdded = 0;
+  protected volatile long jobsRemoved = 0;
+  protected volatile int highestJobNr = 0;
   
   @Override
   public boolean addJob(SocketChannel channel, Long ts) {
@@ -135,10 +135,14 @@ class HandlingThreadPooled extends HandlingThread {
         jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
-        int newValue = 0;
         
-        if (this.jobsLeft() < (highestJobNr * 0.7)) {
-          for (int j = 0; j < this.jobs.length; j++) {
+        long jobsLeft = this.jobsLeft();
+        
+        if (i >= highestJobNr) {
+          highestJobNr = i + 1;
+        } else if (jobsLeft < (1 + (highestJobNr * 0.7))) {
+          int newValue = i;
+          for (int j = i; j < this.jobs.length; j++) {
             if (this.jobs[j].dataHandler != null &&
                 this.jobs[j].dataHandler.owningThread != null) {
               newValue = j;
