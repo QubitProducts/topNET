@@ -40,7 +40,9 @@ public abstract class HandlingThread extends Thread {
   private int defaultMaxMessageSize;
   private long delayForNoIO = 1;
   private boolean running;
-
+  protected volatile long jobsAdded = 0;
+  protected volatile long jobsRemoved = 0;
+  
   abstract public boolean addJob(SocketChannel channel, Long acceptTime);
 
   abstract boolean canAddJob();
@@ -289,4 +291,18 @@ public abstract class HandlingThread extends Thread {
   }
   
   abstract public List<DataHandler> getValidJobs();
+
+  /**
+   * @return the jobsAdded
+   */
+  public long getJobsAdded() {
+    return jobsAdded;
+  }
+
+  /**
+   * @return the jobsRemoved
+   */
+  public long getJobsRemoved() {
+    return jobsRemoved;
+  }
 }

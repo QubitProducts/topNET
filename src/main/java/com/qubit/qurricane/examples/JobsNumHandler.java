@@ -50,7 +50,10 @@ public class JobsNumHandler extends Handler {
       response.print("SERVER " + counts++ + ":\n");
       for (HandlingThread handlingThread : server.getHandlingThreads()) {
         response.print("  [" + (count++) + "] jobs: " +
-            handlingThread.getValidJobs().size() + "\n");
+            handlingThread.getValidJobs().size() + 
+            " [TA:" + handlingThread.getJobsAdded() + 
+            ", TR: " + handlingThread.getJobsRemoved()
+            + "] \n");
       }
       response.print("\n");
     }

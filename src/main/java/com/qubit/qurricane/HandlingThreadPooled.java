@@ -59,7 +59,7 @@ class HandlingThreadPooled extends HandlingThread {
 
   @Override
   public int runSinglePass() {
-    int ifIOOccuredCount = 0;
+    int jobsHavingMoreWorkCount = 0;
     
     for (int i = 0; i < highestJobNr; i++) {
       DataHandler dataHandler = this.jobs[i].dataHandler;
@@ -70,19 +70,17 @@ class HandlingThreadPooled extends HandlingThread {
 
         try {
           if (this.handleMaxIdle(dataHandler, maxIdle)) {
-//            ifIOOccuredCount += 1;
             continue;
           }
 
           int processed = this.processJob(dataHandler);
 
           if (processed < 0) {
-            ifIOOccuredCount += 1; // job finished, io occured
             // job not necessary anymore
           } else {
             // keep job
             if (processed > 0) {
-              ifIOOccuredCount += 1;
+              jobsHavingMoreWorkCount += 1;
             }
             isFinished = false;
           }
@@ -93,7 +91,6 @@ class HandlingThreadPooled extends HandlingThread {
           if (isFinished) {
             //key cancell!
             try {
-//              ifIOOccuredCount++;
               Server.close(channel);
               this.onJobFinished(dataHandler);
             } finally {
@@ -104,11 +101,9 @@ class HandlingThreadPooled extends HandlingThread {
       }
     }
     
-    return ifIOOccuredCount;
+    return jobsHavingMoreWorkCount;
   }
 
-  protected volatile long jobsAdded = 0;
-  protected volatile long jobsRemoved = 0;
   protected volatile int highestJobNr = 0;
   
   @Override
@@ -204,14 +199,14 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   private long jobsLeft() {
-    if (jobsAdded < 0) {
-      if (jobsRemoved > 0) {
-        return (Long.MAX_VALUE - jobsRemoved) + (jobsAdded - Long.MIN_VALUE);
+    if (getJobsAdded() < 0) {
+      if (getJobsRemoved() > 0) {
+        return (Long.MAX_VALUE - getJobsRemoved()) + (getJobsAdded() - Long.MIN_VALUE);
       } else {
-        return jobsAdded - jobsRemoved; 
+        return getJobsAdded() - getJobsRemoved(); 
       }
     } else {
-      return jobsAdded - jobsRemoved; 
+      return getJobsAdded() - getJobsRemoved(); 
     }
   }
 }

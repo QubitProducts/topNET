@@ -36,11 +36,11 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 64;
+    int jobs = 1024;
     int bufChunkMax = 4 * 16 * 8192;
     int th = 4;
     long noIOdelay = 5;
-    boolean unlimitedAccepts = false;
+    boolean unlimitedAccepts = true;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     
