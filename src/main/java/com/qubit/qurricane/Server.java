@@ -50,7 +50,7 @@ public class Server {
   private static final int THREADS_POOL_SIZE;
   private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
   private static final int MAX_IDLE_TOUT = 3 * 1000; // miliseconds
-  private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 10 MB
+  private static final int MAX_MESSAGE_SIZE_DEFAULTS = 64 * 1024 * 1024; // 64 MB
   static final int BUF_GROWING_LIMIT = 64 * 1024;
 
   static {
@@ -85,7 +85,7 @@ public class Server {
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingPathHandlers = new ArrayList<>();
-  private boolean allowingMoreAcceptsThanSlots = true;
+  private boolean notAllowingMoreAcceptsThanSlots = false;
   private boolean stoppingNow = false;
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;
@@ -127,8 +127,8 @@ public class Server {
     this.setupThreadsList();
 
     mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
-    mainAcceptDispatcher.setAllowingMoreAcceptsThanSlots(
-            this.isAllowingMoreAcceptsThanSlots());
+    mainAcceptDispatcher.setNotAllowingMoreAcceptsThanSlots(
+            this.isNotAllowingMoreAcceptsThanSlots());
     mainAcceptDispatcher.start();
  
     log.log(Level.INFO,
@@ -393,18 +393,18 @@ public class Server {
   }
 
   /**
-   * @return the allowingMoreAcceptsThanSlots
+   * @return the notAllowingMoreAcceptsThanSlots
    */
-  public boolean isAllowingMoreAcceptsThanSlots() {
-    return allowingMoreAcceptsThanSlots;
+  public boolean isNotAllowingMoreAcceptsThanSlots() {
+    return notAllowingMoreAcceptsThanSlots;
   }
 
   /**
-   * @param allowingMoreAcceptsThanSlots the allowingMoreAcceptsThanSlots to set
+   * @param allowingMoreAcceptsThanSlots the notAllowingMoreAcceptsThanSlots to set
    */
-  public void setAllowingMoreAcceptsThanSlots(
+  public void setNotAllowingMoreAcceptsThanSlots(
           boolean allowingMoreAcceptsThanSlots) {
-    this.allowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
+    this.notAllowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
   }
 
   /**
