@@ -58,8 +58,8 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   @Override
-  public int runSinglePass() {
-    int jobsHavingMoreWorkCount = 0;
+  public boolean runSinglePass() {
+    boolean waitForIO = true;
     
     for (int i = 0; i < highestJobNr; i++) {
       DataHandler dataHandler = this.jobs[i].dataHandler;
@@ -67,20 +67,24 @@ class HandlingThreadPooled extends HandlingThread {
       if (dataHandler != null && dataHandler.owningThread == this) {
         boolean isFinished = true;
         SocketChannel channel = dataHandler.getChannel();
-
+        
         try {
           if (this.handleMaxIdle(dataHandler, maxIdle)) {
+            waitForIO = false;
             continue;
           }
 
           int processed = this.processJob(dataHandler);
 
           if (processed < 0) {
+            waitForIO = false;
             // job not necessary anymore
           } else {
             // keep job
             if (processed > 0) {
-              jobsHavingMoreWorkCount += 1;
+              waitForIO = false;
+            } else {
+              // == 0 means no reads were done, or finished reads and asked to wait
             }
             isFinished = false;
           }
@@ -101,7 +105,7 @@ class HandlingThreadPooled extends HandlingThread {
       }
     }
     
-    return jobsHavingMoreWorkCount;
+    return waitForIO;
   }
 
   protected volatile int highestJobNr = 0;
@@ -130,20 +134,9 @@ class HandlingThreadPooled extends HandlingThread {
         jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
-        
-        long jobsLeft = this.jobsLeft();
-        
+                
         if (i >= highestJobNr) {
           highestJobNr = i + 1;
-        } else if (jobsLeft < (1 + (highestJobNr * 0.7))) {
-          int newValue = i;
-          for (int j = i; j < this.jobs.length; j++) {
-            if (this.jobs[j].dataHandler != null &&
-                this.jobs[j].dataHandler.owningThread != null) {
-              newValue = j;
-            }
-          }
-          highestJobNr = newValue + 1;
         }
         
         synchronized (sleepingLocker) {

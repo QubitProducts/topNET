@@ -166,8 +166,8 @@ public abstract class HandlingThread extends Thread {
 
   public static volatile long totalWaitedIO = 0;
 
-  protected boolean waitForSomethingToIO(int code) {
-    if (this.delayForNoIO > 0 && code == 0) {// code is 0 if no IO occured
+  protected boolean waitForSomethingToIO(boolean wait) {
+    if (this.delayForNoIO > 0 && wait) {// code is 0 if no IO occured
       long timeToWait = (long) (this.delayForNoIO);
       totalWaitedIO += timeToWait;
       synchronized (sleepingLocker) {
@@ -237,7 +237,7 @@ public abstract class HandlingThread extends Thread {
    *
    * @return
    */
-  protected abstract int runSinglePass();
+  protected abstract boolean runSinglePass();
 
   /**
    * @return the singlePassDelay
