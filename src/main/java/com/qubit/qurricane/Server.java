@@ -85,7 +85,7 @@ public class Server {
  
   private final Map<String, Handler> plainPathHandlers = new HashMap<>();
   private final List<Handler> matchingPathHandlers = new ArrayList<>();
-  private boolean allowingMoreAcceptsThanSlots = false;
+  private boolean allowingMoreAcceptsThanSlots = true;
   private boolean stoppingNow = false;
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;

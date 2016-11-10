@@ -104,7 +104,7 @@ class HandlingThreadQueued extends HandlingThread {
         } else {
           Server.close(job.getChannel());
           this.onJobFinished(job);
-          jobsRemoved--;
+          jobsRemoved++;
           if (server.isCachingBuffers()) {
             this.recycledJobs.addLast(job);
           }
@@ -151,7 +151,7 @@ class HandlingThreadQueued extends HandlingThread {
 
   @Override
   public boolean hasJobs() {
-    return !this.jobs.isEmpty();
+    return this.jobsLeft() > 0;
   }
 
   /**

@@ -117,7 +117,6 @@ class HandlingThreadPooled extends HandlingThread {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
         job = new DataHandler(server, channel);
-        jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
         this.jobs[i].dataHandler = job;
@@ -128,11 +127,12 @@ class HandlingThreadPooled extends HandlingThread {
           sleepingLocker.notify();
         }
 
+        jobsAdded++;
+        
         return true;
       } else if (job.owningThread == null) {
         job.reset();
         job.init(server, channel);
-        jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
         int newValue = 0;
@@ -146,6 +146,8 @@ class HandlingThreadPooled extends HandlingThread {
           }
           highestJobNr = newValue + 1;
         }
+        
+        jobsAdded++;
         
         synchronized (sleepingLocker) {
           sleepingLocker.notify();
@@ -168,12 +170,13 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   private void removeJobFromPool(int i) {
+    jobsRemoved++;
     if (server.isCachingBuffers()) {
       this.jobs[i].dataHandler.owningThread = null;
     } else {
       this.jobs[i].dataHandler = null;
     }
-    jobsRemoved++;
+    
   }
 
   @Override

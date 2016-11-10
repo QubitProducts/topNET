@@ -36,10 +36,11 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 32;
+    int jobs = 64;
     int bufChunkMax = 4 * 16 * 8192;
     int th = 4;
-    long noIOdelay = 1;
+    long noIOdelay = 5;
+    boolean unlimitedAccepts = false;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
     
@@ -53,6 +54,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
+    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -65,6 +67,28 @@ public class Demo {
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
+    s = new Server("localhost", 3457);
+
+    s.setJobsPerThread(-1);
+    // one byte buffer!
+    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setThreadsAmount(th);
+    s.setPoolType("queue");
+    s.setDelayForNoIOReadsInSuite(noIOdelay);
+    s.setSinglePoolPassThreadDelay(breakStop);
+    s.setAcceptDelay(acceptDelay);
+    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
+    s.start();
+    Thread.sleep(200);
+    s.stop();
+    s.start();
+
+    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    s.registerHandlerByPath("/sleep", new SleepyHandler());
+    s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
+    s.registerHandlerByPath("/echo", new EchoHandler());
+    s.registerHandlerByPath("/dump", new DumpHandler());
+    s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
     
     s = new Server("localhost", 3458);
     
@@ -76,6 +100,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
+    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -98,6 +123,7 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
+    s.setAllowingMoreAcceptsThanSlots(unlimitedAccepts);
     s.start();
     Thread.sleep(200);
     s.stop();
