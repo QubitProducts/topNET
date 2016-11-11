@@ -73,7 +73,7 @@ public class Request {
         charset = Charset.defaultCharset();
       }
       
-      this.bodyStringCache = getBytesStream()
+      this.bodyStringCache = bytesStream
           .readAvailableToReadAsString(charset).toString();
     }
 
@@ -217,9 +217,9 @@ public class Request {
   }
   
   protected void reset() {
-    if (this.getBytesStream() != null) {
-      this.getBytesStream().shrinkLessMore();
-      this.getBytesStream().clear();
+    if (this.bytesStream != null) {
+      this.bytesStream.shrinkLessMore();
+      this.bytesStream.clear();
     }
     headers.clear();
     channel = null;
