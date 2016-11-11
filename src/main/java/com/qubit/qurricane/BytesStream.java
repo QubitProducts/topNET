@@ -201,10 +201,6 @@ class BytesStream {
   }
   
   public void shrinkLessMore(long toValue) {
-    if (doNotShrinkBuffersAfterJob) {
-      return;
-    }
-    
     long amount = 0;
     int len = buffers.size();
     
@@ -241,6 +237,9 @@ class BytesStream {
   }
 
   void shrinkLessMore() {
+    if (doNotShrinkBuffersAfterJob) {
+      return;
+    }
    this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
   }
 }

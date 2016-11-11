@@ -25,8 +25,8 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  *
@@ -34,11 +34,11 @@ import java.util.Set;
  */
 public class Request {
 
-  private Map<String, String> headers;
+  private List<String[]> headers;
   private SocketChannel channel;
   private String bodyStringCache;
 
-  private BytesStream bytesStream = new BytesStream();
+  private final BytesStream bytesStream = new BytesStream();
   private String path;
   private String method;
   private String pathParameters;
@@ -50,7 +50,7 @@ public class Request {
   private long createdTime;
   private Runnable writeFinishedHandler;
   
-  protected void init(SocketChannel channel, Map<String, String> headers) {
+  protected void init(SocketChannel channel, List<String[]> headers) {
     this.headers = headers;
     this.channel = channel;
     this.createdTime = new Date().getTime();
@@ -81,12 +81,12 @@ public class Request {
   }
 
   public String getHeader(String name) {
-    return headers.get(name);
+    for (String[] header : this.headers) {
+      if (header[0].equals(name)) return header[1];
+    }
+    return null;
   }
 
-  public Set<String> getHeadersKeySet() {
-    return headers.keySet();
-  }
 
   public SocketChannel getChannel() {
     return channel;

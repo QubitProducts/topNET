@@ -22,6 +22,8 @@ package com.qubit.qurricane;
 import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
+import static java.lang.Thread.State.TIMED_WAITING;
+import static java.lang.Thread.State.WAITING;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import static java.nio.channels.SelectionKey.OP_READ;
@@ -71,7 +73,6 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private int acceptedCnt = 0;
-  private int addedCnt = 0;
   private int currentThread = 0;
 
   @Override
@@ -150,22 +151,25 @@ class MainAcceptAndDispatchThread extends Thread {
       }
 
       for (int i = 0; i < handlingThreads.length; i++) {
-        if (handlingThreads[i].hasJobs()) {
-          synchronized (handlingThreads[i].sleepingLocker) {
-            handlingThreads[i].sleepingLocker.notify();
+        HandlingThread th = handlingThreads[i];
+        if (th.hasJobs()) {
+          if (th.getState() == WAITING || 
+              th.getState() == TIMED_WAITING) {
+            synchronized(th.sleepingLocker) {
+              th.sleepingLocker.notify();
+            }
           }
         }
       }
 
-      selectionKeys.clear();
+//      selectionKeys.clear();
 
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,
-            "Accepted connections: {0}, total accept waited: {1}ms, added:{2} ,total waited IO: {3}",
+            "Accepted connections: {0}, total accept waited: {1}ms ,total waited IO: {3}",
             new Object[]{
               acceptedCnt,
               totalWaitingAcceptMsCounter,
-              addedCnt,
               totalWaitedIO});
         lastMeassured = System.currentTimeMillis();
       }

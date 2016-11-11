@@ -32,8 +32,8 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -64,7 +64,7 @@ public class DataHandler {
   private volatile long touch; // check if its needed volatile
   private volatile int size = 0; // check if its needed volatile
 
-  private final Map<String, String> headers = new HashMap<>();
+  private final List<String[]> headers = new ArrayList<>();
   
   public AtomicReference<HandlingThread> atomicRefToHandlingThread;
 
@@ -402,8 +402,8 @@ public class DataHandler {
           if (line.startsWith("\t")) {
             // multiline header, yuck! check if any header was read!
             if (lastHeaderName != null) {
-              String tmp = this.headers.get(lastHeaderName);
-              this.headers.put(lastHeaderName, tmp + "\n" + line);
+              this.putHeader(lastHeaderName, 
+                  this.getHeader(lastHeaderName) + "\n" + line);
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
               return true; // yuck! headers malformed!! not even started and multiline ?
@@ -414,7 +414,7 @@ public class DataHandler {
             if (twoStrings != null) {
               lastHeaderName = twoStrings[0];
               if (!lastHeaderName.isEmpty()) {
-                if (lastHeaderName.length() == 14) {
+                if (lastHeaderName.length() == 14) {//optimisation
                   if (lastHeaderName.toLowerCase().equals("content-length")) {
                     try {
                       this.contentLength = Long.parseLong(twoStrings[1]);
@@ -423,7 +423,7 @@ public class DataHandler {
                     }
                   }
                 }
-                headers.put(lastHeaderName, twoStrings[1]);
+                this.putHeader(lastHeaderName, twoStrings[1]);
               }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
@@ -698,7 +698,7 @@ public class DataHandler {
       }
     }
     
-    String connection = this.headers.get("Connection");
+    String connection = this.getHeader("Connection");
 
     if (connection != null) {
       switch (connection) {
@@ -942,5 +942,18 @@ public class DataHandler {
     this.channel = channel;
     this.server = server;
     touch = System.currentTimeMillis();
+  }
+
+  private String getHeader(String name) {
+    for (String[] header : headers) {
+      if (header[0].equals(name)) {
+        return header[1];
+      }
+    }
+    return null;
+  }
+
+  private void putHeader(String lastHeaderName, String string) {
+    this.headers.add(new String[]{lastHeaderName, string});
   }
 }

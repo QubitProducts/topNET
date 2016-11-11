@@ -20,6 +20,8 @@
 
 package com.qubit.qurricane;
 
+import static java.lang.Thread.State.TIMED_WAITING;
+import static java.lang.Thread.State.WAITING;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,6 +128,15 @@ class HandlingThreadQueued extends HandlingThread {
     return waitForIO;
   }
 
+  @Override
+  protected void wakeup() {
+    if (this.getState() == WAITING || this.getState() == TIMED_WAITING) {
+      synchronized (sleepingLocker) {
+        sleepingLocker.notify();
+      }
+    }
+  }
+  
   /**
    *
    * @param key
@@ -139,14 +150,14 @@ class HandlingThreadQueued extends HandlingThread {
       job.setAcceptAndRunHandleStarted(ts);
       this.jobs.addLast(job);
       jobsAdded++;
-      synchronized (sleepingLocker) {
-        sleepingLocker.notify();
-      }
+      
+      wakeup();
+      
       return true;
     }
-    synchronized (sleepingLocker) {
-      sleepingLocker.notify();
-    }
+    
+    wakeup();
+    
     return false;
   }
 

@@ -20,6 +20,8 @@
 
 package com.qubit.qurricane;
 
+import static java.lang.Thread.State.TIMED_WAITING;
+import static java.lang.Thread.State.WAITING;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +110,15 @@ class HandlingThreadPooled extends HandlingThread {
     return waitForIO;
   }
 
+  @Override
+  protected void wakeup() {
+    if (this.getState() == WAITING || this.getState() == TIMED_WAITING) {
+      synchronized (sleepingLocker) {
+        sleepingLocker.notify();
+      }
+    }
+  }
+  
   protected volatile int highestJobNr = 0;
   
   @Override
@@ -123,9 +134,7 @@ class HandlingThreadPooled extends HandlingThread {
         
         highestJobNr = Math.max(highestJobNr, i + 1);
         
-        synchronized (sleepingLocker) {
-          sleepingLocker.notify();
-        }
+        wakeup();
 
         return true;
       } else if (job.owningThread == null) {
@@ -139,17 +148,13 @@ class HandlingThreadPooled extends HandlingThread {
           highestJobNr = i + 1;
         }
         
-        synchronized (sleepingLocker) {
-          sleepingLocker.notify();
-        }
-
+        wakeup();
+        
         return true;
       }
     }
-
-    synchronized (sleepingLocker) {
-      sleepingLocker.notify();
-    }
+    
+    wakeup();
 
     return false;
   }

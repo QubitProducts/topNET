@@ -38,7 +38,7 @@ public abstract class HandlingThread extends Thread {
 
 //  private ByteBuffer buffer;
   private int defaultMaxMessageSize;
-  private long delayForNoIO = 1;
+  private long delayForNoIOReadsInSuite = 1;
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;
@@ -167,16 +167,14 @@ public abstract class HandlingThread extends Thread {
   public static volatile long totalWaitedIO = 0;
 
   protected boolean waitForSomethingToIO(boolean wait) {
-    if (this.delayForNoIO > 0 && wait) {// code is 0 if no IO occured
-      long timeToWait = (long) (this.delayForNoIO);
+    if (this.delayForNoIOReadsInSuite > 0 && wait) {// code is 0 if no IO occured
+      long timeToWait = (long) (this.delayForNoIOReadsInSuite);
       totalWaitedIO += timeToWait;
       synchronized (sleepingLocker) {
         try {
           sleepingLocker.wait(timeToWait);
           return true;
-        } catch (InterruptedException ex) {
-          log.log(Level.FINE, "waitForSomethingToIO delay interrupted.", ex);
-        }
+        } catch (InterruptedException ex) {}
       }
     }
     return false;
@@ -187,9 +185,7 @@ public abstract class HandlingThread extends Thread {
       synchronized (sleepingLocker) {
         try {
           sleepingLocker.wait(this.singlePassDelay);
-        } catch (InterruptedException ex) {
-          log.log(Level.FINE, "takeSomeBreak delay interrupted.", ex);
-        }
+        } catch (InterruptedException ex) {}
       }
     }
   }
@@ -259,17 +255,17 @@ public abstract class HandlingThread extends Thread {
   public abstract Server getServer();
 
   /**
-   * @return the delayForNoIO
+   * @return the delayForNoIOReadsInSuite
    */
   public long getDelayForNoIO() {
-    return delayForNoIO;
+    return delayForNoIOReadsInSuite;
   }
 
   /**
-   * @param delayForNoIO the delayForNoIO to set
+   * @param delayForNoIO the delayForNoIOReadsInSuite to set
    */
   public void setDelayForNoIO(long delayForNoIO) {
-    this.delayForNoIO = delayForNoIO;
+    this.delayForNoIOReadsInSuite = delayForNoIO;
   }
 
   protected void onJobFinished(DataHandler dataHandler) {
@@ -305,4 +301,6 @@ public abstract class HandlingThread extends Thread {
   public long getJobsRemoved() {
     return jobsRemoved;
   }
+  
+  protected abstract void wakeup();
 }
