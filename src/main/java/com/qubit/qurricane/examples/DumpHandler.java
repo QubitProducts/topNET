@@ -23,17 +23,20 @@ package com.qubit.qurricane.examples;
 import com.qubit.qurricane.Handler;
 import com.qubit.qurricane.Request;
 import com.qubit.qurricane.Response;
+import java.io.ByteArrayInputStream;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class DumpHandler extends Handler {
-
+  
+  static ByteArrayInputStream emptyBuf = new ByteArrayInputStream(new byte[]{});
+  
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
-
+    response.setStreamToReadFrom(emptyBuf);
     return true;
   }
 

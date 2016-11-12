@@ -41,8 +41,8 @@ public class Demo {
     int bufChunkMax = 512 * 1024;
     int th = 3;
     long noIOdelay = 1;
-    boolean usingSleep = false;
-    BytesStream.doNotShrinkBuffersAfterJob = false;
+    boolean usingSleep = true;
+    BytesStream.doNotShrinkBuffersAfterJob = true;
     boolean limitedAccepts = false;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance

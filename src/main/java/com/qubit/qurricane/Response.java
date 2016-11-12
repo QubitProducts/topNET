@@ -26,6 +26,7 @@ import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
 import com.qubit.qurricane.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
