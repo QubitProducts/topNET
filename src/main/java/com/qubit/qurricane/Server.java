@@ -90,6 +90,7 @@ public class Server {
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;
   private boolean cachingBuffers = true;
+  private LimitsHandler limitsHandler;
   
   public Server(String address, int port) {
     this.port = port;
@@ -562,5 +563,19 @@ public class Server {
    */
   public void setWaitingForReadEvents(boolean waitingForReadEvents) {
     this.waitingForReadEvents = waitingForReadEvents;
+  }
+
+  /**
+   * @return the limitsHandler
+   */
+  public LimitsHandler getLimitsHandler() {
+    return limitsHandler;
+  }
+
+  /**
+   * @param limitsHandler the limitsHandler to set
+   */
+  public void setLimitsHandler(LimitsHandler limitsHandler) {
+    this.limitsHandler = limitsHandler;
   }
 }

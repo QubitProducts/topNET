@@ -129,7 +129,7 @@ class MainAcceptAndDispatchThread extends Thread {
             } else if (key.isReadable()) {
               // jobs that werent added immediatelly on accept
               Long acceptTime = (Long) key.attachment();
-              if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept)) {
+              if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept, key)) {
                 key.cancel(); // already too long 
                 Server.close((SocketChannel) key.channel());
               } else if (this.startReading(handlingThreads,
@@ -249,13 +249,17 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private long closedIdleCounter = 0;
 
-  protected boolean handleMaxIdle(Long ts, long idle) {
+  protected boolean handleMaxIdle(Long ts, long idle, SelectionKey key) {
     //check if connection is not open too long! Prevent DDoS
     if (idle != 0 && (System.currentTimeMillis() - ts) > idle) {
-      log.log(Level.INFO,
-          "ML Max accept idle gained - closing, total: {0}",
-          ++closedIdleCounter);
-      return true;
+      if (this.server.getLimitsHandler() != null) {
+        return this.server.getLimitsHandler().handleTimeout(key, idle, null);
+      } else {
+        log.log(Level.INFO,
+            "ML Max accept idle gained - closing, total: {0}",
+            ++closedIdleCounter);
+        return true;
+      }
     }
     return false;
   }

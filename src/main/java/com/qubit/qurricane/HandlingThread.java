@@ -202,17 +202,19 @@ public abstract class HandlingThread extends Thread {
     }
   }
   
-  protected boolean handleMaxIdle(
-      DataHandler dataHandler, long maxIdle) {
-    
+  protected boolean handleMaxIdle(DataHandler dataHandler, long maxIdle) {
     if (dataHandler.owningThread == null) return false;
     
     //check if connection is not open too long! Prevent DDoS
     long idle = dataHandler.getMaxIdle(maxIdle);
     if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
-      log.log(Level.INFO,
-          "HT Max idle gained - closing, total: {0}", ++closedIdleCounter);
-      return true;
+      if (this.getServer().getLimitsHandler() != null) {
+        return this.getServer().getLimitsHandler().handleTimeout(null, idle, dataHandler);
+      } else {
+        log.log(Level.INFO,
+            "HT Max idle gained - closing, total: {0}", ++closedIdleCounter);
+        return true;
+      }
     }
 
     // check if not too large
@@ -220,9 +222,14 @@ public abstract class HandlingThread extends Thread {
         .getMaxMessageSize(getDefaultMaxMessageSize());
 
     if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
-      log.log(Level.INFO, "Max size reached - closing: {0}",
-          dataHandler.getSize());
-      return true;
+      if (this.getServer().getLimitsHandler() != null) {
+        return this.getServer().getLimitsHandler()
+            .handleSizeLimit(null, idle, dataHandler);
+      } else {
+        log.log(Level.INFO, "Max size reached - closing: {0}",
+            dataHandler.getSize());
+        return true;
+      }
     }
 
     return false;
