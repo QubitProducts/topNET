@@ -37,7 +37,7 @@ public class Demo {
   public static void main(String[] args) throws Exception {
     
     int jobs = 32;
-    int bufChunkMax = 64 * 1024;
+    int bufChunkMax = 512 * 1024;
     int th = 3;
     long noIOdelay = 1;
     boolean limitedAccepts = false;
