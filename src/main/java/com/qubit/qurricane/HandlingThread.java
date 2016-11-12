@@ -184,24 +184,28 @@ public abstract class HandlingThread extends Thread {
         this.interrupt();
       }
     } else {
-      synchronized(sleepingLocker) {
-        sleepingLocker.notify();
+      if (this.getState() == State.TIMED_WAITING) {
+        synchronized(sleepingLocker) {
+          sleepingLocker.notify();
+        }
       }
     }
   }
   
-  protected void takeSomeBreak(long delay) {
+  private void takeSomeBreak(long delay) {
     if (isUsingSleep()) {
       try {
         this.sleeps = true;
         Thread.sleep(delay);
       } catch (InterruptedException ex) {}
     } else {
-      try {
-        synchronized(sleepingLocker) {
-          sleepingLocker.wait(delay);
-        }
-      } catch (InterruptedException e){}
+      if (this.getState() != State.TIMED_WAITING) {
+        try {
+          synchronized (sleepingLocker) {
+            sleepingLocker.wait(delay);
+          }
+        } catch (InterruptedException e) {}
+      }
     }
   }
 
