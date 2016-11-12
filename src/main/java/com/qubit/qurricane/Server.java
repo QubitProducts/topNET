@@ -89,6 +89,7 @@ public class Server {
   private boolean cachingBuffers = true;
   private LimitsHandler limitsHandler;
   private boolean puttingJobsEquallyToAllThreads = true;
+  private boolean usingSleep = true;
   
   public Server(String address, int port) {
     this.port = port;
@@ -260,6 +261,7 @@ public class Server {
       
       t.setSinglePassDelay(this.singlePoolPassThreadDelay);
       t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
+      t.setUsingSleep(this.usingSleep);
       
       t.start();
       
@@ -589,5 +591,19 @@ public class Server {
    */
   public void setPuttingJobsEquallyToAllThreads(boolean puttingJobsEquallyToAllThreads) {
     this.puttingJobsEquallyToAllThreads = puttingJobsEquallyToAllThreads;
+  }
+
+  /**
+   * @return the usingSleep
+   */
+  public boolean isUsingSleep() {
+    return usingSleep;
+  }
+
+  /**
+   * @param usingSleep the usingSleep to set
+   */
+  public void setUsingSleep(boolean usingSleep) {
+    this.usingSleep = usingSleep;
   }
 }

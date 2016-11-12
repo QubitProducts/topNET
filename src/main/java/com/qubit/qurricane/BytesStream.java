@@ -28,7 +28,7 @@ import java.util.List;
  *
  * @author piotr
  */
-class BytesStream {
+public class BytesStream {
 
   public static int BUF_SIZE_DEF = 4 * 1024;
   public static int minimumBytesToKeepAfterJobShrink = 256 * 1024;

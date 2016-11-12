@@ -41,7 +41,8 @@ public class Demo {
     int bufChunkMax = 512 * 1024;
     int th = 3;
     long noIOdelay = 1;
-    BytesStream.doNotShrinkBuffersAfterJob = true;
+    boolean usingSleep = false;
+    BytesStream.doNotShrinkBuffersAfterJob = false;
     boolean limitedAccepts = false;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance
@@ -57,6 +58,7 @@ public class Demo {
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
+    s.setUsingSleep(usingSleep);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -80,6 +82,7 @@ public class Demo {
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
+    s.setUsingSleep(usingSleep);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -103,6 +106,7 @@ public class Demo {
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
+    s.setUsingSleep(usingSleep);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -126,6 +130,7 @@ public class Demo {
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
+    s.setUsingSleep(usingSleep);
     s.start();
     Thread.sleep(200);
     s.stop();

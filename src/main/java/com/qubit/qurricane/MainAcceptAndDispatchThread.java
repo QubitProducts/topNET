@@ -22,8 +22,6 @@ package com.qubit.qurricane;
 import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
-import static java.lang.Thread.State.TIMED_WAITING;
-import static java.lang.Thread.State.WAITING;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import static java.nio.channels.SelectionKey.OP_READ;
@@ -153,16 +151,11 @@ class MainAcceptAndDispatchThread extends Thread {
       for (int i = 0; i < handlingThreads.length; i++) {
         HandlingThread th = handlingThreads[i];
         if (th.hasJobs()) {
-          if (th.getState() == WAITING || 
-              th.getState() == TIMED_WAITING) {
-            synchronized(th.sleepingLocker) {
-              th.sleepingLocker.notify();
-            }
-          }
+          th.wakeup();
         }
       }
 
-//      selectionKeys.clear();
+      selectionKeys.clear();
 
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,

@@ -52,7 +52,9 @@ public abstract class HandlingThread extends Thread {
   private static volatile long closedIdleCounter = 0; // less more counter...
 
   final Object sleepingLocker = new Object();
-    
+  
+  public volatile boolean sleeps = false;
+  
   @Override
   public void run() {
     try {
@@ -61,16 +63,13 @@ public abstract class HandlingThread extends Thread {
         while (this.hasJobs()) {
           if (!this.waitForSomethingToIO(this.runSinglePass())) {
             // if it is not waiting for IO, try standard break
-            this.takeSomeBreak();
+            if (this.singlePassDelay > 0) {
+              this.takeSomeBreak(this.singlePassDelay);
+            }
           }
         }
         
-        try {
-          synchronized (sleepingLocker) {
-            sleepingLocker.wait();
-          }
-        } catch (InterruptedException ex) {}
-        
+        this.takeSomeBreak(1000000);
       }
     } finally {
       this.getServer().removeThread(this);
@@ -170,23 +169,39 @@ public abstract class HandlingThread extends Thread {
     if (this.delayForNoIOReadsInSuite > 0 && wait) {// code is 0 if no IO occured
       long timeToWait = (long) (this.delayForNoIOReadsInSuite);
       totalWaitedIO += timeToWait;
-      synchronized (sleepingLocker) {
-        try {
-          sleepingLocker.wait(timeToWait);
-          return true;
-        } catch (InterruptedException ex) {}
-      }
+      takeSomeBreak(timeToWait);
+      return true;
     }
     return false;
   }
 
-  protected void takeSomeBreak() {
-    if (this.singlePassDelay > 0) {
-      synchronized (sleepingLocker) {
-        try {
-          sleepingLocker.wait(this.singlePassDelay);
-        } catch (InterruptedException ex) {}
+  private boolean usingSleep = true;
+  
+  protected void wakeup() {
+    if (isUsingSleep()) {
+      if (this.sleeps) {
+        this.sleeps = false;
+        this.interrupt();
       }
+    } else {
+      synchronized(sleepingLocker) {
+        sleepingLocker.notify();
+      }
+    }
+  }
+  
+  protected void takeSomeBreak(long delay) {
+    if (isUsingSleep()) {
+      try {
+        this.sleeps = true;
+        Thread.sleep(delay);
+      } catch (InterruptedException ex) {}
+    } else {
+      try {
+        synchronized(sleepingLocker) {
+          sleepingLocker.wait(delay);
+        }
+      } catch (InterruptedException e){}
     }
   }
 
@@ -308,6 +323,19 @@ public abstract class HandlingThread extends Thread {
   public long getJobsRemoved() {
     return jobsRemoved;
   }
+
+  /**
+   * @return the usingSleep
+   */
+  public boolean isUsingSleep() {
+    return usingSleep;
+  }
+
+  /**
+   * @param usingSleep the usingSleep to set
+   */
+  public void setUsingSleep(boolean usingSleep) {
+    this.usingSleep = usingSleep;
+  }
   
-  protected abstract void wakeup();
 }
