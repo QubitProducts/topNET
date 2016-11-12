@@ -89,7 +89,7 @@ public class Server {
   private boolean cachingBuffers = true;
   private LimitsHandler limitsHandler;
   private boolean puttingJobsEquallyToAllThreads = true;
-  private boolean usingSleep = true;
+  private boolean usingSleep = false;
   
   public Server(String address, int port) {
     this.port = port;
