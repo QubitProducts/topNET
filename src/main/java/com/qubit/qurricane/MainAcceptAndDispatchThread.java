@@ -188,22 +188,11 @@ class MainAcceptAndDispatchThread extends Thread {
   private boolean startReading(
       HandlingThread[] handlingThreads,
       SocketChannel channel, Long acceptTime) {
-
-    int len = handlingThreads.length;
-    for (int c = 0; c < len; c++) {
-      HandlingThread handlingThread = handlingThreads[currentThread];
-      currentThread = (currentThread + 1) % len;
-
-      if (handlingThread != null) {
-
-        if (handlingThread.addJob(channel, acceptTime)) {
-          //key.cancel(); // remove key, handled channel is
-          // now by job processor
-          return true;
-        }
-      }
+    if (this.server.isPuttingJobsEquallyToAllThreads()) {
+      return this.spreadEqually(handlingThreads, channel, acceptTime);
+    } else {
+      return this.fillUpThreadsOneByOne(handlingThreads, channel, acceptTime);
     }
-    return false;
   }
 
   private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
@@ -290,5 +279,36 @@ class MainAcceptAndDispatchThread extends Thread {
    */
   public void setWaitingForReadEvents(boolean waitingForReadEvents) {
     this.waitingForReadEvents = waitingForReadEvents;
+  }
+
+  private boolean spreadEqually(HandlingThread[] handlingThreads,
+                                  SocketChannel channel,
+                                  Long acceptTime) {
+    int len = handlingThreads.length;
+    for (int c = 0; c < len; c++) {
+      HandlingThread handlingThread = handlingThreads[currentThread];
+      currentThread = (currentThread + 1) % len;
+      if (handlingThread != null) {
+        if (handlingThread.addJob(channel, acceptTime)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private boolean fillUpThreadsOneByOne(HandlingThread[] handlingThreads,
+                                           SocketChannel channel,
+                                           Long acceptTime) {
+    int len = handlingThreads.length;
+    for (int c = 0; c < len; c++) {
+      HandlingThread handlingThread = handlingThreads[c];
+      if (handlingThread != null) {
+        if (handlingThread.addJob(channel, acceptTime)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }

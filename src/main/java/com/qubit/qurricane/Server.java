@@ -91,6 +91,7 @@ public class Server {
   private boolean started = false;
   private boolean cachingBuffers = true;
   private LimitsHandler limitsHandler;
+  private boolean puttingJobsEquallyToAllThreads = true;
   
   public Server(String address, int port) {
     this.port = port;
@@ -577,5 +578,19 @@ public class Server {
    */
   public void setLimitsHandler(LimitsHandler limitsHandler) {
     this.limitsHandler = limitsHandler;
+  }
+
+  /**
+   * @return the puttingJobsEquallyToAllThreads
+   */
+  public boolean isPuttingJobsEquallyToAllThreads() {
+    return puttingJobsEquallyToAllThreads;
+  }
+
+  /**
+   * @param puttingJobsEquallyToAllThreads the puttingJobsEquallyToAllThreads to set
+   */
+  public void setPuttingJobsEquallyToAllThreads(boolean puttingJobsEquallyToAllThreads) {
+    this.puttingJobsEquallyToAllThreads = puttingJobsEquallyToAllThreads;
   }
 }
