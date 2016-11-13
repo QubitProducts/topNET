@@ -606,4 +606,11 @@ public class Server {
   public void setUsingSleep(boolean usingSleep) {
     this.usingSleep = usingSleep;
   }
+
+  /**
+   * @return the mainAcceptDispatcher
+   */
+  public MainAcceptAndDispatchThread getMainAcceptDispatcher() {
+    return mainAcceptDispatcher;
+  }
 }

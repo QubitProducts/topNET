@@ -125,14 +125,6 @@ class HandlingThreadQueued extends HandlingThread {
 
     return waitForIO;
   }
-
-  @Override
-  protected void wakeup() {
-    if (this.sleeps) {
-      this.sleeps = false;
-      this.interrupt();
-    }
-  }
   
   /**
    *

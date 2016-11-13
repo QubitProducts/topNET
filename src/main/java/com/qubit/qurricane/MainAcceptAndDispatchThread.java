@@ -124,7 +124,7 @@ class MainAcceptAndDispatchThread extends Thread {
                   newKey.attach(new Long(System.currentTimeMillis()));
                 }
               }
-            } else if (key.isReadable()) {
+            } else {//if (key.isReadable()) {
               // jobs that werent added immediatelly on accept
               Long acceptTime = (Long) key.attachment();
               if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept, key)) {
@@ -147,7 +147,7 @@ class MainAcceptAndDispatchThread extends Thread {
           log.log(Level.SEVERE, null, ex);
         }
       }
-
+      
       for (int i = 0; i < handlingThreads.length; i++) {
         HandlingThread th = handlingThreads[i];
         if (th.hasJobs()) {
