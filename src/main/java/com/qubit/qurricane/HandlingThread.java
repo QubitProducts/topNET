@@ -69,7 +69,7 @@ public abstract class HandlingThread extends Thread {
           }
         }
         
-        this.takeSomeBreak(1000000);
+        this.sleepNow();
       }
     } finally {
       this.getServer().removeThread(this);
@@ -184,10 +184,28 @@ public abstract class HandlingThread extends Thread {
         this.interrupt();
       }
     } else {
-      if (this.getState() == State.TIMED_WAITING) {
+      if (this.getState() == State.TIMED_WAITING ||
+          this.getState() == State.WAITING) {
         synchronized(sleepingLocker) {
           sleepingLocker.notify();
         }
+      }
+    }
+  }
+  
+  private void sleepNow() {
+    if (isUsingSleep()) {
+      try {
+        this.sleeps = true;
+        Thread.sleep(8999999999999999999L);
+      } catch (InterruptedException ex) {
+      }
+    } else if (this.getState() != State.WAITING) {
+      try {
+        synchronized (sleepingLocker) {
+          sleepingLocker.wait();
+        }
+      } catch (InterruptedException e) {
       }
     }
   }
