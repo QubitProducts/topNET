@@ -217,8 +217,9 @@ public class BytesStream {
   }
   
   public void dropAlreadyRead() {
-    for (int i = 0; i < currentBufferReadIndex; i++) {
-      buffers.remove(i);
+    while (currentBufferReadIndex > 0) {
+      buffers.remove(0);
+      currentBufferReadIndex--;
     }
   }
   
