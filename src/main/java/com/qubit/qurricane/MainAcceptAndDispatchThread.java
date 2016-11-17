@@ -27,7 +27,6 @@ import java.nio.channels.SelectionKey;
 import static java.nio.channels.SelectionKey.OP_READ;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.LinkedList;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -60,6 +59,8 @@ class MainAcceptAndDispatchThread extends Thread {
   private final long maxIdleAfterAccept;
   private boolean running;
   private boolean waitingForReadEvents = true;
+  private long timeSinceCouldntAddJob = 0;
+  private long noSlotsAvailableTimeout = 50;
 
   MainAcceptAndDispatchThread(Server server,
       final Selector acceptSelector,
@@ -75,8 +76,6 @@ class MainAcceptAndDispatchThread extends Thread {
 
   @Override
   public void run() {
-    HandlingThread[] handlingThreads = this.server.getHandlingThreads();
-
     long lastMeassured = System.currentTimeMillis();
     long totalWaitingAcceptMsCounter = 0;
     this.setRunning(true);
@@ -97,7 +96,8 @@ class MainAcceptAndDispatchThread extends Thread {
       }
 
       Set<SelectionKey> selectionKeys = acceptSelector.selectedKeys();
-
+      HandlingThread[] handlingThreads = this.server.getHandlingThreads();
+      
       for (SelectionKey key : selectionKeys) {
 
         try {
@@ -130,11 +130,20 @@ class MainAcceptAndDispatchThread extends Thread {
               if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept, key)) {
                 key.cancel(); // already too long 
                 Server.close((SocketChannel) key.channel());
-              } else if (this.startReading(handlingThreads,
-                  (SocketChannel) key.channel(),
-                  acceptTime)) {
-                // job added, remove from selector
-                key.cancel();
+              } else {
+                if (!this.tryAddingJob(key, acceptTime, handlingThreads)) {
+                  // failed adding job
+                  if (this.timeSinceCouldntAddJob == 0) {
+                    this.timeSinceCouldntAddJob = System.currentTimeMillis();
+                  } else if (System.currentTimeMillis() >
+                      (this.timeSinceCouldntAddJob + this.getNoSlotsAvailableTimeout())) {
+                    this.timeSinceCouldntAddJob = 0;
+                    if (this.server.addThread()) {
+                      handlingThreads = this.server.getHandlingThreads();
+                      this.tryAddingJob(key, acceptTime, handlingThreads);
+                    }
+                  }
+                }
               }
             }
           } else {
@@ -175,9 +184,22 @@ class MainAcceptAndDispatchThread extends Thread {
     }
   }
 
-  LinkedList<DataHandler> waitingJobs = new LinkedList<>();
-
-//  int i = 0;
+  private boolean tryAddingJob(
+      SelectionKey key,
+      Long acceptTime,
+      HandlingThread[] handlingThreads) {
+    if (this.startReading(
+            handlingThreads,
+            (SocketChannel) key.channel(),
+            acceptTime)) {
+      // job added, remove from selector
+      this.timeSinceCouldntAddJob = 0;
+      key.cancel();
+      return true;
+    }
+    return false;
+  }
+  
   private boolean startReading(
       HandlingThread[] handlingThreads,
       SocketChannel channel, Long acceptTime) {
@@ -304,4 +326,18 @@ class MainAcceptAndDispatchThread extends Thread {
     }
     return false;
   }
+
+  /**
+   * @return the noSlotsAvailableTimeout
+   */
+  public long getNoSlotsAvailableTimeout() {
+    return noSlotsAvailableTimeout;
+  }
+
+  /**
+   * @param noSlotsAvailableTimeout the noSlotsAvailableTimeout to set
+   */
+  public void setNoSlotsAvailableTimeout(long noSlotsAvailableTimeout) {
+    this.noSlotsAvailableTimeout = noSlotsAvailableTimeout;
+  }  
 }

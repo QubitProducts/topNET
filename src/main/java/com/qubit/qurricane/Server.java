@@ -90,6 +90,8 @@ public class Server {
   private LimitsHandler limitsHandler;
   private boolean puttingJobsEquallyToAllThreads = true;
   private boolean usingSleep = false;
+  private boolean autoscalingThreads = true;
+  private int noSlotsAvailableTimeout = 5;
   
   public Server(String address, int port) {
     this.port = port;
@@ -133,6 +135,9 @@ public class Server {
             this.isNotAllowingMoreAcceptsThanSlots());
     
     mainAcceptDispatcher.setWaitingForReadEvents(this.waitingForReadEvents);
+    
+    mainAcceptDispatcher.setNoSlotsAvailableTimeout(
+        this.getNoSlotsAvailableTimeout());
     
     mainAcceptDispatcher.start();
  
@@ -211,61 +216,9 @@ public class Server {
 
   
   private void setupThreadsList() {
-    boolean announced = false;
-    String type = this.getPoolType();
-    int jobsSize = this.getJobsPerThread();
-    int bufSize = this.maxGrowningBufferChunkSize;
-    int defaultMaxMessage = this.getMaxMessageSize();
-    
-    for (int i = 0; i < handlingThreads.length; i++) {
-      HandlingThread t;
-      
-      switch (type) {
-        case POOL:
-          if (!announced) {
-            log.info("Atomic Array  Pools type used.");
-            announced = true;
-          } t = new HandlingThreadPooled(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        case QUEUE:
-          if (!announced) {
-            log.info("Concurrent Queue Pools type used.");
-            announced = true;
-          } t = new HandlingThreadQueued(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        case QUEUE_SHARED:
-          if (!announced) {
-            log.info("Shared Concurrent Queue Pools type used.");
-            announced = true;
-          } t = new HandlingThreadSharedQueue(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        default:
-          throw new RuntimeException(
-                  "Unknown thread handling type selected: " + type);
-      }
-      
-      t.setSinglePassDelay(this.singlePoolPassThreadDelay);
-      t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
-      t.setUsingSleep(this.usingSleep);
-      
-      t.start();
-      
-      handlingThreads[i] = t;
+    int len = handlingThreads.length;
+    for (int i = 0; i < len; i++) {
+      this.addThread();
     }
   }
 
@@ -493,7 +446,7 @@ public class Server {
   /**
    * @param aHandlingThreads the handlingThreads to set
    */
-  public void setHandlingThreads(HandlingThread[] aHandlingThreads) {
+  public synchronized void setHandlingThreads(HandlingThread[] aHandlingThreads) {
     handlingThreads = aHandlingThreads;
   }
 
@@ -612,5 +565,117 @@ public class Server {
    */
   public MainAcceptAndDispatchThread getMainAcceptDispatcher() {
     return mainAcceptDispatcher;
+  }
+
+  public boolean addThread() {
+    boolean announced = false;
+    String type = this.getPoolType();
+    int jobsSize = this.getJobsPerThread();
+    int bufSize = this.maxGrowningBufferChunkSize;
+    int defaultMaxMessage = this.getMaxMessageSize();
+    
+    int idx = -1;
+    for (int i= 0; i < handlingThreads.length; i++) {
+      if (handlingThreads[i] == null) {
+        idx = i;
+        break;
+      }
+    }
+    
+    if (idx == -1) {
+      if (this.isAutoscalingThreads()) {
+        HandlingThread[] newArray = 
+            new HandlingThread[handlingThreads.length + 1];
+
+        System.arraycopy(handlingThreads, 0,
+                         newArray, 0,
+                         handlingThreads.length);
+
+        idx = handlingThreads.length;
+        // update reference
+        this.setHandlingThreads(newArray);
+      } else {
+        return false;
+      }
+    }
+    
+    HandlingThread t;
+      
+      switch (type) {
+        case POOL:
+          if (!announced) {
+            log.info("Atomic Array  Pools type used.");
+            announced = true;
+          } t = new HandlingThreadPooled(
+                  this,
+                  jobsSize,
+                  bufSize,
+                  defaultMaxMessage,
+                  defaultIdleTime);
+          break;
+        case QUEUE:
+          if (!announced) {
+            log.info("Concurrent Queue Pools type used.");
+            announced = true;
+          } t = new HandlingThreadQueued(
+                  this,
+                  jobsSize,
+                  bufSize,
+                  defaultMaxMessage,
+                  defaultIdleTime);
+          break;
+        case QUEUE_SHARED:
+          if (!announced) {
+            log.info("Shared Concurrent Queue Pools type used.");
+            announced = true;
+          } t = new HandlingThreadSharedQueue(
+                  this,
+                  jobsSize,
+                  bufSize,
+                  defaultMaxMessage,
+                  defaultIdleTime);
+          break;
+        default:
+          throw new RuntimeException(
+                  "Unknown thread handling type selected: " + type);
+      }
+      
+      t.setSinglePassDelay(this.singlePoolPassThreadDelay);
+      t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
+      t.setUsingSleep(this.usingSleep);
+      
+      t.start();
+      
+      handlingThreads[idx] = t;
+      
+      return true;
+  }
+
+  /**
+   * @return the autoscalingThreads
+   */
+  public boolean isAutoscalingThreads() {
+    return autoscalingThreads;
+  }
+
+  /**
+   * @param autoscalingThreads the autoscalingThreads to set
+   */
+  public void setAutoscalingThreads(boolean autoscalingThreads) {
+    this.autoscalingThreads = autoscalingThreads;
+  }
+
+  /**
+   * @return the noSlotsAvailableTimeout
+   */
+  public int getNoSlotsAvailableTimeout() {
+    return noSlotsAvailableTimeout;
+  }
+
+  /**
+   * @param noSlotsAvailableTimeout the noSlotsAvailableTimeout to set
+   */
+  public void setNoSlotsAvailableTimeout(int noSlotsAvailableTimeout) {
+    this.noSlotsAvailableTimeout = noSlotsAvailableTimeout;
   }
 }
