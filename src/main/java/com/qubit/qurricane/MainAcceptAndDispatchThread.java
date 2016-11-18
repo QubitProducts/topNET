@@ -169,7 +169,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
       selectionKeys.clear();
       
-      if (this.isAutoScalingDown()) {
+      if (this.autoScalingDown) {
         this.scaleDownIfCan();
       }
       
