@@ -20,6 +20,7 @@
 
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.PoolType.POOL;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -44,7 +45,7 @@ public class Server {
   
   private HandlingThread[] handlingThreads;
   
-  public final static String SERVER_VERSION = "1.4.0";
+  public final static String SERVER_VERSION = "1.5.0";
   
   private static final int THREAD_JOBS_SIZE;
   private static final int THREADS_POOL_SIZE;
@@ -57,10 +58,12 @@ public class Server {
   }
   
 //  public static Log log = new Log(Server.class);
-  public static final String POOL = "pool";
-  public static final String POOL_SHARED = "pool-shared";
-  public static final String QUEUE = "queue";
-  public static final String QUEUE_SHARED = "queue-shared";
+  
+  public static final int SCALING_UNLIMITED = 0;
+  
+  private final Map<String, Handler> plainPathHandlers = new HashMap<>();
+  private final List<Handler> matchingPathHandlers = new ArrayList<>();
+  private MainAcceptAndDispatchThread mainAcceptDispatcher;
   
   private final int port;
   private long delayForNoIOReadsInSuite = 1;
@@ -75,23 +78,22 @@ public class Server {
   private int maxMessageSize = 64 * 1024 * 1024;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
-  private String poolType = POOL;
+  private PoolType poolType = POOL;
   private int maximumGrowingBufferChunkSize = 64 * 1024;
   private long singlePoolPassThreadDelay = 0;
   private boolean waitingForReadEvents = true;
- 
-  private final Map<String, Handler> plainPathHandlers = new HashMap<>();
-  private final List<Handler> matchingPathHandlers = new ArrayList<>();
+  private long scalingDownTryPeriodMS = 20 * 1000;
   private boolean notAllowingMoreAcceptsThanSlots = false;
   private boolean stoppingNow = false;
-  private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private boolean started = false;
   private boolean cachingBuffers = true;
   private LimitsHandler limitsHandler;
   private boolean puttingJobsEquallyToAllThreads = true;
   private boolean usingSleep = false;
   private boolean autoscalingThreads = true;
-  private int noSlotsAvailableTimeout = 5;
+  private int noSlotsAvailableTimeout = 25;
+  private int scalingMax = SCALING_UNLIMITED;  // unlimited
+  private boolean autoScalingDown = true;
   
   public Server(String address, int port) {
     this.port = port;
@@ -126,6 +128,7 @@ public class Server {
                     this,
                     acceptSelector, this.getDefaultAcceptIdleTime());
 
+    log.info("Threads handling type used: " + this.getPoolType().name());
     this.setupThreadsList();
 
     mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
@@ -138,6 +141,10 @@ public class Server {
     
     mainAcceptDispatcher.setNoSlotsAvailableTimeout(
         this.getNoSlotsAvailableTimeout());
+    
+    mainAcceptDispatcher.setScalingDownTryPeriodMS(this.scalingDownTryPeriodMS);
+    
+    mainAcceptDispatcher.setAutoScalingDown(this.autoScalingDown);
     
     mainAcceptDispatcher.start();
  
@@ -218,7 +225,7 @@ public class Server {
   private void setupThreadsList() {
     int len = handlingThreads.length;
     for (int i = 0; i < len; i++) {
-      this.addThread();
+      this.addThreadDirectly();
     }
   }
 
@@ -337,19 +344,6 @@ public class Server {
     this.maximumGrowingBufferChunkSize = val;
   }
 
-  /**
-   * @return the poolType
-   */
-  public String getPoolType() {
-    return poolType;
-  }
-
-  /**
-   * @param poolType the poolType to set
-   */
-  public void setPoolType(String poolType) {
-    this.poolType = poolType;
-  }
 
   /**
    * @return the notAllowingMoreAcceptsThanSlots
@@ -566,10 +560,17 @@ public class Server {
   public MainAcceptAndDispatchThread getMainAcceptDispatcher() {
     return mainAcceptDispatcher;
   }
-
+  
   public boolean addThread() {
-    boolean announced = false;
-    String type = this.getPoolType();
+    if (this.scalingMax > 0 && 
+        handlingThreads.length >= this.scalingMax) {
+      return false;
+    }
+    
+    return this.addThreadDirectly();
+  }
+  
+  private boolean addThreadDirectly() {
     int jobsSize = this.getJobsPerThread();
     int bufSize = this.maxGrowningBufferChunkSize;
     int defaultMaxMessage = this.getMaxMessageSize();
@@ -601,12 +602,9 @@ public class Server {
     
     HandlingThread t;
       
-      switch (type) {
+      switch (this.poolType) {
         case POOL:
-          if (!announced) {
-            log.info("Atomic Array  Pools type used.");
-            announced = true;
-          } t = new HandlingThreadPooled(
+          t = new HandlingThreadPooled(
                   this,
                   jobsSize,
                   bufSize,
@@ -614,10 +612,7 @@ public class Server {
                   defaultIdleTime);
           break;
         case QUEUE:
-          if (!announced) {
-            log.info("Concurrent Queue Pools type used.");
-            announced = true;
-          } t = new HandlingThreadQueued(
+          t = new HandlingThreadQueued(
                   this,
                   jobsSize,
                   bufSize,
@@ -625,10 +620,7 @@ public class Server {
                   defaultIdleTime);
           break;
         case QUEUE_SHARED:
-          if (!announced) {
-            log.info("Shared Concurrent Queue Pools type used.");
-            announced = true;
-          } t = new HandlingThreadSharedQueue(
+          t = new HandlingThreadSharedQueue(
                   this,
                   jobsSize,
                   bufSize,
@@ -637,7 +629,7 @@ public class Server {
           break;
         default:
           throw new RuntimeException(
-                  "Unknown thread handling type selected: " + type);
+                  "Unknown thread handling type selected: " + this.poolType);
       }
       
       t.setSinglePassDelay(this.singlePoolPassThreadDelay);
@@ -651,6 +643,59 @@ public class Server {
       return true;
   }
 
+  public int cleanupThreadsExcess() {
+    int threadsThatShouldBe = this.getThreadsAmount();
+    HandlingThread[] threads = this.getHandlingThreads();
+    
+    if (threadsThatShouldBe >= threads.length) {
+      return 0;
+    }
+    
+    double jobs = 0;
+    double max = 0;
+    
+    for (HandlingThread thread : threads) {
+      if (thread != null) {
+        jobs += thread.jobsLeft();
+        max += thread.getLimit();
+      }
+    }
+    
+    int threadsRequired = (int) ((jobs/max) * threads.length) + 1;
+    
+    if (threadsRequired >= threads.length) {
+      return 0;
+    }
+    
+    if (threadsRequired < threadsThatShouldBe) {
+      threadsRequired = threadsThatShouldBe;
+    }
+    
+    int threadsToRemove = threads.length - threadsRequired;
+    
+    if (threadsToRemove > 0) {
+      for (int i = 0; i < threadsToRemove; i++) {
+        HandlingThread thread = threads[threads.length - (i + 1)];
+        threads[threads.length - (i + 1)] = null;
+        thread.setRunning(false);
+      }
+
+      HandlingThread[] newThreads = new HandlingThread[threadsRequired];
+
+      for (int i = 0; i < threads.length; i++) {
+        if (threads[i] != null) {
+          newThreads[i] = threads[i];
+        }
+      }
+
+      this.setHandlingThreads(newThreads);
+
+      return threadsToRemove;
+    }
+    
+    return 0;
+  }
+  
   /**
    * @return the autoscalingThreads
    */
@@ -677,5 +722,61 @@ public class Server {
    */
   public void setNoSlotsAvailableTimeout(int noSlotsAvailableTimeout) {
     this.noSlotsAvailableTimeout = noSlotsAvailableTimeout;
+  }
+
+  /**
+   * @return the poolType
+   */
+  public PoolType getPoolType() {
+    return poolType;
+  }
+
+  /**
+   * @param poolType the poolType to set
+   */
+  public void setPoolType(PoolType poolType) {
+    this.poolType = poolType;
+  }
+
+  /**
+   * @return the scalingDownTryPeriodMS
+   */
+  public long getScalingDownTryPeriodMS() {
+    return scalingDownTryPeriodMS;
+  }
+
+  /**
+   * @param scalingDownTryPeriodMS the scalingDownTryPeriodMS to set
+   */
+  public void setScalingDownTryPeriodMS(long scalingDownTryPeriodMS) {
+    this.scalingDownTryPeriodMS = scalingDownTryPeriodMS;
+  }
+
+  /**
+   * @return the scalingMax
+   */
+  public int getScalingMax() {
+    return scalingMax;
+  }
+
+  /**
+   * @param scalingMax the scalingMax to set
+   */
+  public void setScalingMax(int scalingMax) {
+    this.scalingMax = scalingMax;
+  }
+
+  /**
+   * @return the autoScalingDown
+   */
+  public boolean isAutoScalingDown() {
+    return autoScalingDown;
+  }
+
+  /**
+   * @param autoScalingDown the autoScalingDown to set
+   */
+  public void setAutoScalingDown(boolean autoScalingDown) {
+    this.autoScalingDown = autoScalingDown;
   }
 }

@@ -51,7 +51,7 @@ class HandlingThreadQueued extends HandlingThread {
           int defaultMaxMessageSize,
           long maxIdle) {
     this.server = server;
-    limit = jobsSize;
+    this.limit = jobsSize;
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -158,6 +158,7 @@ class HandlingThreadQueued extends HandlingThread {
   /**
    * @return the limit
    */
+  @Override
   public int getLimit() {
     return limit;
   }
@@ -209,25 +210,13 @@ class HandlingThreadQueued extends HandlingThread {
       return new DataHandler(server, channel);
     }
     
-    DataHandler job = recycledJobs.pollFirst();
+    DataHandler job = this.recycledJobs.pollFirst();
     if (job != null) {
       job.reset();
-      job.init(server, channel);
+      job.init(this.server, channel);
       return job;
     } else {
-      return new DataHandler(server, channel);
-    }
-  }
-
-  private long jobsLeft() {
-    if (jobsAdded < 0) {
-      if (jobsRemoved > 0) {
-        return (Long.MAX_VALUE - jobsRemoved) + (jobsAdded - Long.MIN_VALUE);
-      } else {
-        return jobsAdded - jobsRemoved;
-      }
-    } else {
-      return jobsAdded - jobsRemoved;
+      return new DataHandler(this.server, channel);
     }
   }
 }

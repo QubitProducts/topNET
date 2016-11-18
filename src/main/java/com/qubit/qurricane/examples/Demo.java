@@ -21,6 +21,7 @@
 package com.qubit.qurricane.examples;
 
 import com.qubit.qurricane.BytesStream;
+import com.qubit.qurricane.PoolType;
 import com.qubit.qurricane.Server;
 import java.io.IOException;
 
@@ -37,7 +38,7 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 32;
+    int jobs = 64;
     int bufChunkMax = 64 * 1024;
     int th = 3;
     long noIOdelay = 1;
@@ -53,7 +54,7 @@ public class Demo {
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
-    s.setPoolType("pool");
+    s.setPoolType(PoolType.POOL);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
@@ -77,7 +78,7 @@ public class Demo {
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
-    s.setPoolType("queue");
+    s.setPoolType(PoolType.QUEUE);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
@@ -101,7 +102,7 @@ public class Demo {
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
-    s.setPoolType("queue");
+    s.setPoolType(PoolType.QUEUE);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
@@ -125,7 +126,7 @@ public class Demo {
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
-    s.setPoolType("queue-shared");
+    s.setPoolType(PoolType.QUEUE_SHARED);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);

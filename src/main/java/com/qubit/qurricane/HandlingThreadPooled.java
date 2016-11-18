@@ -144,7 +144,7 @@ class HandlingThreadPooled extends HandlingThread {
     }
     
     wakeup();
-
+    
     return false;
   }
 
@@ -185,15 +185,9 @@ class HandlingThreadPooled extends HandlingThread {
     return tmp;
   }
 
-  private long jobsLeft() {
-    if (getJobsAdded() < 0) {
-      if (getJobsRemoved() > 0) {
-        return (Long.MAX_VALUE - getJobsRemoved()) + (getJobsAdded() - Long.MIN_VALUE);
-      } else {
-        return getJobsAdded() - getJobsRemoved(); 
-      }
-    } else {
-      return getJobsAdded() - getJobsRemoved(); 
-    }
+  @Override
+  public int getLimit() {
+    return this.jobs.length;
   }
+
 }

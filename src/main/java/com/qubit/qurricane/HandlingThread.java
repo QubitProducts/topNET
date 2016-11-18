@@ -60,22 +60,27 @@ public abstract class HandlingThread extends Thread {
     try {
       this.setRunning(true);
       while (this.isRunning()) {
-        while (this.hasJobs()) {
-          if (!this.waitForSomethingToIO(this.runSinglePass())) {
-            // if it is not waiting for IO, try standard break
-            if (this.singlePassDelay > 0) {
-              this.takeSomeBreak(this.singlePassDelay);
-            }
-          }
-        }
-        
-        this.sleepNow();
+        this.trySomeWork();
       }
+      
+      this.trySomeWork();
     } finally {
       this.getServer().removeThread(this);
     }
   }
 
+  private void trySomeWork() {
+    while (this.hasJobs()) {
+      if (!this.waitForSomethingToIO(this.runSinglePass())) {
+        // if it is not waiting for IO, try standard break
+        if (this.singlePassDelay > 0) {
+          this.takeSomeBreak(this.singlePassDelay);
+        }
+      }
+    }
+    this.sleepNow();
+  }
+  
   /**
    * Returns false if not finished writing or
  "this.finishedOrWaitForMoreRequests(...)" when finished. It tells if job can be
@@ -360,4 +365,17 @@ public abstract class HandlingThread extends Thread {
     this.usingSleep = usingSleep;
   }
   
+  public long jobsLeft() {
+    if (jobsAdded < 0) {
+      if (jobsRemoved > 0) {
+        return (Long.MAX_VALUE - jobsRemoved) + (jobsAdded - Long.MIN_VALUE);
+      } else {
+        return jobsAdded - jobsRemoved;
+      }
+    } else {
+      return jobsAdded - jobsRemoved;
+    }
+  }
+  
+  public abstract int getLimit();
 }

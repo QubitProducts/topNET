@@ -61,6 +61,9 @@ class MainAcceptAndDispatchThread extends Thread {
   private boolean waitingForReadEvents = true;
   private long timeSinceCouldntAddJob = 0;
   private long noSlotsAvailableTimeout = 50;
+  long lastdownScaleTried = 0;
+  private long scalingDownTryPeriodMS = 5000;
+  private boolean autoScalingDown = true;
 
   MainAcceptAndDispatchThread(Server server,
       final Selector acceptSelector,
@@ -77,6 +80,7 @@ class MainAcceptAndDispatchThread extends Thread {
   @Override
   public void run() {
     long lastMeassured = System.currentTimeMillis();
+    this.lastdownScaleTried = lastMeassured;
     long totalWaitingAcceptMsCounter = 0;
     this.setRunning(true);
     while (this.isRunning()) {
@@ -157,15 +161,18 @@ class MainAcceptAndDispatchThread extends Thread {
         }
       }
       
-      for (int i = 0; i < handlingThreads.length; i++) {
-        HandlingThread th = handlingThreads[i];
-        if (th.hasJobs()) {
-          th.wakeup();
+      for (HandlingThread handlingThread : handlingThreads) {
+        if (handlingThread != null && handlingThread.hasJobs()) {
+          handlingThread.wakeup();
         }
       }
 
       selectionKeys.clear();
-
+      
+      if (this.isAutoScalingDown()) {
+        this.scaleDownIfCan();
+      }
+      
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,
             "Accepted connections: {0}, total accept waited: {1}ms ,total waited IO: {3}",
@@ -193,7 +200,6 @@ class MainAcceptAndDispatchThread extends Thread {
             (SocketChannel) key.channel(),
             acceptTime)) {
       // job added, remove from selector
-      this.timeSinceCouldntAddJob = 0;
       key.cancel();
       return true;
     }
@@ -211,9 +217,7 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
-    int len = handlingThreads.length;
-    for (int c = 0; c < len; c++) {
-      HandlingThread handlingThread = handlingThreads[c];
+    for (HandlingThread handlingThread : handlingThreads) {
       if (handlingThread != null && handlingThread.canAddJob()) {
         return true;
       }
@@ -315,9 +319,7 @@ class MainAcceptAndDispatchThread extends Thread {
   private boolean fillUpThreadsOneByOne(HandlingThread[] handlingThreads,
                                            SocketChannel channel,
                                            Long acceptTime) {
-    int len = handlingThreads.length;
-    for (int c = 0; c < len; c++) {
-      HandlingThread handlingThread = handlingThreads[c];
+    for (HandlingThread handlingThread : handlingThreads) {
       if (handlingThread != null) {
         if (handlingThread.addJob(channel, acceptTime)) {
           return true;
@@ -340,4 +342,41 @@ class MainAcceptAndDispatchThread extends Thread {
   public void setNoSlotsAvailableTimeout(long noSlotsAvailableTimeout) {
     this.noSlotsAvailableTimeout = noSlotsAvailableTimeout;
   }  
+  
+  private void scaleDownIfCan() {
+    if (System.currentTimeMillis() > (lastdownScaleTried + getScalingDownTryPeriodMS())) {
+      if (this.server.cleanupThreadsExcess() > 0) {
+        currentThread = 0;
+      }
+      lastdownScaleTried = System.currentTimeMillis();
+    }
+  }
+
+  /**
+   * @return the scalingDownTryPeriodMS
+   */
+  public long getScalingDownTryPeriodMS() {
+    return scalingDownTryPeriodMS;
+  }
+
+  /**
+   * @param scalingDownTryPeriodMS the scalingDownTryPeriodMS to set
+   */
+  public void setScalingDownTryPeriodMS(long scalingDownTryPeriodMS) {
+    this.scalingDownTryPeriodMS = scalingDownTryPeriodMS;
+  }
+
+  /**
+   * @return the autoScalingDown
+   */
+  public boolean isAutoScalingDown() {
+    return autoScalingDown;
+  }
+
+  /**
+   * @param autoScalingDown the autoScalingDown to set
+   */
+  public void setAutoScalingDown(boolean autoScalingDown) {
+    this.autoScalingDown = autoScalingDown;
+  }
 }
