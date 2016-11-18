@@ -28,10 +28,12 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -49,7 +51,7 @@ public class Server {
   
   private static final int THREAD_JOBS_SIZE;
   private static final int THREADS_POOL_SIZE;
-  private static final int MAX_IDLE_TOUT = 3 * 1000; // miliseconds
+  private static final int MAX_IDLE_TOUT = 15 * 1000; // miliseconds
 
   static {
     THREADS_POOL_SIZE = 
@@ -94,6 +96,7 @@ public class Server {
   private int noSlotsAvailableTimeout = 20;
   private int scalingMax = SCALING_UNLIMITED;  // unlimited
   private boolean autoScalingDown = true;
+  private boolean cachingThreads = true;
   
   public Server(String address, int port) {
     this.port = port;
@@ -175,8 +178,8 @@ public class Server {
         handlingThreads[j].setRunning(false); // help thread to finish
         handlingThreads[j] = null; // remove thread
       }
-
-      serverChannel.close();
+      this.clearThreadsCache();
+      this.serverChannel.close();
     } finally {
       this.stoppingNow = false;
       this.started = false;
@@ -571,9 +574,6 @@ public class Server {
   }
   
   private boolean addThreadDirectly() {
-    int jobsSize = this.getJobsPerThread();
-    int bufSize = this.maxGrowningBufferChunkSize;
-    int defaultMaxMessage = this.getMaxMessageSize();
     
     int idx = -1;
     for (int i= 0; i < handlingThreads.length; i++) {
@@ -600,47 +600,9 @@ public class Server {
       }
     }
     
-    HandlingThread t;
-      
-      switch (this.poolType) {
-        case POOL:
-          t = new HandlingThreadPooled(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        case QUEUE:
-          t = new HandlingThreadQueued(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        case QUEUE_SHARED:
-          t = new HandlingThreadSharedQueue(
-                  this,
-                  jobsSize,
-                  bufSize,
-                  defaultMaxMessage,
-                  defaultIdleTime);
-          break;
-        default:
-          throw new RuntimeException(
-                  "Unknown thread handling type selected: " + this.poolType);
-      }
-      
-      t.setSinglePassDelay(this.singlePoolPassThreadDelay);
-      t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
-      t.setUsingSleep(this.usingSleep);
-      
-      t.start();
-      
-      handlingThreads[idx] = t;
-      
-      return true;
+    handlingThreads[idx] = this.getCachedOrNewThread();
+    
+    return true;
   }
 
   public int cleanupThreadsExcess() {
@@ -677,7 +639,11 @@ public class Server {
       for (int i = 0; i < threadsToRemove; i++) {
         HandlingThread thread = threads[threads.length - (i + 1)];
         threads[threads.length - (i + 1)] = null;
-        thread.setRunning(false);
+        if (this.cachingThreads) {
+          putThreadToCache(thread);
+        } else {
+          thread.setRunning(false);
+        }
       }
 
       HandlingThread[] newThreads = new HandlingThread[threadsRequired];
@@ -778,5 +744,75 @@ public class Server {
    */
   public void setAutoScalingDown(boolean autoScalingDown) {
     this.autoScalingDown = autoScalingDown;
+  }
+
+  private HandlingThread getNewThread() {
+    int jobsSize = this.getJobsPerThread();
+    int bufSize = this.maxGrowningBufferChunkSize;
+    int defaultMaxMessage = this.getMaxMessageSize();
+    HandlingThread t;
+
+    switch (this.poolType) {
+      case POOL:
+        t = new HandlingThreadPooled(
+            this,
+            jobsSize,
+            bufSize,
+            defaultMaxMessage,
+            defaultIdleTime);
+        break;
+      case QUEUE:
+        t = new HandlingThreadQueued(
+            this,
+            jobsSize,
+            bufSize,
+            defaultMaxMessage,
+            defaultIdleTime);
+        break;
+      case QUEUE_SHARED:
+        t = new HandlingThreadSharedQueue(
+            this,
+            jobsSize,
+            bufSize,
+            defaultMaxMessage,
+            defaultIdleTime);
+        break;
+      default:
+        throw new RuntimeException(
+            "Unknown thread handling type selected: " + this.poolType);
+    }
+
+    t.setSinglePassDelay(this.singlePoolPassThreadDelay);
+    t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
+    t.setUsingSleep(this.usingSleep);
+
+    t.start();
+    
+    return t;
+  }
+
+  private final ArrayDeque<HandlingThread> threadsCache = new ArrayDeque<>();
+  
+  public HandlingThread getCachedOrNewThread() {
+    HandlingThread t = threadsCache.pollFirst();
+    if (t != null) {
+      return t;
+    } else {
+      return this.getNewThread();
+    }
+  }
+  
+  public void putThreadToCache(HandlingThread t) {
+    if (t != null) {
+      threadsCache.addLast(t);
+    }
+  }
+  
+  public void clearThreadsCache() {
+    HandlingThread t;
+    while ((t = threadsCache.pollFirst())  != null) {
+      t.setRunning(false);
+      t.wakeup();
+    }
   }
 }
