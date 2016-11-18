@@ -91,7 +91,7 @@ public class Server {
   private boolean puttingJobsEquallyToAllThreads = true;
   private boolean usingSleep = false;
   private boolean autoscalingThreads = true;
-  private int noSlotsAvailableTimeout = 15;
+  private int noSlotsAvailableTimeout = 20;
   private int scalingMax = SCALING_UNLIMITED;  // unlimited
   private boolean autoScalingDown = true;
   
