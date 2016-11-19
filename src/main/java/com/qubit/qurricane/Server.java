@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -97,6 +96,7 @@ public class Server {
   private int scalingMax = SCALING_UNLIMITED;  // unlimited
   private boolean autoScalingDown = true;
   private boolean cachingThreads = true;
+  private int defaultHeaderSizeLimit = 16 * 1024;
   
   public Server(String address, int port) {
     this.port = port;
@@ -639,8 +639,9 @@ public class Server {
       for (int i = 0; i < threadsToRemove; i++) {
         HandlingThread thread = threads[threads.length - (i + 1)];
         threads[threads.length - (i + 1)] = null;
-        if (this.cachingThreads) {
+        if (this.isCachingThreads()) {
           putThreadToCache(thread);
+//          thread.wakeup();
         } else {
           thread.setRunning(false);
         }
@@ -814,5 +815,33 @@ public class Server {
       t.setRunning(false);
       t.wakeup();
     }
+  }
+
+  /**
+   * @return the cachingThreads
+   */
+  public boolean isCachingThreads() {
+    return cachingThreads;
+  }
+
+  /**
+   * @param cachingThreads the cachingThreads to set
+   */
+  public void setCachingThreads(boolean cachingThreads) {
+    this.cachingThreads = cachingThreads;
+  }
+
+  /**
+   * @return the defaultHeaderSizeLimit
+   */
+  public int getDefaultHeaderSizeLimit() {
+    return defaultHeaderSizeLimit;
+  }
+
+  /**
+   * @param defaultHeaderSizeLimit the defaultHeaderSizeLimit to set
+   */
+  public void setDefaultHeaderSizeLimit(int defaultHeaderSizeLimit) {
+    this.defaultHeaderSizeLimit = defaultHeaderSizeLimit;
   }
 }

@@ -219,7 +219,7 @@ public class Request {
   protected void reset() {
     if (this.bytesStream != null) {
       this.bytesStream.shrinkLessMore();
-      this.bytesStream.clear();
+      this.bytesStream.reset();
     }
     headers.clear();
     channel = null;

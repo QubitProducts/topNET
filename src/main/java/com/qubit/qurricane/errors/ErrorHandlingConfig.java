@@ -33,7 +33,7 @@ public class ErrorHandlingConfig {
   private Handler defaultGlobalErrorHandler;
 
   private static ErrorHandlingConfig errorHandlingConfig;
-
+  
   static {
     errorHandlingConfig = new ErrorHandlingConfig();
   }
@@ -56,21 +56,26 @@ public class ErrorHandlingConfig {
     getHandlers()[code] = handler;
   }
 
-  public Handler getDefaultErrorHandler(int code) {
+  public Handler getDefaultErrorHandler(int code, ErrorTypes type) {
     if (defaultGlobalErrorHandler != null) {
       return defaultGlobalErrorHandler.getInstance();
     }
 
     Handler handler = getHandlers()[code];
 
-    if (handler == null) {
+    if (handler == null) { // initialize
       handler = ErrorHandler.getHandlerForCode(code);
       getHandlers()[code] = handler;
     }
 
-    return handler.getInstance();
+    Handler tmp = handler.getInstance();
+    
+    if (type != null && tmp instanceof ErrorHandler) {
+      ((ErrorHandler)tmp).setType(type);
+    }
+    return tmp;
   }
-
+  
   /**
    * @return the defaultGlobalErrorHandler
    */

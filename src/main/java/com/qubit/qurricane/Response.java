@@ -71,9 +71,9 @@ public class Response {
   private StringBuilder stringBuffer = null;
   private InputStream inputStreamForBody;
   private Object attachment;
-  private String httpProtocol;
+  private char[] httpProtocol;
 
-  public void init (String httpProtocol) {
+  public void init (char[] httpProtocol) {
     this.httpProtocol = httpProtocol;
   }
   
@@ -128,30 +128,37 @@ public class Response {
   }
 
   public static StringBuilder getHeadersBufferWithoutEOL(
-          int httpCode, String httpProtocol) {
+          int httpCode, char[] httpProtocol) {
 
     StringBuilder buffer = new StringBuilder();
     int httpCodeNum = httpCode;
 
     buffer.append(httpProtocol);
-    buffer.append(" ");
+    buffer.append(' ');
 
-    if (httpCodeNum == 200) {
-      buffer.append(OK_200);
-    } else if (httpCodeNum == 204) {
-      buffer.append(OK_204);
-    } else if (httpCodeNum == 404) {
-      buffer.append("404 Not Found");
-      buffer.append(CRLF);
-    } else if (httpCodeNum == 400) {
-      buffer.append("400 Bad Request");
-      buffer.append(CRLF);
-    } else if (httpCodeNum == 503) {
-      buffer.append("503 Server Error");
-      buffer.append(CRLF);
-    } else {
-      buffer.append(httpCodeNum);
-      buffer.append(CRLF);
+    switch (httpCodeNum) {
+      case 200:
+        buffer.append(OK_200);
+        break;
+      case 204:
+        buffer.append(OK_204);
+        break;
+      case 404:
+        buffer.append("404 Not Found");
+        buffer.append(CRLF);
+        break;
+      case 400:
+        buffer.append("400 Bad Request");
+        buffer.append(CRLF);
+        break;
+      case 503:
+        buffer.append("503 Server Error");
+        buffer.append(CRLF);
+        break;
+      default:
+        buffer.append(httpCodeNum);
+        buffer.append(CRLF);
+        break;
     }
 
     buffer.append("Date: ");
@@ -424,14 +431,14 @@ public class Response {
   /**
    * @return the httpProtocol
    */
-  public String getHttpProtocol() {
+  public char[] getHttpProtocol() {
     return httpProtocol;
   }
 
   /**
    * @param httpProtocol the httpProtocol to set
    */
-  public void setHttpProtocol(String httpProtocol) {
+  public void setHttpProtocol(char[] httpProtocol) {
     this.httpProtocol = httpProtocol;
   }
 

@@ -35,6 +35,8 @@ public class ErrorHandler extends Handler {
   static public final Handler[] errorHandlers = new Handler[1024];
   
   private int code;
+  private ErrorTypes type;
+  
   public static ErrorHandler getHandlerForCode(int httpCode) {
     ErrorHandler errorHandler = new ErrorHandler();
     errorHandler.setCode(httpCode);
@@ -60,6 +62,10 @@ public class ErrorHandler extends Handler {
             request.getAssociatedException().getMessage());
     }
     
+    if (type != null) {
+      response.print("Type: " + type.name() + "\n");
+    }
+    
     return true;
   }
 
@@ -75,6 +81,20 @@ public class ErrorHandler extends Handler {
    */
   public void setCode(int code) {
     this.code = code;
+  }
+
+  /**
+   * @return the type
+   */
+  public ErrorTypes getType() {
+    return type;
+  }
+
+  /**
+   * @param type the type to set
+   */
+  public void setType(ErrorTypes type) {
+    this.type = type;
   }
   
 }

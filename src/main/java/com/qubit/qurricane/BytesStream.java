@@ -21,8 +21,6 @@ package com.qubit.qurricane;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  *
@@ -35,12 +33,13 @@ public class BytesStream {
   public static boolean doNotShrinkBuffersAfterJob = false;
   
   public int bufferElementSize = BUF_SIZE_DEF;
-  private ByteBuffer currentBufferReading;
-  int currentBufferReadIndex = 0;
-  int currentBufferReadPosition = 0;
-  private final List<ByteBuffer> buffers = new ArrayList<>();
-  private ByteBuffer currentBufferWriting;
-
+  private BufferWrapper currentBufferReading;
+  private BufferWrapper currentBufferWriting;
+  private int currentBufferReadPosition = 0;
+  
+  BufferWrapper last;
+  BufferWrapper first;
+  
   /**
    * @return the bufferElementSize
    */
@@ -56,134 +55,180 @@ public class BytesStream {
   }
 
 
-  public BytesStream() {}
-
-  int currBufAt = -1;
-
-  private void addBuf() {
-    if ((currBufAt + 1) == buffers.size()) {
-      this.currentBufferWriting = ByteBuffer.allocateDirect(bufferElementSize);
-      if (this.currentBufferReading == null) {
-        this.currentBufferReading = this.currentBufferWriting;
-      }
-      buffers.add(this.currentBufferWriting);
-      currBufAt++;
-    } else {
-      this.currentBufferWriting = this.buffers.get(++currBufAt);
-      this.currentBufferWriting.clear();
-    }
+  public BytesStream() {
+    this.init();
   }
 
-  /**
-   * @return the buffers
-   */
-  public List<ByteBuffer> getBuffers() {
-    return buffers;
+  private void addBuf() {
+    if (this.currentBufferWriting.getNext() == null) {
+      if (currentBufferWriting.getByteBuffer() == null) {
+        currentBufferWriting.setByteBuffer(
+            ByteBuffer.allocateDirect(bufferElementSize));
+      } else {
+        this.currentBufferWriting = (new BufferWrapper());
+        this.currentBufferWriting
+            .setByteBuffer(ByteBuffer.allocateDirect(bufferElementSize));
+        
+        this.last.setNext(this.currentBufferWriting);
+        this.currentBufferWriting.setPrev(this.last);
+        this.last = this.currentBufferWriting;
+      }
+    } else {
+      this.currentBufferWriting = this.currentBufferWriting.getNext();
+      this.last = this.currentBufferWriting;
+      this.currentBufferWriting.getByteBuffer().clear();
+    }
   }
 
   public ByteBuffer getNotEmptyCurrentBuffer() {
-    if (this.currentBufferWriting == null
-        || !this.currentBufferWriting.hasRemaining()) {
+    if (this.currentBufferWriting.getByteBuffer() == null
+        || !this.currentBufferWriting.getByteBuffer().hasRemaining()) {
       this.addBuf();
     }
-    return this.currentBufferWriting;
+    return this.currentBufferWriting.getByteBuffer();
   }
   
   byte[] bytes = null;
   
   public StringBuilder readAvailableToReadAsString(Charset charset) {
+    BufferWrapper start = this.currentBufferReading;
     StringBuilder builder = new StringBuilder();
     
+    if (start.getByteBuffer() == null) {
+      return builder;
+    }
+    
     int pos = currentBufferReadPosition;
-    for (int i = currentBufferReadIndex; i < buffers.size(); i++) {
-      ByteBuffer buffer = buffers.get(i);
+    ByteBuffer buffer;
+    
+    while (start != null) {
+      
+      buffer = start.getByteBuffer();
       int amount = buffer.position() - pos;
+      
       if (buffer.hasArray()) {
         builder.append(new String(buffer.array(), pos, amount, charset));
       } else {
         if (bytes == null || bytes.length != buffer.capacity()) {
           bytes = new byte[amount];
         }
+        
         for (int c = 0; c < amount; c++) {
           bytes[c] = buffer.get(pos + c);
         }
+        
         builder.append(new String(bytes, 0, amount, charset));
       }
+      
       pos = 0;// next buffer starts from 0
+      
+      if (start == last) {
+        break;
+      }
+      
+      start = start.getNext();
     }
+    
     return builder;
   }
 
-  public int read() {
-    if (this.currentBufferReading == null) {
-      return -1;
-    } else if (currentBufferReadPosition < currentBufferReading.position()) {
-      return (int) currentBufferReading.get(currentBufferReadPosition++);
-    } else if (currentBufferReading.position() == currentBufferReading.limit()) {
-      if (this.buffers.size() > currentBufferReadIndex + 1) {
-        currentBufferReading = this.buffers.get(++currentBufferReadIndex);
+  public byte read() {
+    ByteBuffer buf = currentBufferReading.getByteBuffer();
+    if (currentBufferReadPosition < buf.position()) {
+      
+      return buf.get(currentBufferReadPosition++);
+    
+    } else if (buf.position() == 
+               buf.limit()) {
+      
+      if (this.currentBufferReading.getNext() != null) {
+        
+        currentBufferReading = this.currentBufferReading.getNext();
         currentBufferReadPosition = 0;
         return this.read();
+        
       } else {
+        
         return -1;
+        
       }
     } else {
+      
       return -1;
+      
     }
   }
 
-  private void reset() {
-    if (buffers.isEmpty()) {
-      currentBufferReading = null;
-      currentBufferWriting = null;
-      currBufAt = -1;
-    } else {
-      currentBufferReading = currentBufferWriting = buffers.get(0);
-      currBufAt = 0;
+  public void reset() {
+    this.currentBufferReading = first;
+    this.currentBufferWriting = first;
+    last = first;
+    if (first.getByteBuffer() != null) {
+      first.getByteBuffer().clear();
     }
-    currentBufferReadIndex = 0;
-    currentBufferReadPosition = 0;
+    this.currentBufferReadPosition = 0;
   }
 
-  public void clear() {
+  private void clear() {
+    BufferWrapper start = this.first;
+    
+    while (start != null) {
+      if (start.getByteBuffer() != null) {
+        start.getByteBuffer().clear();
+      }
+      start = start.getNext();
+    }
+    
     reset();
-    for (ByteBuffer buffer : buffers) {
-      buffer.clear();
-    }
   }
   
   public long leftToRead() {
-    long amount = (currentBufferReading.position() - currentBufferReadPosition);
-    int i = currentBufferReadIndex + 1;
-    while (i < buffers.size()) {
-      amount += buffers.get(i++).position();
+    if (currentBufferReading.getByteBuffer() == null) {
+      return 0;
     }
+    
+    long amount = 0;
+    int pos = currentBufferReadPosition;
+    BufferWrapper start = currentBufferReading;
+    
+    while (start != null) {
+      amount += (start.getByteBuffer().position() - pos);
+      
+      if (start == last) {
+        break;
+      }
+      
+      if (start == last) {
+        break;
+      }
+      pos = 0;
+      start = start.getNext();
+    }
+    
     return amount;
   }
   
   public long dataSize() {
+    if (first.getByteBuffer() == null) {
+      return 0;
+    }
+    
     long amount = 0;
-    for (ByteBuffer buffer : buffers) {
-      amount += buffer.position();
-      if (buffer == currentBufferWriting) {
+    BufferWrapper start = first;
+    
+    while (start != null) {
+      amount += start.getByteBuffer().position();
+      
+      if (start == currentBufferWriting) {
         break;
       }
+      
+      if (start == last) {
+        break;
+      }
+      start = start.getNext();
     }
     return amount;
-  }
-  
-  /**
-   * @return the currentBufferReadIndex
-   */
-  public int getCurrentBufferReadIndex() {
-    return currentBufferReadIndex;
-  }
-
-  /**
-   * @param currentBufferReadIndex the currentBufferReadIndex to set
-   */
-  public void setCurrentBufferReadIndex(int currentBufferReadIndex) {
-    this.currentBufferReadIndex = currentBufferReadIndex;
   }
 
   /**
@@ -201,46 +246,60 @@ public class BytesStream {
   }
   
   public void shrinkLessMore(long toValue) {
-    long amount = 0;
-    int len = buffers.size();
+    if (first.getByteBuffer() == null) {
+      return;
+    }
     
-    for (int i = 0; i < len; i++) {
-      ByteBuffer buffer = buffers.get(i);
+    long amount = 0;
+    
+    BufferWrapper start = first;
+    while (start != null) {
+      ByteBuffer buffer = start.getByteBuffer();
       amount += buffer.capacity();
-      if (amount > toValue && (i + 1) < len) {
-        for (int j = len - 1; j > i; j--) {
-          buffers.remove(j);
-        }
+      if (amount > toValue) {
+        last = start.getPrev();
+        last.setNext(null);
         break;
       }
+      start = start.getNext();
     }
   }
   
   public void dropAlreadyRead() {
-    while (currentBufferReadIndex > 0) {
-      buffers.remove(0);
-      currentBufferReadIndex--;
-    }
+    first = this.currentBufferReading;
+    first.setPrev(null);
   }
   
-  /**
-   * @return the currentBufferWriting
-   */
-  public ByteBuffer getCurrentBufferWriting() {
-    return currentBufferWriting;
-  }
-
-  /**
-   * @param currentBufferWriting the currentBufferWriting to set
-   */
-  public void setCurrentBufferWriting(ByteBuffer currentBufferWriting) {
-    this.currentBufferWriting = currentBufferWriting;
-  }
-
-  void shrinkLessMore() {
+  public void shrinkLessMore() {
     if (doNotShrinkBuffersAfterJob) {
       return;
     }
    this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
   }
+  
+  /**
+   * @return the currentBufferReading
+   */
+  public BufferWrapper getCurrentBufferReading() {
+    return currentBufferReading;
+  }
+
+  /**
+   * @return the currentBufferWriting
+   */
+  public BufferWrapper getCurrentBufferWriting() {
+    return currentBufferWriting;
+  }
+
+  /**
+   * 
+   */
+  private void init() {
+    currentBufferReading = new BufferWrapper();
+    currentBufferWriting = currentBufferReading;
+    first = currentBufferReading;
+    last = currentBufferReading;
+    currentBufferReadPosition = 0;
+  }
+
 }

@@ -33,6 +33,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -42,7 +43,7 @@ import java.util.logging.Logger;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class DataHandler {
+public final class DataHandler {
 
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
   
@@ -78,7 +79,7 @@ public class DataHandler {
   private boolean firstLine = true;
   private String lastHeaderName = null;
 
-  private final StringBuilder currentLine = new StringBuilder();
+  private final char[] currentHeaderLine;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
 
   private Request request;
@@ -87,11 +88,8 @@ public class DataHandler {
   private Throwable errorException;
   private Handler handlerUsed;
 
-  static final String UTF_TEXT_HTML_HEADER
-          = "Content-Type: text/html; charset=utf-8\n\r";
-  static final String EOL = "\n";
   private String parameters;
-  private String httpProtocol = HTTP_1_0;
+  private char[] httpProtocol = HTTP_1_0;
   
   private boolean headersOnly = false;
   private volatile Server server;
@@ -102,17 +100,18 @@ public class DataHandler {
   private boolean bufferSizeCalculatedForWriting = false;
   protected volatile HandlingThread owningThread = null;
   private boolean reqInitialized = false;
-  private int previous = -1;
+  private int previousChar = -1;
   int currentBufferWrittenIndex = 0;
   int currentReadingPositionInWrittenBufByWrite = 0;
-
+  private int currentHeaderLineLength = 0;
+  
   protected void reset() {
     resetForNewRequest();
     server = null;
   }
 
   protected void resetForNewRequest() {
-    previous = -1;
+    previousChar = -1;
     parameters = null;
     size = 0;
     headers.clear();
@@ -124,7 +123,7 @@ public class DataHandler {
     bodyRequired = false;
     firstLine = true;
     lastHeaderName = null;
-    currentLine.setLength(0);
+    currentHeaderLineLength = 0;
     contentLength = 0;
     if (request != null) {
       request.reset();
@@ -141,13 +140,13 @@ public class DataHandler {
     currentReadingPositionInWrittenBufByWrite = 0;
     reqInitialized = false;
     httpProtocol = HTTP_1_0;
-    
     wasMarkedAsMoreDataIsComing = false;
     acceptedTime = 0;
   }
   
   public DataHandler(Server server, SocketChannel channel) {
     this.init(server, channel);
+    this.currentHeaderLine = new char[server.getDefaultHeaderSizeLimit()];
     this.maxGrowningBufferChunkSize = server.getMaximumGrowingBufferChunkSize();
   }
   
@@ -159,21 +158,22 @@ public class DataHandler {
     if (this.request == null) {
       this.request = new Request();
       this.response = new Response();
-    }
-    
-    if (!this.reqInitialized) {
+      this.request.init(this.channel, this.headers);
+      this.response.init(this.httpProtocol);
+      this.reqInitialized = true;
+    } else if (!this.reqInitialized) {
       this.reqInitialized = true;
       this.request.init(this.channel, this.headers);
       this.response.init(this.httpProtocol);
-      this.request.getBytesStream().clear();
+      this.request.getBytesStream().reset();
     }
     
     int read = 0;
     int currentSum = 0;
     
-    ByteBuffer buf = this.request.getBytesStream().getNotEmptyCurrentBuffer();
-    
-    while (read != -2 && (read = this.channel.read(buf)) > 0) {
+    while (read != -2 && 
+        (read = this.channel.read(
+            request.getBytesStream().getNotEmptyCurrentBuffer())) > 0) {
       this.size += read;
       
       if (read > 0) {
@@ -213,30 +213,31 @@ public class DataHandler {
     return "UTF-8";
   }
   
-  private void setMethodAndPathFromLine(String line) {
-    int idx = line.indexOf(" ");
+  private void setMethodAndPathFromLine(char[] line, int len) {
+    int idx = this.indexOf(line, len, ' ', 0);
+    
     if (idx < 1) {
       return;
     }
-    this.method = line.substring(0, idx);
-    int sec_idx = line.indexOf(" ", idx + 1);
+    
+    this.method = new String(line, 0, idx);
+    int methodStart = idx + 1;
+    int sec_idx = this.indexOf(line, len, ' ', methodStart);
+    
     if (sec_idx != -1) {
-      this.fullPath = line.substring(idx + 1, sec_idx);
-      this.httpProtocol = line.substring(sec_idx + 1);
-      switch (this.httpProtocol) {
-        case HTTP_0_9:
-        case HTTP_1_0:
-        case HTTP_1_1:
-         break;
-        case HTTP_1_x:
+      this.fullPath = new String(line, methodStart, sec_idx - methodStart);
+      this.httpProtocol = Arrays.copyOfRange(line, sec_idx + 1, len);
+      if (Arrays.equals(this.httpProtocol, HTTP_0_9) ||
+          Arrays.equals(this.httpProtocol, HTTP_1_0) ||
+          Arrays.equals(this.httpProtocol, HTTP_1_1)){
+      } else if (Arrays.equals(this.httpProtocol, HTTP_1_x)) {
          this.httpProtocol = HTTP_1_0;
-         break;
-        default:
+      } else {
         this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
         this.httpProtocol = HTTP_1_0;
       }
     } else {
-      this.fullPath = line.substring(idx + 1);
+      this.fullPath = new String(line, methodStart, len);
     }
   }
 
@@ -247,13 +248,13 @@ public class DataHandler {
     return method;
   }
 
-  private String[] parseHeader(String line) {
-    int idx = line.indexOf(":");
+  private String[] parseHeader(char[] line, int len) {
+    int idx = this.indexOf(line, len, ':', 0);
     if (idx > 0) {
       // 2 removes ": " part
       return new String[]{
-        line.substring(0, idx),
-        line.substring(idx + 2)
+        new String(line, 0, idx),
+        new String(line, idx + 2, len - (idx + 2))
       };
     } else {
       return null;
@@ -289,9 +290,9 @@ public class DataHandler {
       int current;
       
       while ((current = stream.read()) != -1) {
-        if (current == '\n' && previous == '\r') {
+        if (current == '\n' && previousChar == '\r') {
 
-          previous = -1;
+          previousChar = -1;
           if (this.processHeaderLine()) {
             this.errorOccured = BAD_CONTENT_HEADER;
             return true; // finish now!
@@ -302,53 +303,62 @@ public class DataHandler {
               stream.setBufferElementSize(
                   this.calculateBufferSizeByContentSize(this.contentLength));
             }
+            
+            { //
+              // 
+              // headers just finished
+              response.setHttpProtocol(httpProtocol);
+              
+              if (this.errorOccured != null) {
+                return true;
+              }
+              
+              // paths must be ready by headers setup
+              this.handlerUsed = 
+                  this.server.getHandlerForPath(
+                      this.fullPath,
+                      this.path,
+                      this.parameters);
+
+              this.errorOccured
+                  = this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
+
+              if (this.errorOccured != null) {
+                return true; // stop reading now because of errors! 
+              }
+
+              this.handlerUsed
+                  .triggerOnBeforeOutputStreamIsSet(this.request, this.response);
+
+              if (this.bodyRequired) {
+                if (this.contentLength < 0) {
+                  this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
+                  return true;
+                }
+              }
+              //
+              //
+              //
+            }
+            
             break;
           }
         } else {
-          if (previous != -1) {
-            currentLine.append((char) previous);
+          if (previousChar != -1) {
+            if (currentHeaderLineLength < currentHeaderLine.length) {
+              currentHeaderLine[currentHeaderLineLength++] = (char) previousChar;
+            } else {
+               this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
+               return true;
+            }
           }
 
-          previous = current;
+          previousChar = current;
         }
       }
     }
 
     if (this.headersReady) {
-      // request can be processed
-      response.setHttpProtocol(httpProtocol);
-    
-      if (this.errorOccured != null) {
-        return true;
-      }
-      
-      // paths must be ready by headers setup
-      this.handlerUsed = 
-        this.server.getHandlerForPath(this.fullPath, this.path, this.parameters);
-      
-      this.errorOccured = 
-              this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
-      
-      if (this.errorOccured != null) {
-        return true; // stop reading now because of errors! 
-      }
-      
-      this.handlerUsed.triggerOnBeforeOutputStreamIsSet(
-                                                  this.request,
-                                                  this.response);
-      
-      if (this.bodyRequired) {
-        if (this.contentLength < 0) {
-          this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
-          return true;
-        }
-      }
-
-      if (previous != -1) { // append last possible character
-        currentLine.append((char) previous);
-        previous = -1;
-      }
-
       if (this.contentLength > 0) {
         handlerUsed.onBytesRead();
         // this also validates this.bodyRequired
@@ -360,25 +370,22 @@ public class DataHandler {
         return true;
       }
     }
-
-//    buffer.clear();
+    
     return false;
   }
 
   private boolean processHeaderLine() {
-    String line = currentLine.toString();
-    currentLine.setLength(0); // reset
+    char[] line = currentHeaderLine;
+    int lineLen = currentHeaderLineLength;
+    currentHeaderLineLength = 0; // reset
 
     if (firstLine) {
       firstLine = false;
 
-      bodyRequired = !(line.startsWith("GET ")
-              || line.startsWith("HEAD ")
-              || line.startsWith("DELETE ")
-              || line.startsWith("TRACE "));
+      bodyRequired = this.checkIfBodyRequired(line, lineLen);
       // two birds as one
 
-      this.setMethodAndPathFromLine(line);
+      this.setMethodAndPathFromLine(line, lineLen);
       
       if (this.method.equals("HEAD")) {
         this.headersOnly = true;
@@ -396,10 +403,10 @@ public class DataHandler {
       if (!this.headersReady) {
 
         // must be headers first, check if at the end of headers - empty line
-        if (!line.equals("")) {
+        if (lineLen > 0) {
 
           // check if not multiline header
-          if (line.startsWith("\t")) {
+          if (line[0] == ('\t')) {
             // multiline header, yuck! check if any header was read!
             if (lastHeaderName != null) {
               this.putHeader(lastHeaderName, 
@@ -409,7 +416,7 @@ public class DataHandler {
               return true; // yuck! headers malformed!! not even started and multiline ?
             }
           } else {
-            String[] twoStrings = this.parseHeader(line);
+            String[] twoStrings = this.parseHeader(line, lineLen);
 
             if (twoStrings != null) {
               lastHeaderName = twoStrings[0];
@@ -472,6 +479,7 @@ public class DataHandler {
     ByteBuffer writeBuffer ;
     BytesStream bs = request.getBytesStream();
     
+    // adjust dynamicly buf size for future reads
     if (!this.bufferSizeCalculatedForWriting) {
       this.bufferSizeCalculatedForWriting = true;
       if (response.getContentLength() > 0) {
@@ -496,7 +504,7 @@ public class DataHandler {
       if (currentReadingPositionInWrittenBufByWrite == 0) {
         writeBuffer = bs.getNotEmptyCurrentBuffer();
       } else {
-        writeBuffer = bs.getCurrentBufferWriting();
+        writeBuffer = bs.getCurrentBufferWriting().getByteBuffer();
         // havent finished reading from buffer, and will wait here
       }
       
@@ -586,7 +594,7 @@ public class DataHandler {
   private Handler getErrorHandler(Handler handler) {
     Handler errorHandler
             = ErrorHandlingConfig.getErrorHandlingConfig()
-            .getDefaultErrorHandler(getErrorCode());
+            .getDefaultErrorHandler(getErrorCode(), errorOccured);
 
     request.setAssociatedException(this.errorException);
 
@@ -676,6 +684,7 @@ public class DataHandler {
         case BAD_CONTENT_HEADER:
         case BAD_CONTENT_LENGTH:
         case HTTP_MALFORMED_HEADERS:
+        case HTTP_HEADER_TOO_LARGE:
         case HTTP_UNSET_METHOD:
           return 400;
         default:
@@ -924,7 +933,7 @@ public class DataHandler {
   private void markWriting() {
     if (!this.writingResponse) {
       this.bufferSizeCalculatedForWriting = false;
-      request.getBytesStream().clear();
+      request.getBytesStream().reset();
       this.writingResponse = true; // running writing
     }
   }
@@ -955,5 +964,42 @@ public class DataHandler {
 
   private void putHeader(String lastHeaderName, String string) {
     this.headers.add(new String[]{lastHeaderName, string});
+  }
+
+  private boolean checkIfBodyRequired(char[] line, int idx) {
+    if (line[0] == 'G' && // add exclusions
+        line[1] == 'E' &&
+        line[2] == 'T') {
+      return false;
+    } else if (line[0] == 'H' &&
+               line[1] == 'E' &&
+               line[2] == 'A' &&
+               line[3] == 'D') {
+      return false;
+    } else if (line[0] == 'D' &&
+               line[1] == 'E' &&
+               line[2] == 'L' &&
+               line[3] == 'E' &&
+               line[4] == 'T' &&
+               line[5] == 'E') {
+      return false;
+    } else if (line[0] == 'T' &&
+               line[1] == 'R' &&
+               line[2] == 'A' &&
+               line[3] == 'C' &&
+               line[4] == 'E') {
+      return false;
+    }
+
+    return true;
+  }
+
+  private int indexOf(char[] line, int len, char c, int from) {
+    for (int i = from; i < len; i++) {
+      if (line[i] == c) {
+        return i;
+      }
+    }
+    return -1;
   }
 }
