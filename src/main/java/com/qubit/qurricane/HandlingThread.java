@@ -36,7 +36,6 @@ public abstract class HandlingThread extends Thread {
   static final Logger log
       = Logger.getLogger(HandlingThread.class.getName());
 
-//  private ByteBuffer buffer;
   private int defaultMaxMessageSize;
   private long delayForNoIOReadsInSuite = 1;
   private boolean running;
@@ -160,12 +159,6 @@ public abstract class HandlingThread extends Thread {
     this.defaultMaxMessageSize = defaultMaxMessageSize;
   }
 
-//  /**
-//   * @param buffer the buffer to set
-//   */
-//  public void setBuffer(ByteBuffer buffer) {
-//    this.buffer = buffer;
-//  }
   public abstract boolean hasJobs();
 
   public static volatile long totalWaitedIO = 0;

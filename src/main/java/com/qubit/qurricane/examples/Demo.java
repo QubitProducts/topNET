@@ -40,10 +40,10 @@ public class Demo {
     
     int jobs = 32;
     int bufChunkMax = 64 * 1024;
-    int th = 3;
+    int th = 7;
     long noIOdelay = 1;
     boolean usingSleep = false;
-    BytesStream.doNotShrinkBuffersAfterJob = false;
+    BytesStream.doNotShrinkBuffersAfterJob = true;
     boolean limitedAccepts = false;
     long acceptDelay = 0;
     long breakStop = 0; // if no io delay occures, this has chance

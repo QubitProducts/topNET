@@ -56,15 +56,17 @@ public class ErrorHandler extends Handler {
                   .log(Level.SEVERE, null, request.getAssociatedException());
     }
     if (request.getAssociatedException() == null) {
-      response.print("Status: " + getCode() + "\n");
+      response.print(String.valueOf(getCode()));
     } else {
-      response.print("Status: " + code + "\n" + 
+      response.print(code + " \n" + 
             request.getAssociatedException().getMessage());
     }
     
     if (type != null) {
-      response.print("Type: " + type.name() + "\n");
+      response.print(" (" + type.name() + ")\n");
     }
+    
+    response.print("\n");
     
     return true;
   }

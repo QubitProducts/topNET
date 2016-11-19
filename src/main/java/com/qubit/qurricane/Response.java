@@ -26,10 +26,10 @@ import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
 import com.qubit.qurricane.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -58,7 +58,7 @@ public class Response {
   }
 
   private int httpCode = 200;
-  Map<String, String> headers = new HashMap<>();
+  List<String[]> headers = new ArrayList<>();
   private ResponseStream responseStream;
   private boolean tooLateToChangeHeaders;
   private long contentLength = -1;
@@ -174,10 +174,10 @@ public class Response {
 
   private void addHeaders(StringBuilder buffer)
           throws TooLateToChangeHeadersException {
-    for (Map.Entry<String, String> entrySet : headers.entrySet()) {
-      buffer.append(entrySet.getKey());
+    for (String[] header : headers) {
+      buffer.append(header[0]);
       buffer.append(": ");
-      buffer.append(entrySet.getValue());
+      buffer.append(header[1]);
       buffer.append(CRLF);
     }
   }
@@ -187,7 +187,7 @@ public class Response {
     if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
-    this.headers.put(name, value);
+    this.headers.add(new String[]{name, value});
   }
 
   public void removeHeader(String name)
@@ -195,11 +195,32 @@ public class Response {
     if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
-    this.headers.remove(name);
+    for (int i = 0; i < headers.size();) {
+      if (headers.get(i)[0].equals(name)) {
+        headers.remove(i);
+      } else {
+        i++;
+      }
+    }
   }
 
+  public List<String> getHeaders(String name) {
+    List<String> ret = new ArrayList<>();
+    for (String[] header : this.headers) {
+      if (header[0].equals(name)) {
+        ret.add(header[1]);
+      }
+    }
+    return ret;
+  }
+  
   public String getHeader(String name) {
-    return this.headers.get(name);
+    for (String[] header : headers) {
+      if (header[0].equals(name)) {
+        return header[1];
+      }
+    }
+    return null;
   }
 
   /**
@@ -502,5 +523,12 @@ public class Response {
     inputStreamForBody = null;
     attachment = null;
     httpProtocol = null;
+  }
+  
+  /**
+   * @return the headers
+   */
+  public List<String[]> getHeaders() {
+    return headers;
   }
 }

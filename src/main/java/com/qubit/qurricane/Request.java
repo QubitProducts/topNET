@@ -23,6 +23,7 @@ package com.qubit.qurricane;
 import com.qubit.qurricane.exceptions.OutputStreamAlreadySetException;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -87,6 +88,15 @@ public class Request {
     return null;
   }
 
+  public List<String> getHeaders(String name) {
+    List<String> ret = new ArrayList<>();
+    for (String[] header : this.headers) {
+      if (header[0].equals(name)) {
+        ret.add(header[1]);
+      }
+    }
+    return ret;
+  }
 
   public SocketChannel getChannel() {
     return channel;
@@ -237,5 +247,12 @@ public class Request {
     }
     createdTime = 0;
     writeFinishedHandler = null;
+  }
+  
+  /**
+   * @return the headers
+   */
+  public List<String[]> getHeaders() {
+    return headers;
   }
 }

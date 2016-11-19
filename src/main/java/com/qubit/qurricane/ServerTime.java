@@ -33,7 +33,7 @@ import java.util.TimeZone;
 class ServerTime {
   DateFormat dateFormat;
 
-  public ServerTime () {    
+  public ServerTime () {
     dateFormat = new SimpleDateFormat(
                 "EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
     
