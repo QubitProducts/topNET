@@ -63,9 +63,10 @@ public class Request {
       if (!(this.bytesStream instanceof BytesStream)) {
         throw new OutputStreamAlreadySetException();
       }
-        
-      Charset charset = null;
+      
+      Charset charset;
       String contentType = this.getHeader("Content-Type");
+      
       if (contentType != null) {
         int idx = contentType.indexOf("charset=");
         String charsetString = contentType.substring(idx + 8).trim();
@@ -231,6 +232,7 @@ public class Request {
       this.bytesStream.shrinkLessMore();
       this.bytesStream.reset();
     }
+    
     headers.clear();
     channel = null;
     bodyStringCache = null;

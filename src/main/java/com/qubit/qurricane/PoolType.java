@@ -24,5 +24,7 @@ package com.qubit.qurricane;
  * @author piotr
  */
 public enum PoolType {
-  POOL, QUEUE, QUEUE_SHARED
+  POOL,
+  QUEUE,
+  QUEUE_SHARED
 }

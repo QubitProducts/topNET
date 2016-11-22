@@ -77,8 +77,8 @@ public abstract class HandlingThread extends Thread {
         }
       }
     }
-    this.sleepNow();
-  }
+      this.sleepNow();
+    }
   
   /**
    * Returns false if not finished writing or

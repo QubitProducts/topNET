@@ -284,13 +284,14 @@ public class Response {
           }
 
           if (this.getHeader("Content-Type") == null) {
-            this.addHeader(
-                    "Content-Type",
-                    this.getContentType() + "; charset=" + charsetString);
+            StringBuilder sb = new StringBuilder(this.getContentType());
+            sb.append("; charset=");
+            sb.append(charsetString);
+            this.addHeader("Content-Type", sb.toString());
           }
         } catch (TooLateToChangeHeadersException ex) {
           log.log(Level.SEVERE,
-                          "This should never happen - bad implementation.", ex);
+                 "This should never happen - bad implementation.", ex);
         }
 
         this.getStringBuffer().setLength(0);
@@ -309,8 +310,8 @@ public class Response {
     }
     
     if (this.getResponseStream().getHeadersStream() == null) { // only once
+      this.prepareContentLengthHeader();
       this.getResponseStream().setHeadersStream(getHeadersToSend());
-//      this.tooLateToChangeHeaders = true;
     }
   }
 
@@ -325,15 +326,18 @@ public class Response {
    * @param contentLength the contentLength to set
    */
   public void setContentLength(long contentLength) {
+    this.contentLength = contentLength;
+  }
+
+  public void prepareContentLengthHeader() {
     try {
-      if (contentLength >= 0) {
-        this.addHeader("Content-Length", Long.toString(contentLength));
+      if (this.contentLength >= 0) {
+        this.addHeader("Content-Length", Long.toString(this.contentLength));
       } else {
         this.removeHeader("Content-Length");
       }
-      this.contentLength = contentLength;
     } catch (TooLateToChangeHeadersException ex) {
-      log.warning("Trying to set content length too late: " + contentLength);
+      log.warning("Content length header set too late.");
     }
     
   }

@@ -407,13 +407,14 @@ public final class DataHandler {
 
           // check if not multiline header
           if (line[0] == ('\t')) {
-            // multiline header, yuck! check if any header was read!
+            // multiline header, check if any header was read!
             if (lastHeaderName != null) {
               this.putHeader(lastHeaderName, 
                   this.getHeader(lastHeaderName) + "\n" + line);
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
-              return true; // yuck! headers malformed!! not even started and multiline ?
+              return true; // yuck! headers malformed!! 
+                           // not even started and multiline ?
             }
           } else {
             String[] twoStrings = this.parseHeader(line, lineLen);

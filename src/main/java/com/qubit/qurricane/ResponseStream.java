@@ -95,8 +95,8 @@ public class ResponseStream implements ResponseReader {
 
   private ResponseReader headerResponseReader;
   public ResponseReader getHeadersOnlyResponseReader() {
-    if (headerResponseReader == null) {
-      headerResponseReader = new ResponseReader() {
+    if (this.headerResponseReader == null) {
+      this.headerResponseReader = new ResponseReader() {
         @Override
         public int read() throws IOException {
           return ResponseStream.this.headersStream.read();
@@ -104,7 +104,7 @@ public class ResponseStream implements ResponseReader {
       };
     }
     
-    return headerResponseReader;
+    return this.headerResponseReader;
   }
 
   /**
