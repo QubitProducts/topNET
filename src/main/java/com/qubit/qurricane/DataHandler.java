@@ -19,7 +19,6 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.BytesStream.BUF_SIZE_DEF;
 import static com.qubit.qurricane.Handler.HTTP_0_9;
 import static com.qubit.qurricane.Handler.HTTP_1_0;
 import static com.qubit.qurricane.Handler.HTTP_1_1;
@@ -147,7 +146,7 @@ public final class DataHandler {
   public DataHandler(Server server, SocketChannel channel) {
     this.init(server, channel);
     this.currentHeaderLine = new char[server.getDefaultHeaderSizeLimit()];
-    this.maxGrowningBufferChunkSize = server.getMaximumGrowingBufferChunkSize();
+    this.maxGrowningBufferChunkSize = server.getMaxGrowningBufferChunkSize();
   }
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
@@ -485,8 +484,8 @@ public final class DataHandler {
       this.bufferSizeCalculatedForWriting = true;
       if (response.getContentLength() > 0) {
         long bufSize = response.getContentLength() - bs.dataSize();
-        if (bufSize <= BUF_SIZE_DEF) {
-          bufSize = BUF_SIZE_DEF;
+        if (bufSize <= BytesStream.getDefaultBufferChunkSize()) {
+          bufSize = BytesStream.getDefaultBufferChunkSize();
         } else {
           bufSize = this.calculateBufferSizeByContentSize(bufSize);
         }

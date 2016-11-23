@@ -181,16 +181,14 @@ public abstract class HandlingThread extends Thread {
         this.sleeps = false;
         this.interrupt();
       }
-    } else {
-      if (this.getState() == State.TIMED_WAITING ||
-          this.getState() == State.WAITING) {
-        synchronized(sleepingLocker) {
-          sleepingLocker.notify();
-        }
+    } else if (this.getState() == State.TIMED_WAITING
+        || this.getState() == State.WAITING) {
+      synchronized (sleepingLocker) {
+        sleepingLocker.notify();
       }
     }
   }
-  
+
   private void sleepNow() {
     if (isUsingSleep()) {
       try {
@@ -207,20 +205,20 @@ public abstract class HandlingThread extends Thread {
       }
     }
   }
-  
+
   private void takeSomeBreak(long delay) {
     if (isUsingSleep()) {
       try {
         this.sleeps = true;
         Thread.sleep(delay);
-      } catch (InterruptedException ex) {}
-    } else {
-      if (this.getState() != State.TIMED_WAITING) {
-        try {
-          synchronized (sleepingLocker) {
-            sleepingLocker.wait(delay);
-          }
-        } catch (InterruptedException e) {}
+      } catch (InterruptedException ex) {
+      }
+    } else if (this.getState() != State.TIMED_WAITING) {
+      try {
+        synchronized (sleepingLocker) {
+          sleepingLocker.wait(delay);
+        }
+      } catch (InterruptedException e) {
       }
     }
   }
@@ -350,7 +348,7 @@ public abstract class HandlingThread extends Thread {
   public boolean isUsingSleep() {
     return usingSleep;
   }
-
+  
   /**
    * @param usingSleep the usingSleep to set
    */

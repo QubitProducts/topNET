@@ -38,9 +38,14 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 32;
-    int bufChunkMax = 64 * 1024;
-    int th = 7;
+    int jobs = 16;
+    
+    int bufChunkMax = 1 * 1024 * 1024;
+    BytesStream.setDefaultBufferChunkSize(bufChunkMax);
+    
+    int channelBufSize = 4 * bufChunkMax;
+    int th = 3;
+    
     long noIOdelay = 1;
     boolean usingSleep = false;
     BytesStream.doNotShrinkBuffersAfterJob = true;
@@ -60,6 +65,7 @@ public class Demo {
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.setUsingSleep(usingSleep);
+    s.setChannelBufferSize(channelBufSize);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -84,6 +90,7 @@ public class Demo {
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.setUsingSleep(usingSleep);
+    s.setChannelBufferSize(channelBufSize);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -108,6 +115,7 @@ public class Demo {
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.setUsingSleep(usingSleep);
+    s.setChannelBufferSize(channelBufSize);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -132,6 +140,7 @@ public class Demo {
     s.setAcceptDelay(acceptDelay);
     s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
     s.setUsingSleep(usingSleep);
+    s.setChannelBufferSize(channelBufSize);
     s.start();
     Thread.sleep(200);
     s.stop();

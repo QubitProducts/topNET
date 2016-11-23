@@ -68,19 +68,17 @@ public class Server {
   
   private final int port;
   private long delayForNoIOReadsInSuite = 1;
-  private boolean blockingReadsAndWrites = false;
   private long acceptDelay = 0;
   private final InetSocketAddress listenAddress;
   private final String address;
   private ServerSocketChannel serverChannel;
   private int jobsPerThread = THREAD_JOBS_SIZE;
   private int threadsAmount = THREADS_POOL_SIZE;
-  private int maxGrowningBufferChunkSize = 64 * 1024;
-  private int maxMessageSize = 64 * 1024 * 1024;
+  private int maxGrowningBufferChunkSize = 512 * 1024;
+  private int maxMessageSize = 4 * 1024 * 1024;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   private PoolType poolType = POOL;
-  private int maximumGrowingBufferChunkSize = 64 * 1024;
   private long singlePoolPassThreadDelay = 0;
   private boolean waitingForReadEvents = true;
   private long scalingDownTryPeriodMS = 20 * 1000;
@@ -97,6 +95,7 @@ public class Server {
   private boolean autoScalingDown = true;
   private boolean cachingThreads = true;
   private int defaultHeaderSizeLimit = 16 * 1024;
+  private int channelBufferSize = -1;
   
   public Server(String address, int port) {
     this.port = port;
@@ -216,9 +215,16 @@ public class Server {
     SocketChannel channel = serverSocketChannel.accept();
 
     if (channel != null) {
-      channel.configureBlocking(this.isBlockingReadsAndWrites());
-      // now register readSelector for new event type (notice 
-      // in loop accept and reading events)
+      
+      channel.configureBlocking(false);
+      
+      if (this.getChannelBufferSize() > 0) {
+        channel.socket()
+            .setReceiveBufferSize(this.channelBufferSize);
+        channel.socket()
+            .setSendBufferSize(this.channelBufferSize);
+      }
+      
       return channel;
     }
     return null;
@@ -332,22 +338,6 @@ public class Server {
     return handler;
   }
   
-  
-  /**
-   * @return the maximumGrowingBufferChunkSize
-   */
-  public int getMaximumGrowingBufferChunkSize() {
-    return maximumGrowingBufferChunkSize;
-  }
-
-  /**
-   * @param val the maximumGrowingBufferChunkSize to set
-   */
-  public void setMaximumGrowingBufferChunkSize(int val) {
-    this.maximumGrowingBufferChunkSize = val;
-  }
-
-
   /**
    * @return the notAllowingMoreAcceptsThanSlots
    */
@@ -390,21 +380,7 @@ public class Server {
   public void setDelayForNoIOReadsInSuite(long delayForNoIOReadsInSuite) {
     this.delayForNoIOReadsInSuite = delayForNoIOReadsInSuite;
   }
-
-  /**
-   * @return the blockingReadsAndWrites
-   */
-  public boolean isBlockingReadsAndWrites() {
-    return blockingReadsAndWrites;
-  }
-
-  /**
-   * @param blockingReadsAndWrites the blockingReadsAndWrites to set
-   */
-  public void setBlockingReadsAndWrites(boolean blockingReadsAndWrites) {
-    this.blockingReadsAndWrites = blockingReadsAndWrites;
-  }
-
+  
   /**
    * @return the acceptDelay
    */
@@ -843,5 +819,19 @@ public class Server {
    */
   public void setDefaultHeaderSizeLimit(int defaultHeaderSizeLimit) {
     this.defaultHeaderSizeLimit = defaultHeaderSizeLimit;
+  }
+
+  /**
+   * @return the channelBufferSize
+   */
+  public int getChannelBufferSize() {
+    return channelBufferSize;
+  }
+
+  /**
+   * @param channelBufferSize the channelBufferSize to set
+   */
+  public void setChannelBufferSize(int channelBufferSize) {
+    this.channelBufferSize = channelBufferSize;
   }
 }

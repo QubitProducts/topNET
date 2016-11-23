@@ -28,11 +28,25 @@ import java.nio.charset.Charset;
  */
 public class BytesStream {
 
-  public static int BUF_SIZE_DEF = 4 * 1024;
+  private static int defaultBufferChunkSize = 64 * 1024;
   public static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
   public static boolean doNotShrinkBuffersAfterJob = false;
+
+  /**
+   * @return the defaultBufferChunkSize
+   */
+  public static int getDefaultBufferChunkSize() {
+    return defaultBufferChunkSize;
+  }
+
+  /**
+   * @param aDefaultBufferChunkSize the defaultBufferChunkSize to set
+   */
+  public static void setDefaultBufferChunkSize(int aDefaultBufferChunkSize) {
+    defaultBufferChunkSize = aDefaultBufferChunkSize;
+  }
   
-  public int bufferElementSize = BUF_SIZE_DEF;
+  public int bufferElementSize = getDefaultBufferChunkSize();
   private BufferWrapper currentBufferReading;
   private BufferWrapper currentBufferWriting;
   private int currentBufferReadPosition = 0;
