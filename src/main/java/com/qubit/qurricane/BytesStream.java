@@ -29,7 +29,7 @@ import java.nio.charset.Charset;
 public class BytesStream {
 
   private static int defaultBufferChunkSize = 64 * 1024;
-  public static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
+  private static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
   public static boolean doNotShrinkBuffersAfterJob = false;
 
   /**
@@ -44,6 +44,20 @@ public class BytesStream {
    */
   public static void setDefaultBufferChunkSize(int aDefaultBufferChunkSize) {
     defaultBufferChunkSize = aDefaultBufferChunkSize;
+  }
+
+  /**
+   * @return the minimumBytesToKeepAfterJobShrink
+   */
+  public static int getMinimumBytesToKeepAfterJobShrink() {
+    return minimumBytesToKeepAfterJobShrink;
+  }
+
+  /**
+   * @param aMinimumBytesToKeepAfterJobShrink the minimumBytesToKeepAfterJobShrink to set
+   */
+  public static void setMinimumBytesToKeepAfterJobShrink(int aMinimumBytesToKeepAfterJobShrink) {
+    minimumBytesToKeepAfterJobShrink = aMinimumBytesToKeepAfterJobShrink;
   }
   
   public int bufferElementSize = getDefaultBufferChunkSize();
@@ -177,9 +191,7 @@ public class BytesStream {
     this.currentBufferReading = first;
     this.currentBufferWriting = first;
     last = first;
-    if (first.getByteBuffer() != null) {
-      first.getByteBuffer().clear();
-    }
+    this.clear();
     this.currentBufferReadPosition = 0;
   }
 
@@ -192,8 +204,6 @@ public class BytesStream {
       }
       start = start.getNext();
     }
-    
-    reset();
   }
   
   public long leftToRead() {
@@ -264,6 +274,10 @@ public class BytesStream {
       return;
     }
     
+    if (first == last) {
+      return;
+    }
+    
     long amount = 0;
     
     BufferWrapper start = first;
@@ -288,7 +302,7 @@ public class BytesStream {
     if (doNotShrinkBuffersAfterJob) {
       return;
     }
-   this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
+    this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
   }
   
   /**

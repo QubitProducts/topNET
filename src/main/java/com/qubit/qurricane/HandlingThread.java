@@ -24,6 +24,7 @@ import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,9 +52,7 @@ public abstract class HandlingThread extends Thread {
   private static volatile long closedIdleCounter = 0; // less more counter...
 
   final Object sleepingLocker = new Object();
-  
-  public volatile boolean sleeps = false;
-  
+    
   @Override
   public void run() {
     try {
@@ -173,16 +172,9 @@ public abstract class HandlingThread extends Thread {
     return false;
   }
 
-  private boolean usingSleep = true;
-  
   protected void wakeup() {
-    if (isUsingSleep()) {
-      if (this.sleeps) {
-        this.sleeps = false;
-        this.interrupt();
-      }
-    } else if (this.getState() == State.TIMED_WAITING
-        || this.getState() == State.WAITING) {
+    if (this.getState() == State.TIMED_WAITING ||
+        this.getState() == State.WAITING) {
       synchronized (sleepingLocker) {
         sleepingLocker.notify();
       }
@@ -190,37 +182,19 @@ public abstract class HandlingThread extends Thread {
   }
 
   private void sleepNow() {
-    if (isUsingSleep()) {
-      try {
-        this.sleeps = true;
-        Thread.sleep(8999999999999999999L);
-      } catch (InterruptedException ex) {
+    try {
+      synchronized (sleepingLocker) {
+        sleepingLocker.wait();
       }
-    } else if (this.getState() != State.WAITING) {
-      try {
-        synchronized (sleepingLocker) {
-          sleepingLocker.wait();
-        }
-      } catch (InterruptedException e) {
-      }
-    }
+    } catch (InterruptedException e) {}
   }
 
   private void takeSomeBreak(long delay) {
-    if (isUsingSleep()) {
-      try {
-        this.sleeps = true;
-        Thread.sleep(delay);
-      } catch (InterruptedException ex) {
+    try {
+      synchronized (sleepingLocker) {
+        sleepingLocker.wait(delay);
       }
-    } else if (this.getState() != State.TIMED_WAITING) {
-      try {
-        synchronized (sleepingLocker) {
-          sleepingLocker.wait(delay);
-        }
-      } catch (InterruptedException e) {
-      }
-    }
+    } catch (InterruptedException e) {}
   }
 
   private void runOnFinishedHandler(DataHandler dataHandler) {
@@ -340,20 +314,6 @@ public abstract class HandlingThread extends Thread {
    */
   public long getJobsRemoved() {
     return jobsRemoved;
-  }
-
-  /**
-   * @return the usingSleep
-   */
-  public boolean isUsingSleep() {
-    return usingSleep;
-  }
-  
-  /**
-   * @param usingSleep the usingSleep to set
-   */
-  public void setUsingSleep(boolean usingSleep) {
-    this.usingSleep = usingSleep;
   }
   
   public long jobsLeft() {
