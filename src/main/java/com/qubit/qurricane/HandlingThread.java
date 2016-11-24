@@ -38,7 +38,7 @@ public abstract class HandlingThread extends Thread {
       = Logger.getLogger(HandlingThread.class.getName());
 
   private int defaultMaxMessageSize;
-  private long delayForNoIOReadsInSuite = 1;
+  private int delayForNoIOReadsInSuite = 1;
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;
@@ -47,7 +47,7 @@ public abstract class HandlingThread extends Thread {
 
   abstract boolean canAddJob();
 
-  private long singlePassDelay = 0;
+  private int singlePassDelay = 0;
 
   private static volatile long closedIdleCounter = 0; // less more counter...
 
@@ -66,7 +66,7 @@ public abstract class HandlingThread extends Thread {
       this.getServer().removeThread(this);
     }
   }
-
+  
   private void trySomeWork() {
     while (this.hasJobs()) {
       if (!this.waitForSomethingToIO(this.runSinglePass())) {
@@ -164,9 +164,8 @@ public abstract class HandlingThread extends Thread {
 
   protected boolean waitForSomethingToIO(boolean wait) {
     if (this.delayForNoIOReadsInSuite > 0 && wait) {// code is 0 if no IO occured
-      long timeToWait = (long) (this.delayForNoIOReadsInSuite);
-      totalWaitedIO += timeToWait;
-      takeSomeBreak(timeToWait);
+      totalWaitedIO += this.delayForNoIOReadsInSuite;
+      takeSomeBreak(this.delayForNoIOReadsInSuite);
       return true;
     }
     return false;
@@ -189,10 +188,16 @@ public abstract class HandlingThread extends Thread {
     } catch (InterruptedException e) {}
   }
 
-  private void takeSomeBreak(long delay) {
+  private void takeSomeBreak(int delay) {
     try {
-      synchronized (sleepingLocker) {
-        sleepingLocker.wait(delay);
+      if (delay < 1000000) {
+        synchronized (sleepingLocker) {
+          sleepingLocker.wait(0, delay);
+        }
+      } else {
+        synchronized (sleepingLocker) {
+          sleepingLocker.wait(delay/1000000);
+        }
       }
     } catch (InterruptedException e) {}
   }
@@ -259,7 +264,7 @@ public abstract class HandlingThread extends Thread {
   /**
    * @param singlePassDelay the singlePassDelay to set
    */
-  public synchronized void setSinglePassDelay(long singlePassDelay) {
+  public synchronized void setSinglePassDelay(int singlePassDelay) {
     this.singlePassDelay = singlePassDelay;
   }
 
@@ -271,14 +276,14 @@ public abstract class HandlingThread extends Thread {
   /**
    * @return the delayForNoIOReadsInSuite
    */
-  public long getDelayForNoIO() {
+  public int getDelayForNoIO() {
     return delayForNoIOReadsInSuite;
   }
 
   /**
    * @param delayForNoIO the delayForNoIOReadsInSuite to set
    */
-  public void setDelayForNoIO(long delayForNoIO) {
+  public void setDelayForNoIO(int delayForNoIO) {
     this.delayForNoIOReadsInSuite = delayForNoIO;
   }
 

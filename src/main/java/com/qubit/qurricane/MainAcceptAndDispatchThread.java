@@ -124,8 +124,7 @@ class MainAcceptAndDispatchThread extends Thread {
                     || !this.startReading(handlingThreads, channel, null)) {
                   SelectionKey newKey
                       = channel.register(acceptSelector, OP_READ);
-
-                  newKey.attach(new Long(System.currentTimeMillis()));
+                  newKey.attach(System.currentTimeMillis());
                 }
               }
             } else {//if (key.isReadable()) {
@@ -140,7 +139,7 @@ class MainAcceptAndDispatchThread extends Thread {
                   if (this.timeSinceCouldntAddJob == 0) {
                     this.timeSinceCouldntAddJob = System.currentTimeMillis();
                   } else if (System.currentTimeMillis() >
-                      (this.timeSinceCouldntAddJob + this.getNoSlotsAvailableTimeout())) {
+                      (this.timeSinceCouldntAddJob + this.noSlotsAvailableTimeout)) {
                     this.timeSinceCouldntAddJob = 0;
                     if (this.server.addThread()) {
                       handlingThreads = this.server.getHandlingThreads();
@@ -175,7 +174,7 @@ class MainAcceptAndDispatchThread extends Thread {
       
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,
-            "Accepted connections: {0}, total accept waited: {1}ms ,total waited IO: {3}",
+            "Accepted connections: {0}, total accept waited: {1}ms ,total waited IO: {2}",
             new Object[]{
               acceptedCnt,
               totalWaitingAcceptMsCounter,

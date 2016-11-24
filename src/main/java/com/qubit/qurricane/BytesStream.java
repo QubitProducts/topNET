@@ -285,7 +285,11 @@ public class BytesStream {
       ByteBuffer buffer = start.getByteBuffer();
       amount += buffer.capacity();
       if (amount > toValue) {
-        last = start.getPrev();
+        if (start.getPrev() != null) {
+          last = start.getPrev();
+        } else {
+          last = start;
+        }
         last.setNext(null);
         break;
       }

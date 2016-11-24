@@ -40,7 +40,7 @@ import java.util.logging.Logger;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class Server {
+public final class Server {
   
   final static Logger log = Logger.getLogger(Server.class.getName());
   
@@ -67,7 +67,7 @@ public class Server {
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   
   private final int port;
-  private long delayForNoIOReadsInSuite = 1;
+  private int delayForNoIOReadsInSuite = 1;
   private long acceptDelay = 0;
   private final InetSocketAddress listenAddress;
   private final String address;
@@ -79,7 +79,7 @@ public class Server {
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   private PoolType poolType = POOL;
-  private long singlePoolPassThreadDelay = 0;
+  private int singlePoolPassThreadDelay = 0;
   private boolean waitingForReadEvents = true;
   private long scalingDownTryPeriodMS = 20 * 1000;
   private boolean notAllowingMoreAcceptsThanSlots = false;
@@ -94,7 +94,9 @@ public class Server {
   private boolean autoScalingDown = true;
   private boolean cachingThreads = true;
   private int defaultHeaderSizeLimit = 16 * 1024;
-  private int channelBufferSize = -1;
+  private int channelReceiveBufferSize = -1;
+  private int channelSendBufferSize = -1;
+  private ServerSocket serverSocket;
   
   public Server(String address, int port) {
     this.port = port;
@@ -110,11 +112,19 @@ public class Server {
     }
     
     this.started = true;
+    
     this.serverChannel = ServerSocketChannel.open();
     serverChannel.configureBlocking(false);
-    ServerSocket socket = serverChannel.socket();
-//    socket.setPerformancePreferences(maxMessageSize, port, port);
-    socket.bind(listenAddress);
+
+    this.serverSocket = serverChannel.socket();
+
+    this.serverSocket.setPerformancePreferences(0, 1, 0);
+    
+    if (this.getChannelReceiveBufferSize() > 0) {
+      this.serverSocket.setReceiveBufferSize(this.channelReceiveBufferSize);
+    }
+    
+    this.serverSocket.bind(listenAddress);
 
     // @todo move to cfg
     
@@ -216,12 +226,9 @@ public class Server {
     if (channel != null) {
       
       channel.configureBlocking(false);
-      
-      if (this.getChannelBufferSize() > 0) {
-        channel.socket()
-            .setReceiveBufferSize(this.channelBufferSize);
-        channel.socket()
-            .setSendBufferSize(this.channelBufferSize);
+
+      if (this.channelSendBufferSize > 0) {
+        channel.socket().setSendBufferSize(this.channelSendBufferSize);
       }
       
       return channel;
@@ -355,28 +362,28 @@ public class Server {
   /**
    * @return the singlePoolPassThreadDelay
    */
-  public long getSinglePoolPassThreadDelay() {
+  public int getSinglePoolPassThreadDelay() {
     return singlePoolPassThreadDelay;
   }
 
   /**
    * @param singlePoolPassThreadDelay the singlePoolPassThreadDelay to set
    */
-  public void setSinglePoolPassThreadDelay(long singlePoolPassThreadDelay) {
+  public void setSinglePoolPassThreadDelay(int singlePoolPassThreadDelay) {
     this.singlePoolPassThreadDelay = singlePoolPassThreadDelay;
   }
 
   /**
    * @return the delayForNoIOReadsInSuite
    */
-  public long getDelayForNoIOReadsInSuite() {
+  public int getDelayForNoIOReadsInSuite() {
     return delayForNoIOReadsInSuite;
   }
 
   /**
    * @param delayForNoIOReadsInSuite the delayForNoIOReadsInSuite to set
    */
-  public void setDelayForNoIOReadsInSuite(long delayForNoIOReadsInSuite) {
+  public void setDelayForNoIOReadsInSuite(int delayForNoIOReadsInSuite) {
     this.delayForNoIOReadsInSuite = delayForNoIOReadsInSuite;
   }
   
@@ -808,14 +815,42 @@ public class Server {
   /**
    * @return the channelBufferSize
    */
-  public int getChannelBufferSize() {
-    return channelBufferSize;
+  public int getChannelReceiveBufferSize() {
+    return channelReceiveBufferSize;
   }
 
   /**
    * @param channelBufferSize the channelBufferSize to set
    */
-  public void setChannelBufferSize(int channelBufferSize) {
-    this.channelBufferSize = channelBufferSize;
+  public void setChannelReceiveBufferSize(int channelBufferSize) {
+    this.channelReceiveBufferSize = channelBufferSize;
+  }
+
+  /**
+   * @return the serverChannel
+   */
+  public ServerSocketChannel getServerChannel() {
+    return serverChannel;
+  }
+
+  /**
+   * @return the serverSocket
+   */
+  public ServerSocket getServerSocket() {
+    return serverSocket;
+  }
+
+  /**
+   * @return the channelSendBufferSize
+   */
+  public int getChannelSendBufferSize() {
+    return channelSendBufferSize;
+  }
+
+  /**
+   * @param channelSendBufferSize the channelSendBufferSize to set
+   */
+  public void setChannelSendBufferSize(int channelSendBufferSize) {
+    this.channelSendBufferSize = channelSendBufferSize;
   }
 }
