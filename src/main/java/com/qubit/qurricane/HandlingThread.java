@@ -24,7 +24,6 @@ import static com.qubit.qurricane.HandlingThreadPooled.log;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -42,17 +41,14 @@ public abstract class HandlingThread extends Thread {
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;
+  private int singlePassDelay = 0;
+  private final Object sleepingLocker = new Object();
+  
+  private static volatile long closedIdleCounter = 0; // less more counter...
   
   abstract public boolean addJob(SocketChannel channel, Long acceptTime);
-
   abstract boolean canAddJob();
-
-  private int singlePassDelay = 0;
-
-  private static volatile long closedIdleCounter = 0; // less more counter...
-
-  final Object sleepingLocker = new Object();
-    
+  
   @Override
   public void run() {
     try {

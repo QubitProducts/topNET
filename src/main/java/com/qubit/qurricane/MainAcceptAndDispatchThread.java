@@ -54,14 +54,13 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private final Selector acceptSelector;
   private final Server server;
-  private boolean notAllowingMoreAcceptsThanSlots = false;
   private long acceptDelay;
   private final long maxIdleAfterAccept;
   private boolean running;
   private boolean waitingForReadEvents = true;
   private long timeSinceCouldntAddJob = 0;
-  private long noSlotsAvailableTimeout = 50;
-  long lastdownScaleTried = 0;
+  private long noSlotsAvailableTimeout = 20;
+  private long lastdownScaleTried = 0;
   private long scalingDownTryPeriodMS = 5000;
   private boolean autoScalingDown = true;
 
@@ -101,30 +100,22 @@ class MainAcceptAndDispatchThread extends Thread {
 
       Set<SelectionKey> selectionKeys = acceptSelector.selectedKeys();
       HandlingThread[] handlingThreads = this.server.getHandlingThreads();
-      
+
       for (SelectionKey key : selectionKeys) {
 
         try {
           if (key.isValid()) {
             if (key.isAcceptable()) {
-              if (isNotAllowingMoreAcceptsThanSlots()) {
-                while (!thereAreFreeJobs(handlingThreads)) {
-                  try {
-                    Thread.sleep(1);
-                  } catch (InterruptedException ex) {
-                  }
-                }
-              }
+              SocketChannel channel;
 
-              SocketChannel channel = this.server.accept(key, acceptSelector);
-
-              if (channel != null) {
+              while ((channel = this.server.accept()) != null) {
                 acceptedCnt++;
                 if (this.isWaitingForReadEvents()
                     || !this.startReading(handlingThreads, channel, null)) {
-                  SelectionKey newKey
-                      = channel.register(acceptSelector, OP_READ);
-                  newKey.attach(System.currentTimeMillis());
+                  channel.register(
+                      acceptSelector,
+                      OP_READ,
+                      System.currentTimeMillis());
                 }
               }
             } else {//if (key.isReadable()) {
@@ -156,7 +147,7 @@ class MainAcceptAndDispatchThread extends Thread {
         } catch (CancelledKeyException ex) {
           log.info("Key already cancelled.");
         } catch (Exception ex) {
-          log.log(Level.SEVERE, null, ex);
+          log.log(Level.SEVERE, "Exception in main loop.", ex);
         }
       }
       
@@ -224,22 +215,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
     return false;
   }
-
-  /**
-   * @return the notAllowingMoreAcceptsThanSlots
-   */
-  public boolean isNotAllowingMoreAcceptsThanSlots() {
-    return notAllowingMoreAcceptsThanSlots;
-  }
-
-  /**
-   * @param allowingMoreAcceptsThanSlots the notAllowingMoreAcceptsThanSlots to
-   * set
-   */
-  public void setNotAllowingMoreAcceptsThanSlots(boolean allowingMoreAcceptsThanSlots) {
-    this.notAllowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
-  }
-
+  
   /**
    * @return the acceptDelay
    */
@@ -378,4 +354,4 @@ class MainAcceptAndDispatchThread extends Thread {
   public void setAutoScalingDown(boolean autoScalingDown) {
     this.autoScalingDown = autoScalingDown;
   }
-}
+                  }

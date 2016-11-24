@@ -82,7 +82,6 @@ public final class Server {
   private int singlePoolPassThreadDelay = 0;
   private boolean waitingForReadEvents = true;
   private long scalingDownTryPeriodMS = 20 * 1000;
-  private boolean notAllowingMoreAcceptsThanSlots = false;
   private boolean stoppingNow = false;
   private boolean started = false;
   private boolean cachingBuffers = true;
@@ -118,7 +117,7 @@ public final class Server {
 
     this.serverSocket = serverChannel.socket();
 
-    this.serverSocket.setPerformancePreferences(0, 1, 0);
+    this.serverSocket.setPerformancePreferences(0, 10, 0);
     
     if (this.getChannelReceiveBufferSize() > 0) {
       this.serverSocket.setReceiveBufferSize(this.channelReceiveBufferSize);
@@ -144,10 +143,6 @@ public final class Server {
 
     mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
     
-    mainAcceptDispatcher
-        .setNotAllowingMoreAcceptsThanSlots(
-            this.isNotAllowingMoreAcceptsThanSlots());
-    
     mainAcceptDispatcher.setWaitingForReadEvents(this.waitingForReadEvents);
     
     mainAcceptDispatcher.setNoSlotsAvailableTimeout(
@@ -155,7 +150,7 @@ public final class Server {
     
     mainAcceptDispatcher.setScalingDownTryPeriodMS(this.scalingDownTryPeriodMS);
     
-    mainAcceptDispatcher.setAutoScalingDown(this.autoScalingDown);
+    mainAcceptDispatcher.setAutoScalingDown(this.isAutoScalingDown());
     
     mainAcceptDispatcher.start();
  
@@ -215,24 +210,21 @@ public final class Server {
     return address;
   }
 
-  protected SocketChannel accept(SelectionKey key, Selector readSelector)
+  protected SocketChannel accept()
           throws IOException {
-    // pick socketChannel channel
-    ServerSocketChannel serverSocketChannel = 
-            (ServerSocketChannel) key.channel();
-    // trigger accept
-    SocketChannel channel = serverSocketChannel.accept();
+    SocketChannel channel = this.serverChannel.accept();
 
     if (channel != null) {
-      
+
       channel.configureBlocking(false);
 
       if (this.channelSendBufferSize > 0) {
         channel.socket().setSendBufferSize(this.channelSendBufferSize);
       }
-      
+
       return channel;
     }
+    
     return null;
   }
 
@@ -342,21 +334,6 @@ public final class Server {
     }
 
     return handler;
-  }
-  
-  /**
-   * @return the notAllowingMoreAcceptsThanSlots
-   */
-  public boolean isNotAllowingMoreAcceptsThanSlots() {
-    return notAllowingMoreAcceptsThanSlots;
-  }
-
-  /**
-   * @param allowingMoreAcceptsThanSlots the notAllowingMoreAcceptsThanSlots to set
-   */
-  public void setNotAllowingMoreAcceptsThanSlots(
-          boolean allowingMoreAcceptsThanSlots) {
-    this.notAllowingMoreAcceptsThanSlots = allowingMoreAcceptsThanSlots;
   }
 
   /**
