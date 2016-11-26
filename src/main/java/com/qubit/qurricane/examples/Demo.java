@@ -38,20 +38,21 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 16;
+    int jobs = 32;
     
     int bufChunkMax = 1 * 1024 * 1024;
     BytesStream.setDefaultBufferChunkSize(bufChunkMax);
     
-    int channelBufSize = 4 * bufChunkMax;
+    int channelBufSize = -1;//64 * 1024;
+    int channelWriteBufSize = -1;//4 * 1024 * 1024;
     int th = 3;
+    boolean waitForEvents = false;
     
-    long noIOdelay = 1;
-    boolean usingSleep = false;
+    int noIOdelay = 100 * 1000; //nanoseconds, or N*1000000 ms == (n * ms)
     BytesStream.doNotShrinkBuffersAfterJob = true;
-    boolean limitedAccepts = false;
+    boolean scalingDown = false;
     long acceptDelay = 0;
-    long breakStop = 0; // if no io delay occures, this has chance
+    int breakStop = 0; // if no io delay occures, this has chance
     
     Server s = new Server("localhost", 3456);
     
@@ -63,15 +64,16 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
-    s.setUsingSleep(usingSleep);
-    s.setChannelBufferSize(channelBufSize);
+    s.setChannelReceiveBufferSize(channelBufSize);
+    s.setChannelSendBufferSize(channelWriteBufSize);
+    s.setWaitingForReadEvents(waitForEvents);
+    s.setAutoScalingDown(scalingDown);
     s.start();
     Thread.sleep(200);
     s.stop();
     s.start();
     
-//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    //s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
@@ -88,15 +90,16 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
-    s.setUsingSleep(usingSleep);
-    s.setChannelBufferSize(channelBufSize);
+    s.setChannelReceiveBufferSize(channelBufSize);
+    s.setChannelSendBufferSize(channelWriteBufSize);
+    s.setWaitingForReadEvents(waitForEvents);
+    s.setAutoScalingDown(scalingDown);
     s.start();
     Thread.sleep(200);
     s.stop();
     s.start();
 
-//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    //s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/echo", new EchoHandler());
@@ -113,15 +116,16 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
-    s.setUsingSleep(usingSleep);
-    s.setChannelBufferSize(channelBufSize);
+    s.setChannelReceiveBufferSize(channelBufSize);
+    s.setChannelSendBufferSize(channelWriteBufSize);
+    s.setWaitingForReadEvents(waitForEvents);
+    s.setAutoScalingDown(scalingDown);
     s.start();
     Thread.sleep(200);
     s.stop();
     s.start();
     
-//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    //s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/echo", new EchoHandler());
@@ -138,15 +142,16 @@ public class Demo {
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);
     s.setAcceptDelay(acceptDelay);
-    s.setNotAllowingMoreAcceptsThanSlots(limitedAccepts);
-    s.setUsingSleep(usingSleep);
-    s.setChannelBufferSize(channelBufSize);
+    s.setChannelReceiveBufferSize(channelBufSize);
+    s.setChannelSendBufferSize(channelWriteBufSize);
+    s.setWaitingForReadEvents(waitForEvents);
+    s.setAutoScalingDown(scalingDown);
     s.start();
     Thread.sleep(200);
     s.stop();
     s.start();
     
-//    s.registerPathMatchingHandler(new PrefixToAllHandlers());
+    //s.registerPathMatchingHandler(new PrefixToAllHandlers());
     s.registerHandlerByPath("/sleep", new SleepyHandler());
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
