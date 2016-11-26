@@ -78,7 +78,7 @@ public final class DataHandler {
   private boolean firstLine = true;
   private String lastHeaderName = null;
 
-  private final char[] currentHeaderLine;
+  private final byte[] currentHeaderLine;
   private long contentLength = 0; // -1 is used to distinguish cases when no 
 
   private Request request;
@@ -87,6 +87,11 @@ public final class DataHandler {
   private Throwable errorException;
   private Handler handlerUsed;
 
+  public static final byte[] BHTTP_0_9 = new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
+  public static final byte[] BHTTP_1_0 = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
+  public static final byte[] BHTTP_1_1 = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
+  public static final byte[] BHTTP_1_x = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
+  
   private String parameters;
   private char[] httpProtocol = HTTP_1_0;
   
@@ -99,7 +104,6 @@ public final class DataHandler {
   private boolean bufferSizeCalculatedForWriting = false;
   protected volatile HandlingThread owningThread = null;
   private boolean reqInitialized = false;
-  private int previousChar = -1;
   int currentBufferWrittenIndex = 0;
   int currentReadingPositionInWrittenBufByWrite = 0;
   private int currentHeaderLineLength = 0;
@@ -110,7 +114,6 @@ public final class DataHandler {
   }
 
   protected void resetForNewRequest() {
-    previousChar = -1;
     parameters = null;
     size = 0;
     headers.clear();
@@ -145,7 +148,7 @@ public final class DataHandler {
   
   public DataHandler(Server server, SocketChannel channel) {
     this.init(server, channel);
-    this.currentHeaderLine = new char[server.getDefaultHeaderSizeLimit()];
+    this.currentHeaderLine = new byte[server.getDefaultHeaderSizeLimit()];
     this.maxGrowningBufferChunkSize = server.getMaxGrowningBufferChunkSize();
   }
   
@@ -212,7 +215,7 @@ public final class DataHandler {
     return "UTF-8";
   }
   
-  private void setMethodAndPathFromLine(char[] line, int len) {
+  private void setMethodAndPathFromLine(byte[] line, int len) {
     int idx = this.indexOf(line, len, ' ', 0);
     
     if (idx < 1) {
@@ -225,11 +228,14 @@ public final class DataHandler {
     
     if (sec_idx != -1) {
       this.fullPath = new String(line, methodStart, sec_idx - methodStart);
-      this.httpProtocol = Arrays.copyOfRange(line, sec_idx + 1, len);
-      if (Arrays.equals(this.httpProtocol, HTTP_0_9) ||
-          Arrays.equals(this.httpProtocol, HTTP_1_0) ||
-          Arrays.equals(this.httpProtocol, HTTP_1_1)){
-      } else if (Arrays.equals(this.httpProtocol, HTTP_1_x)) {
+      byte[] proto = Arrays.copyOfRange(line, sec_idx + 1, len);
+      if (Arrays.equals(proto, BHTTP_1_0)) {
+        //this.httpProtocol = HTTP_1_0;
+      } else if (Arrays.equals(proto, BHTTP_1_1)) {
+        this.httpProtocol = HTTP_1_1;
+      } else if (Arrays.equals(proto, BHTTP_0_9)) {
+        this.httpProtocol = HTTP_0_9;
+      } else if (Arrays.equals(proto, BHTTP_1_x)) {
          this.httpProtocol = HTTP_1_0;
       } else {
         this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
@@ -247,7 +253,7 @@ public final class DataHandler {
     return method;
   }
 
-  private String[] parseHeader(char[] line, int len) {
+  private String[] parseHeader(byte[] line, int len) {
     int idx = this.indexOf(line, len, ':', 0);
     if (idx > 0) {
       // 2 removes ": " part
@@ -281,17 +287,21 @@ public final class DataHandler {
     return this.path;
   }
 
+  
+  
   // returns true if reading is finished. any error handling should happend after reading foinished.
   private boolean flushReads(BytesStream stream)
           throws UnsupportedEncodingException {
 
     if (!this.headersReady) {
-      int current;
+      byte current;
       
       while ((current = stream.read()) != -1) {
-        if (current == '\n' && previousChar == '\r') {
-
-          previousChar = -1;
+          if (current == '\n' &&
+              currentHeaderLine[currentHeaderLineLength - 1] == '\r') {
+          
+          currentHeaderLineLength -= 1;
+          
           if (this.processHeaderLine()) {
             this.errorOccured = BAD_CONTENT_HEADER;
             return true; // finish now!
@@ -303,8 +313,7 @@ public final class DataHandler {
                   this.calculateBufferSizeByContentSize(this.contentLength));
             }
             
-            { //
-              // 
+            {
               // headers just finished
               response.setHttpProtocol(httpProtocol);
               
@@ -335,24 +344,17 @@ public final class DataHandler {
                   return true;
                 }
               }
-              //
-              //
-              //
             }
             
             break;
           }
         } else {
-          if (previousChar != -1) {
-            if (currentHeaderLineLength < currentHeaderLine.length) {
-              currentHeaderLine[currentHeaderLineLength++] = (char) previousChar;
-            } else {
-               this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
-               return true;
-            }
+          if (currentHeaderLineLength < server.getDefaultHeaderSizeLimit()) {
+            currentHeaderLine[currentHeaderLineLength++] = current;
+          } else {
+             this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
+             return true;
           }
-
-          previousChar = current;
         }
       }
     }
@@ -374,7 +376,7 @@ public final class DataHandler {
   }
 
   private boolean processHeaderLine() {
-    char[] line = currentHeaderLine;
+    byte[] line = currentHeaderLine;
     int lineLen = currentHeaderLineLength;
     currentHeaderLineLength = 0; // reset
 
@@ -966,7 +968,7 @@ public final class DataHandler {
     this.headers.add(new String[]{lastHeaderName, string});
   }
 
-  private boolean checkIfBodyRequired(char[] line, int idx) {
+  private boolean checkIfBodyRequired(byte[] line, int idx) {
     if (line[0] == 'G' && // add exclusions
         line[1] == 'E' &&
         line[2] == 'T') {
@@ -994,7 +996,7 @@ public final class DataHandler {
     return true;
   }
 
-  private int indexOf(char[] line, int len, char c, int from) {
+  private int indexOf(byte[] line, int len, char c, int from) {
     for (int i = from; i < len; i++) {
       if (line[i] == c) {
         return i;

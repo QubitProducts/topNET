@@ -166,8 +166,7 @@ public class BytesStream {
       
       return buf.get(currentBufferReadPosition++);
     
-    } else if (buf.position() == 
-               buf.limit()) {
+    } else if (!buf.hasRemaining()) {
       
       if (this.currentBufferReading.getNext() != null) {
         
@@ -186,7 +185,7 @@ public class BytesStream {
       
     }
   }
-
+  
   public void reset() {
     this.currentBufferReading = first;
     this.currentBufferWriting = first;
