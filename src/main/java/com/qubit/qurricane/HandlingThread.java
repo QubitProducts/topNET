@@ -37,7 +37,7 @@ public abstract class HandlingThread extends Thread {
       = Logger.getLogger(HandlingThread.class.getName());
 
   private int defaultMaxMessageSize;
-  private int delayForNoIOReadsInSuite = 1;
+  private int delayForNoIOReadsInSuite = 100 * 1000;
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;

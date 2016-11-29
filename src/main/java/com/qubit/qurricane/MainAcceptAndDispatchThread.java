@@ -165,7 +165,7 @@ class MainAcceptAndDispatchThread extends Thread {
       
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,
-            "Accepted connections: {0}, total accept waited: {1}ms ,total waited IO: {2}",
+            "Accepted connections: {0}, total accept waited: {1}ms ,total nanoseconds waited IO: {2}",
             new Object[]{
               acceptedCnt,
               totalWaitingAcceptMsCounter,
