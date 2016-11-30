@@ -96,6 +96,9 @@ public final class Server {
   private int channelReceiveBufferSize = -1;
   private int channelSendBufferSize = -1;
   private ServerSocket serverSocket;
+  private int connectionTimePerformancePref = 0;
+  private int latencyPerformancePref = 0;
+  private int bandwithPerformancePref = 0;
   
   public Server(String address, int port) {
     this.port = port;
@@ -117,7 +120,7 @@ public final class Server {
 
     this.serverSocket = serverChannel.socket();
 
-    this.serverSocket.setPerformancePreferences(0, 10, 0);
+    this.serverSocket.setPerformancePreferences(this.getConnectionTimePerformancePref(), this.getLatencyPerformancePref(), this.getBandwithPerformancePref());
     
     if (this.getChannelReceiveBufferSize() > 0) {
       this.serverSocket.setReceiveBufferSize(this.channelReceiveBufferSize);
@@ -829,5 +832,47 @@ public final class Server {
    */
   public void setChannelSendBufferSize(int channelSendBufferSize) {
     this.channelSendBufferSize = channelSendBufferSize;
+  }
+
+  /**
+   * @return the connectionTimePerformancePref
+   */
+  public int getConnectionTimePerformancePref() {
+    return connectionTimePerformancePref;
+  }
+
+  /**
+   * @param connectionTimePerformancePref the connectionTimePerformancePref to set
+   */
+  public void setConnectionTimePerformancePref(int connectionTimePerformancePref) {
+    this.connectionTimePerformancePref = connectionTimePerformancePref;
+  }
+
+  /**
+   * @return the latencyPerformancePref
+   */
+  public int getLatencyPerformancePref() {
+    return latencyPerformancePref;
+  }
+
+  /**
+   * @param latencyPerformancePref the latencyPerformancePref to set
+   */
+  public void setLatencyPerformancePref(int latencyPerformancePref) {
+    this.latencyPerformancePref = latencyPerformancePref;
+  }
+
+  /**
+   * @return the bandwithPerformancePref
+   */
+  public int getBandwithPerformancePref() {
+    return bandwithPerformancePref;
+  }
+
+  /**
+   * @param bandwithPerformancePref the bandwithPerformancePref to set
+   */
+  public void setBandwithPerformancePref(int bandwithPerformancePref) {
+    this.bandwithPerformancePref = bandwithPerformancePref;
   }
 }
