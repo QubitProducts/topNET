@@ -160,7 +160,7 @@ public abstract class HandlingThread extends Thread {
 
   protected boolean waitForSomethingToIO(boolean wait) {
     if (this.delayForNoIOReadsInSuite > 0 && wait) {// code is 0 if no IO occured
-      totalWaitedIO += this.delayForNoIOReadsInSuite;
+      totalWaitedIO++;
       takeSomeBreak(this.delayForNoIOReadsInSuite);
       return true;
     }
