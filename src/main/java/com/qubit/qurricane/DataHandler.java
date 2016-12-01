@@ -93,7 +93,7 @@ public final class DataHandler {
   public static final byte[] BHTTP_1_x = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
   
   private String parameters;
-  private char[] httpProtocol = HTTP_1_0;
+  private char[] httpProtocol = HTTP_1_1;
   
   private boolean headersOnly = false;
   private volatile Server server;
@@ -240,10 +240,10 @@ public final class DataHandler {
         } else if (Arrays.equals(proto, BHTTP_0_9)) {
           this.httpProtocol = HTTP_0_9;
         } else if (Arrays.equals(proto, BHTTP_1_x)) {
-           this.httpProtocol = HTTP_1_0;
+           this.httpProtocol = HTTP_1_1;
         } else {
           this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
-          this.httpProtocol = HTTP_1_0;
+          this.httpProtocol = HTTP_1_1;
         }
       }
     } else {
