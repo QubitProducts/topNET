@@ -108,7 +108,7 @@ class MainAcceptAndDispatchThread extends Thread {
             if (key.isAcceptable()) {
               SocketChannel channel;
 
-              while ((channel = this.server.accept()) != null) {
+              if ((channel = this.server.accept()) != null) {
                 acceptedCnt++;
                 if (this.isWaitingForReadEvents()
                     || !this.startReading(handlingThreads, channel, null)) {
