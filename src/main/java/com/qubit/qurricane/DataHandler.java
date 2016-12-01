@@ -240,7 +240,7 @@ public final class DataHandler {
         } else if (Arrays.equals(proto, BHTTP_0_9)) {
           this.httpProtocol = HTTP_0_9;
         } else if (Arrays.equals(proto, BHTTP_1_x)) {
-           this.httpProtocol = HTTP_1_x;
+           this.httpProtocol = HTTP_1_0;
         } else {
           this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
           this.httpProtocol = HTTP_1_0;
