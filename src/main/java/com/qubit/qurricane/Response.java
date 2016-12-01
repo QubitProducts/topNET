@@ -63,7 +63,7 @@ public class Response {
   private long contentLength = -1;
   private String contentType = "text/html";
   private String charset;
-  private boolean forcingNotKeepingAlive = true;
+  private boolean forcingNotKeepingAlive = false;
   private boolean tellingConnectionClose = true;
   private volatile boolean moreDataComing = false;
 
@@ -164,9 +164,9 @@ public class Response {
     buffer.append(serverTime.get().getCachedTime());
     buffer.append(CRLF);
 
-    buffer.append("Server: Qurricane ");
-    buffer.append(SERVER_VERSION);
-    buffer.append(CRLF);
+//    buffer.append("Server: Qurricane ");
+//    buffer.append(SERVER_VERSION);
+//    buffer.append(CRLF);
 
     return buffer;
   }
