@@ -99,6 +99,7 @@ public final class Server {
   private int connectionTimePerformancePref = 0;
   private int latencyPerformancePref = 0;
   private int bandwithPerformancePref = 0;
+  private char[] protocol;
   
   public Server(String address, int port) {
     this.port = port;
@@ -119,8 +120,11 @@ public final class Server {
     serverChannel.configureBlocking(false);
 
     this.serverSocket = serverChannel.socket();
-
-    this.serverSocket.setPerformancePreferences(this.getConnectionTimePerformancePref(), this.getLatencyPerformancePref(), this.getBandwithPerformancePref());
+    
+    this.serverSocket.setPerformancePreferences(
+        this.getConnectionTimePerformancePref(),
+        this.getLatencyPerformancePref(),
+        this.getBandwithPerformancePref());
     
     if (this.getChannelReceiveBufferSize() > 0) {
       this.serverSocket.setReceiveBufferSize(this.channelReceiveBufferSize);
@@ -874,5 +878,16 @@ public final class Server {
    */
   public void setBandwithPerformancePref(int bandwithPerformancePref) {
     this.bandwithPerformancePref = bandwithPerformancePref;
+  }
+
+  public char[] getProtocol() {
+    return this.protocol;
+  }
+
+  /**
+   * @param protocol the protocol to set
+   */
+  public void setProtocol(char[] protocol) {
+    this.protocol = protocol;
   }
 }
