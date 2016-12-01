@@ -228,18 +228,23 @@ public final class DataHandler {
     
     if (sec_idx != -1) {
       this.fullPath = new String(line, methodStart, sec_idx - methodStart);
-      byte[] proto = Arrays.copyOfRange(line, sec_idx + 1, len);
-      if (Arrays.equals(proto, BHTTP_1_0)) {
-        //this.httpProtocol = HTTP_1_0;
-      } else if (Arrays.equals(proto, BHTTP_1_1)) {
-        this.httpProtocol = HTTP_1_1;
-      } else if (Arrays.equals(proto, BHTTP_0_9)) {
-        this.httpProtocol = HTTP_0_9;
-      } else if (Arrays.equals(proto, BHTTP_1_x)) {
-         this.httpProtocol = HTTP_1_0;
+      
+      if (server.getProtocol() != null) {
+        this.httpProtocol = server.getProtocol();
       } else {
-        this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
-        this.httpProtocol = HTTP_1_0;
+        byte[] proto = Arrays.copyOfRange(line, sec_idx + 1, len);
+        if (Arrays.equals(proto, BHTTP_1_0)) {
+          //this.httpProtocol = HTTP_1_0;
+        } else if (Arrays.equals(proto, BHTTP_1_1)) {
+          this.httpProtocol = HTTP_1_1;
+        } else if (Arrays.equals(proto, BHTTP_0_9)) {
+          this.httpProtocol = HTTP_0_9;
+        } else if (Arrays.equals(proto, BHTTP_1_x)) {
+           this.httpProtocol = HTTP_1_x;
+        } else {
+          this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
+          this.httpProtocol = HTTP_1_0;
+        }
       }
     } else {
       this.fullPath = new String(line, methodStart, len);
