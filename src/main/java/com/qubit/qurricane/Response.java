@@ -20,6 +20,7 @@
 
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.DataHandler.getDefaultProtocol;
 import static com.qubit.qurricane.Handler.HTTP_1_0;
 import static com.qubit.qurricane.Server.SERVER_VERSION;
 import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
@@ -39,6 +40,8 @@ import java.util.logging.Logger;
  */
 public class Response {
 
+  public static String serverName;
+  
   static private final String CRLF = "\r\n";
   static private final String OK_200 = "200 OK" + CRLF;
   static private final String OK_204 = "204 No Content" + CRLF;
@@ -48,6 +51,7 @@ public class Response {
   static final Logger log = Logger.getLogger(Response.class.getName());
 
   static {
+    serverName = "topNET " + SERVER_VERSION;
     serverTime = new ThreadLocal<ServerTime>() {
       @Override
       protected ServerTime initialValue() {
@@ -56,6 +60,28 @@ public class Response {
     };
   }
 
+  private static void appendServerHeaer(StringBuilder buffer) {
+    if (Response.serverName != null) {
+      buffer.append("Server: ");
+      buffer.append(Response.serverName);
+      buffer.append(CRLF);
+    }
+  }
+  
+  /**
+   * @return the serverName
+   */
+  public static String getServerName() {
+    return serverName;
+  }
+
+  /**
+   * @param aServerName the serverName to set
+   */
+  public static void setServerName(String aServerName) {
+    serverName = aServerName;
+  }
+  
   private int httpCode = 200;
   List<String[]> headers = new ArrayList<>();
   private ResponseStream responseStream;
@@ -63,7 +89,7 @@ public class Response {
   private long contentLength = -1;
   private String contentType = "text/html";
   private String charset;
-  private boolean forcingNotKeepingAlive = false;
+  private boolean forcingClosingAfterRequest = false;
   private boolean tellingConnectionClose = true;
   private volatile boolean moreDataComing = false;
 
@@ -77,7 +103,7 @@ public class Response {
   }
   
   public Response () {
-    this.httpProtocol = HTTP_1_0;
+    this.httpProtocol = getDefaultProtocol();
   }
   
   /**
@@ -164,9 +190,7 @@ public class Response {
     buffer.append(serverTime.get().getCachedTime());
     buffer.append(CRLF);
 
-//    buffer.append("Server: Qurricane ");
-//    buffer.append(SERVER_VERSION);
-//    buffer.append(CRLF);
+    Response.appendServerHeaer(buffer);
 
     return buffer;
   }
@@ -278,7 +302,7 @@ public class Response {
 
         try {
 
-          if (this.isTellingConnectionClose()) {
+          if (this.isTellingConnectionClose() || Server.isTellingConnectionClose()) {
             this.addHeader("Connection", "close");
           }
 
@@ -370,17 +394,17 @@ public class Response {
   }
 
   /**
-   * @return the forcingNotKeepingAlive
+   * @return the forcingClosingAfterRequest
    */
-  public boolean isForcingNotKeepingAlive() {
-    return forcingNotKeepingAlive;
+  public boolean isForcingClosingAfterRequest() {
+    return forcingClosingAfterRequest;
   }
 
   /**
-   * @param forcingCloseConnection the forcingNotKeepingAlive to set
+   * @param forcingCloseConnection the forcingClosingAfterRequest to set
    */
-  public void setForcingNotKeepingAlive(boolean forcingCloseConnection) {
-    this.forcingNotKeepingAlive = forcingCloseConnection;
+  public void setForcingClosingAfterRequest(boolean forcingCloseConnection) {
+    this.forcingClosingAfterRequest = forcingCloseConnection;
   }
 
   /**
@@ -509,19 +533,19 @@ public class Response {
   }
 
   protected void reset() {
-    httpCode = 200;
     if (headers != null) {
       headers.clear();
     }
+    
+    httpCode = 200;
     responseStream = null;
     tooLateToChangeHeaders = false;
     contentLength = -1;
     contentType = "text/html";
     charset = null;
-    forcingNotKeepingAlive = true;
+    forcingClosingAfterRequest = false;
     tellingConnectionClose = true;
     moreDataComing = false;
-
     stringBuffer = null;
     inputStreamForBody = null;
     attachment = null;
