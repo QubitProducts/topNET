@@ -121,16 +121,17 @@ public abstract class HandlingThread extends Thread {
             // writingResponse will be unchecked by writeResponse(...)
             bodyReadyHandler(dataHandler);
             return this.writeResponse(dataHandler);
-          } else if (many == -1) {
-//            log.fine("Premature EOS from channel.");
+          } else {
+            //if (many == -1)
+            return -1;
           }
         }
 
         return many;
       }
-    } else {
-      return 0; //no IO occured
     }
+    
+    return -1;
   }
 
   /**
