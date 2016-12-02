@@ -43,6 +43,8 @@ import java.util.logging.Logger;
 public final class Server {
   
   final static Logger log = Logger.getLogger(Server.class.getName());
+
+  private static boolean tellingConnectionClose = false;
   
   private HandlingThread[] handlingThreads;
   
@@ -75,7 +77,7 @@ public final class Server {
   private int jobsPerThread = THREAD_JOBS_SIZE;
   private int threadsAmount = THREADS_POOL_SIZE;
   private int maxGrowningBufferChunkSize = 512 * 1024;
-  private int maxMessageSize = 4 * 1024 * 1024;
+  private int maxMessageSize = 16 * 1024 * 1024;
   private long defaultIdleTime = MAX_IDLE_TOUT;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   private PoolType poolType = POOL;
@@ -117,8 +119,8 @@ public final class Server {
     this.started = true;
     
     this.serverChannel = ServerSocketChannel.open();
-    serverChannel.configureBlocking(false);
-
+    this.serverChannel.configureBlocking(false);
+    
     this.serverSocket = serverChannel.socket();
     
     this.serverSocket.setPerformancePreferences(
@@ -889,5 +891,16 @@ public final class Server {
    */
   public void setProtocol(char[] protocol) {
     this.protocol = protocol;
+  }
+  
+  public static boolean isTellingConnectionClose() {
+    return tellingConnectionClose;
+  }
+
+  /**
+   * @param aTellingConnectionClose the tellingConnectionClose to set
+   */
+  public static void setTellingConnectionClose(boolean aTellingConnectionClose) {
+    tellingConnectionClose = aTellingConnectionClose;
   }
 }
