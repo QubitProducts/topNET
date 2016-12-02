@@ -21,7 +21,6 @@
 package com.qubit.qurricane;
 
 import static com.qubit.qurricane.DataHandler.getDefaultProtocol;
-import static com.qubit.qurricane.Handler.HTTP_1_0;
 import static com.qubit.qurricane.Server.SERVER_VERSION;
 import com.qubit.qurricane.exceptions.ResponseBuildingStartedException;
 import com.qubit.qurricane.exceptions.TooLateToChangeHeadersException;
@@ -51,7 +50,7 @@ public class Response {
   static final Logger log = Logger.getLogger(Response.class.getName());
 
   static {
-    serverName = "topNET " + SERVER_VERSION;
+    serverName = "topNET";// + "/" + SERVER_VERSION;
     serverTime = new ThreadLocal<ServerTime>() {
       @Override
       protected ServerTime initialValue() {
@@ -90,7 +89,7 @@ public class Response {
   private String contentType = "text/html";
   private String charset;
   private boolean forcingClosingAfterRequest = false;
-  private boolean tellingConnectionClose = true;
+  private boolean tellingConnectionClose = false;
   private volatile boolean moreDataComing = false;
 
   private StringBuilder stringBuffer = null;
@@ -545,7 +544,7 @@ public class Response {
     contentType = "text/html";
     charset = null;
     forcingClosingAfterRequest = false;
-    tellingConnectionClose = true;
+    tellingConnectionClose = false;
     moreDataComing = false;
     stringBuffer = null;
     inputStreamForBody = null;
