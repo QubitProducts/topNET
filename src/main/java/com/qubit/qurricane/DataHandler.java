@@ -87,13 +87,17 @@ public final class DataHandler {
   private Throwable errorException;
   private Handler handlerUsed;
 
-  public static final byte[] BHTTP_0_9 = new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
-  public static final byte[] BHTTP_1_0 = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
-  public static final byte[] BHTTP_1_1 = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
-  public static final byte[] BHTTP_1_x = new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
+  public static final byte[] BHTTP_0_9 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
+  public static final byte[] BHTTP_1_0 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
+  public static final byte[] BHTTP_1_1 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
+  public static final byte[] BHTTP_1_x = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
   
   private String parameters;
-  private char[] httpProtocol = HTTP_1_1;
+  private char[] responseHttpProtocol = getDefaultProtocol();
   
   private boolean headersOnly = false;
   private volatile Server server;
@@ -107,6 +111,7 @@ public final class DataHandler {
   int currentBufferWrittenIndex = 0;
   int currentReadingPositionInWrittenBufByWrite = 0;
   private int currentHeaderLineLength = 0;
+  private byte[] requestHttpProtocol = BHTTP_1_0;
   
   protected void reset() {
     resetForNewRequest();
@@ -141,9 +146,14 @@ public final class DataHandler {
     currentBufferWrittenIndex = 0;
     currentReadingPositionInWrittenBufByWrite = 0;
     reqInitialized = false;
-    httpProtocol = HTTP_1_0;
+    responseHttpProtocol = getDefaultProtocol();
+    requestHttpProtocol = BHTTP_1_0;
     wasMarkedAsMoreDataIsComing = false;
     acceptedTime = 0;
+  }
+  
+  public static char[] getDefaultProtocol() {
+    return HTTP_1_0;
   }
   
   public DataHandler(Server server, SocketChannel channel) {
@@ -161,12 +171,12 @@ public final class DataHandler {
       this.request = new Request();
       this.response = new Response();
       this.request.init(this.channel, this.headers);
-      this.response.init(this.httpProtocol);
+      this.response.init(this.responseHttpProtocol);
       this.reqInitialized = true;
     } else if (!this.reqInitialized) {
       this.reqInitialized = true;
       this.request.init(this.channel, this.headers);
-      this.response.init(this.httpProtocol);
+      this.response.init(this.responseHttpProtocol);
       this.request.getBytesStream().reset();
     }
     
@@ -176,11 +186,15 @@ public final class DataHandler {
     while (read != -2 && 
         (read = this.channel.read(
             request.getBytesStream().getNotEmptyCurrentBuffer())) > 0) {
-      this.size += read;
+      
       
       if (read > 0) {
         currentSum += read;
+        this.size += read;
         this.touch();
+      } else if (read == -1) {
+        // connection closed!
+        return -1;
       }
       
       if (this.flushReads(this.request.getBytesStream())) {
@@ -215,39 +229,37 @@ public final class DataHandler {
     return "UTF-8";
   }
   
-  private void setMethodAndPathFromLine(byte[] line, int len) {
+  private boolean setMethodAndPathFromLine(byte[] line, int len) {
     int idx = this.indexOf(line, len, ' ', 0);
     
     if (idx < 1) {
-      return;
+      return true; // no headers
     }
     
     this.method = new String(line, 0, idx);
     int methodStart = idx + 1;
-    int sec_idx = this.indexOf(line, len, ' ', methodStart);
+    int proto_idx = this.indexOf(line, len, ' ', methodStart);
     
-    if (sec_idx != -1) {
-      this.fullPath = new String(line, methodStart, sec_idx - methodStart);
+    if (proto_idx != -1) {
+      this.fullPath = new String(line, methodStart, proto_idx - methodStart);
       
-      if (server.getProtocol() != null) {
-        this.httpProtocol = server.getProtocol();
-      } else {
-        byte[] proto = Arrays.copyOfRange(line, sec_idx + 1, len);
-        if (Arrays.equals(proto, BHTTP_1_0)) {
-          //this.httpProtocol = HTTP_1_0;
-        } else if (Arrays.equals(proto, BHTTP_1_1)) {
-          this.httpProtocol = HTTP_1_1;
-        } else if (Arrays.equals(proto, BHTTP_0_9)) {
-          this.httpProtocol = HTTP_0_9;
-        } else if (Arrays.equals(proto, BHTTP_1_x)) {
-           this.httpProtocol = HTTP_1_1;
-        } else {
-          this.errorOccured = ErrorTypes.BAD_CONTENT_HEADER;
-          this.httpProtocol = HTTP_1_1;
-        }
+      this.requestHttpProtocol = Arrays.copyOfRange(line, proto_idx + 1, len);
+      if (Arrays.equals(this.getRequestHttpProtocol(), BHTTP_1_1)) {
+        this.responseHttpProtocol = HTTP_1_1;
       }
+      // use defaults instead
+//      else if (Arrays.equals(proto, BHTTP_1_1)) {
+//        this.responseHttpProtocol = HTTP_1_1;
+//      } else if (Arrays.equals(proto, BHTTP_0_9)) {
+//        return true; // no headers
+//      } else if (Arrays.equals(proto, BHTTP_1_x)) {
+//         this.responseHttpProtocol = HTTP_1_1;
+//      }
+      
+      return false;
     } else {
       this.fullPath = new String(line, methodStart, len);
+      return true; // no headers
     }
   }
 
@@ -313,14 +325,19 @@ public final class DataHandler {
           }
 
           if (this.headersReady) {
-            if (this.contentLength > stream.getBufferElementSize() * 2) {
+            if (this.contentLength > 0 && 
+                this.contentLength > stream.getBufferElementSize() * 2) {
               stream.setBufferElementSize(
                   this.calculateBufferSizeByContentSize(this.contentLength));
             }
             
             {
               // headers just finished
-              response.setHttpProtocol(httpProtocol);
+              if (this.server.getProtocol() != null) {
+                response.setHttpProtocol(server.getProtocol());
+              } else {
+                response.setHttpProtocol(this.responseHttpProtocol);
+              }
               
               if (this.errorOccured != null) {
                 return true;
@@ -390,8 +407,8 @@ public final class DataHandler {
 
       bodyRequired = this.checkIfBodyRequired(line, lineLen);
       // two birds as one
-
-      this.setMethodAndPathFromLine(line, lineLen);
+      // true if no headers should be read!
+      boolean noHeaders = this.setMethodAndPathFromLine(line, lineLen);
       
       if (this.method.equals("HEAD")) {
         this.headersOnly = true;
@@ -402,6 +419,11 @@ public final class DataHandler {
       if (this.method == null) {
         this.errorOccured = ErrorTypes.HTTP_UNSET_METHOD;
         return true;
+      }
+      
+      if (noHeaders) {
+        this.headersReady = true;
+        headersReadyHandler(this);
       }
     } else {
 
@@ -702,16 +724,23 @@ public final class DataHandler {
   }
 
   private boolean canClose(boolean finishedWriting) {
-    if (this.response != null && 
-            this.response.isForcingNotKeepingAlive()) {
+    if (this.response == null) {
       return true;
     }
-
-    if (finishedWriting && this.response != null) {
+    
+    if (this.response.isForcingClosingAfterRequest()) {
+      return true;
+    }
+    
+    if (finishedWriting) {
       long cl = this.response.getContentLength();
       if (cl == -1) {
-        return true; // close unknown contents once finished reading
+        return true;
       }
+    }
+    
+    if (Arrays.equals(this.responseHttpProtocol, HTTP_1_1)) {
+      return false;
     }
     
     String connection = this.getHeader("Connection");
@@ -720,16 +749,10 @@ public final class DataHandler {
       switch (connection) {
         case "keep-alive":
           return false;
-        case "close":
-          return true;
       }
     }
     
-    if (!this.httpProtocol.equals(HTTP_1_1)) {
-      return true;
-    }
-    
-    return false;
+    return true;
   }
 
   public int getMaxMessageSize(int defaultMaxMessageSize) {
@@ -1008,5 +1031,12 @@ public final class DataHandler {
       }
     }
     return -1;
+  }
+
+  /**
+   * @return the requestHttpProtocol
+   */
+  public byte[] getRequestHttpProtocol() {
+    return this.requestHttpProtocol;
   }
 }
