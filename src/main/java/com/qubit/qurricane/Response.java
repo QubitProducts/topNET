@@ -302,7 +302,8 @@ public class Response {
 
         try {
 
-          if (this.isTellingConnectionClose() || Server.isTellingConnectionClose()) {
+          if (this.isTellingConnectionClose() || 
+              Server.isTellingConnectionClose()) {
             this.addHeader("Connection", "close");
           }
 
