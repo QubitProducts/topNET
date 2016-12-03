@@ -36,6 +36,7 @@ public abstract class LimitsHandler {
   public abstract boolean handleTimeout(
                               SelectionKey key, long idle,
                               DataHandler object);
+  
   public abstract boolean handleSizeLimit(
                               SelectionKey key, long idle,
                               DataHandler object);

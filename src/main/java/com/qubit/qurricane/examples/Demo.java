@@ -38,7 +38,7 @@ public class Demo {
    */
   public static void main(String[] args) throws Exception {
     
-    int jobs = 32;
+    int jobs = 16;
     
     int bufChunkMax = 1 * 1024 * 1024;
     BytesStream.setDefaultBufferChunkSize(bufChunkMax);
@@ -46,11 +46,11 @@ public class Demo {
     int channelBufSize = -1;//64 * 1024;
     int channelWriteBufSize = -1;//4 * 1024 * 1024;
     int th = 3;
-    boolean waitForEvents = false;
+    boolean waitForEvents = true;
     
-    int noIOdelay = 100 * 1000; //nanoseconds, or N*1000000 ms == (n * ms)
-    BytesStream.doNotShrinkBuffersAfterJob = true;
-    boolean scalingDown = false;
+    int noIOdelay = 400 * 1000; //nanoseconds, or N*1000000 ms == (n * ms)
+    BytesStream.doNotShrinkBuffersAfterJob = false;
+    boolean scalingDown = true;
     long acceptDelay = 0;
     int breakStop = 0; // if no io delay occures, this has chance
     
@@ -134,10 +134,10 @@ public class Demo {
     
     s = new Server("localhost", 3459);
     
-    s.setJobsPerThread(jobs);
+    s.setJobsPerThread(-1);
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
-    s.setThreadsAmount(th);
+    s.setThreadsAmount(2 * th);
     s.setPoolType(PoolType.QUEUE_SHARED);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
     s.setSinglePoolPassThreadDelay(breakStop);

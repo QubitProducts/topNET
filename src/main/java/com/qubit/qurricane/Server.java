@@ -83,7 +83,7 @@ public final class Server {
   private PoolType poolType = POOL;
   private int singlePoolPassThreadDelay = 0;
   private boolean waitingForReadEvents = true;
-  private long scalingDownTryPeriodMS = 20 * 1000;
+  private long scalingDownTryPeriodMS = 10 * 1000;
   private boolean stoppingNow = false;
   private boolean started = false;
   private boolean cachingBuffers = true;
@@ -586,26 +586,35 @@ public final class Server {
     if (threadsRequired < threadsThatShouldBe) {
       threadsRequired = threadsThatShouldBe;
     }
-    
+
+    // less aggressive scaling down
     int threadsToRemove = threads.length - threadsRequired;
     
+    if (threadsToRemove > 1) {
+        threadsToRemove = Math.min(threadsToRemove, 1 + (threads.length / 6));
+    }
+    
     if (threadsToRemove > 0) {
-      for (int i = 0; i < threadsToRemove; i++) {
-        HandlingThread thread = threads[threads.length - (i + 1)];
-        threads[threads.length - (i + 1)] = null;
-        if (this.isCachingThreads()) {
-          putThreadToCache(thread);
-//          thread.wakeup();
-        } else {
-          thread.setRunning(false);
-        }
-      }
-
-      HandlingThread[] newThreads = new HandlingThread[threadsRequired];
-
+      
+      int newAmount = threads.length - threadsToRemove;
+      HandlingThread[] newThreads = new HandlingThread[newAmount];
+      
+      int threadCount = 0;
+      
       for (int i = 0; i < threads.length; i++) {
-        if (threads[i] != null) {
-          newThreads[i] = threads[i];
+        HandlingThread thread = threads[i];
+        if (thread != null) {
+            if (threadCount >= newAmount) {
+                if (this.isCachingThreads()) {
+                    putThreadToCache(threads[i]);
+                    thread.wakeup();
+                } else {
+                    threads[i].setRunning(false);
+                }
+            } else {
+                newThreads[threadCount] = threads[i];
+            }
+            threadCount++;
         }
       }
 

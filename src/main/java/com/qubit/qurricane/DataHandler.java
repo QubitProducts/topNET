@@ -97,6 +97,7 @@ public final class DataHandler {
       new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
   
   private String parameters;
+
   private char[] responseHttpProtocol = getDefaultProtocol();
   
   private boolean headersOnly = false;
@@ -604,9 +605,6 @@ public final class DataHandler {
       this.request.setPathParameters(this.parameters);
       this.request.setMethod(this.method);
       
-      // this prepares space for BODY to be written to, once headers are sorted,
-      // possibly body will be written
-//      request.makeSureOutputStreamIsReady();
       Handler tmp = handler;
       
       while(tmp != null) {

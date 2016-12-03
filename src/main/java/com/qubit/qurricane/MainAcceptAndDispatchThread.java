@@ -107,7 +107,6 @@ class MainAcceptAndDispatchThread extends Thread {
           if (key.isValid()) {
             if (key.isAcceptable()) {
               SocketChannel channel;
-
               if ((channel = this.server.accept()) != null) {
                 acceptedCnt++;
                 if (this.isWaitingForReadEvents()
@@ -118,8 +117,7 @@ class MainAcceptAndDispatchThread extends Thread {
                       System.currentTimeMillis());
                 }
               }
-            } else {//if (key.isReadable()) {
-              // jobs that werent added immediatelly on accept
+            } else {//if (key.isReadable()) { // only READ is registered
               Long acceptTime = (Long) key.attachment();
               if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept, key)) {
                 key.cancel(); // already too long 
@@ -165,7 +163,7 @@ class MainAcceptAndDispatchThread extends Thread {
       
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
         log.log(Level.INFO,
-            "Accepted connections: {0}, total accept waited: {1}ms ,total nanoseconds waited IO: {2}",
+            "Accepted connections: {0}, total accept waited: {1}ms , waited IO count: {2}",
             new Object[]{
               acceptedCnt,
               totalWaitingAcceptMsCounter,
@@ -181,10 +179,9 @@ class MainAcceptAndDispatchThread extends Thread {
     }
   }
 
-  private boolean tryAddingJob(
-      SelectionKey key,
-      Long acceptTime,
-      HandlingThread[] handlingThreads) {
+  private boolean tryAddingJob(SelectionKey key,
+                                 Long acceptTime,
+                                 HandlingThread[] handlingThreads) {
     if (this.startReading(
             handlingThreads,
             (SocketChannel) key.channel(),
