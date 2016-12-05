@@ -36,4 +36,6 @@ public interface GeneralGlobalHandlingHooks {
   public void handleAfterHandlingProcessed(DataHandler dh);
   
   public void onFinishedAndClosedHandler(DataHandler dh);
+  
+  public void requestFinishedHandler(DataHandler dh);
 }

@@ -839,6 +839,28 @@ public final class DataHandler {
     }
   }
 
+  protected final void requestFinishedHandler() {
+    try {
+      if (this.handlerUsed != null) {
+        this.handlerUsed.requestFinishedHandler(this);
+      }
+    } catch (Throwable t) {
+      log.log(Level.SEVERE, "Exception in on close handler.", t);
+    } finally {
+      requestFinishedHandler(this);
+    }
+    
+    if (this.getRequest() != null) {
+      if (this.getRequest().getWriteFinishedHandler() != null) {
+        try {
+          this.getRequest().getWriteFinishedHandler().run();
+        } catch (Exception e) {
+          log.log(Level.SEVERE, "Error running write finishing handler.", e);
+        }
+      }
+    }
+  }
+  
   protected final void connectionClosedHandler() {
     try {
       if (this.handlerUsed != null) {
@@ -847,11 +869,7 @@ public final class DataHandler {
     } catch (Throwable t) {
       log.log(Level.SEVERE, "Exception in on close handler.", t);
     } finally {
-      try {
-        finishedAndClosedHandler(this);
-      } catch (Throwable t) {
-        log.log(Level.SEVERE, null, t);
-      }
+      finishedAndClosedHandler(this);
     }
   }
   
@@ -917,6 +935,16 @@ public final class DataHandler {
     if (postPreProcessingHandler != null) {
       try {
         postPreProcessingHandler.onFinishedAndClosedHandler(dh);
+      } catch (Throwable t) {
+        log.log(Level.SEVERE, null, t);
+      }
+    }
+  }
+  
+  protected final static void requestFinishedHandler(DataHandler dh) {
+    if (postPreProcessingHandler != null) {
+      try {
+        postPreProcessingHandler.requestFinishedHandler(dh);
       } catch (Throwable t) {
         log.log(Level.SEVERE, null, t);
       }

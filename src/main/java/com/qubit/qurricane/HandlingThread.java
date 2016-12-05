@@ -102,7 +102,7 @@ public abstract class HandlingThread extends Thread {
     int written = dataHandler.write();
     if (written < 0) {
       if (written == -1) {
-        this.runOnFinishedHandler(dataHandler);
+        dataHandler.requestFinishedHandler();
         if (dataHandler.finishedOrWaitForMoreRequests(true)) {
           // finished
           return -1;
@@ -209,18 +209,6 @@ public abstract class HandlingThread extends Thread {
         }
       }
     } catch (InterruptedException e) {}
-  }
-
-  private void runOnFinishedHandler(DataHandler dataHandler) {
-    if (dataHandler.getRequest() != null) {
-      if (dataHandler.getRequest().getWriteFinishedHandler() != null) {
-        try {
-          dataHandler.getRequest().getWriteFinishedHandler().run();
-        } catch (Exception e) {
-          log.log(Level.SEVERE, "Error running finishing handler.", e);
-        }
-      }
-    }
   }
   
   protected boolean handleMaxIdle(DataHandler dataHandler, long maxIdle) {

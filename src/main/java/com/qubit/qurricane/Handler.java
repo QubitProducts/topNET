@@ -171,4 +171,8 @@ public abstract class Handler {
   public void onBytesRead() {
     
   }
+
+  protected void requestFinishedHandler(DataHandler aThis) {
+  
+  }
 }
