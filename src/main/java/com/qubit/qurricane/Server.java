@@ -48,7 +48,7 @@ public final class Server {
   
   private HandlingThread[] handlingThreads;
   
-  public final static String SERVER_VERSION = "1.5.0";
+  public final static String SERVER_VERSION = "1.5.2";
   
   private static final int THREAD_JOBS_SIZE;
   private static final int THREADS_POOL_SIZE;
@@ -69,7 +69,7 @@ public final class Server {
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   
   private final int port;
-  private int delayForNoIOReadsInSuite = 1;
+  private int delayForNoIOReadsInSuite = 100 * 1000;
   private long acceptDelay = 0;
   private final InetSocketAddress listenAddress;
   private final String address;
