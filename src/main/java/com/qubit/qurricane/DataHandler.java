@@ -847,7 +847,7 @@ public final class DataHandler {
     } catch (Throwable t) {
       log.log(Level.SEVERE, "Exception in on close handler.", t);
     } finally {
-      requestFinishedHandler(this);
+      finishedRequestHandler(this);
     }
     
     if (this.getRequest() != null) {
@@ -941,7 +941,7 @@ public final class DataHandler {
     }
   }
   
-  protected final static void requestFinishedHandler(DataHandler dh) {
+  protected final static void finishedRequestHandler(DataHandler dh) {
     if (postPreProcessingHandler != null) {
       try {
         postPreProcessingHandler.requestFinishedHandler(dh);
