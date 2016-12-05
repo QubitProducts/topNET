@@ -854,7 +854,7 @@ public final class DataHandler {
       if (this.getRequest().getWriteFinishedHandler() != null) {
         try {
           this.getRequest().getWriteFinishedHandler().run();
-        } catch (Exception e) {
+        } catch (Throwable e) {
           log.log(Level.SEVERE, "Error running write finishing handler.", e);
         }
       }
