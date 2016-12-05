@@ -70,7 +70,7 @@ public abstract class HandlingThread extends Thread {
   }
   
   private void trySomeWork() {
-    long count = 1;
+    long count = SPIN_BEFORE_COUNT;
     while (this.hasJobs()) {
       if (this.runSinglePass()) {
         if (count-- < 1) {
