@@ -19,6 +19,7 @@
  */
 package com.qubit.qurricane;
 
+import static com.qubit.qurricane.HandlingThread.handlingClosedIdleCounter;
 import static com.qubit.qurricane.HandlingThread.totalWaitedIO;
 import static com.qubit.qurricane.Server.log;
 import java.io.IOException;
@@ -76,9 +77,10 @@ class MainAcceptAndDispatchThread extends Thread {
   private int acceptedCnt = 0;
   private int currentThread = 0;
 
+  long lastMeassured = System.currentTimeMillis();
+  
   @Override
   public void run() {
-    long lastMeassured = System.currentTimeMillis();
     this.lastdownScaleTried = lastMeassured;
     long totalWaitingAcceptMsCounter = 0;
     this.setRunning(true);
@@ -168,6 +170,9 @@ class MainAcceptAndDispatchThread extends Thread {
               acceptedCnt,
               totalWaitingAcceptMsCounter,
               totalWaitedIO});
+        log.log(Level.INFO,
+            "Max accept idle gained total ML:{0} HL:{1}",
+            new Object[]{closedIdleCounter, handlingClosedIdleCounter});
         lastMeassured = System.currentTimeMillis();
       }
     }
@@ -235,9 +240,7 @@ class MainAcceptAndDispatchThread extends Thread {
       if (this.server.getLimitsHandler() != null) {
         return this.server.getLimitsHandler().handleTimeout(key, idle, null);
       } else {
-        log.log(Level.INFO,
-            "ML Max accept idle gained - closing, total: {0}",
-            ++closedIdleCounter);
+        closedIdleCounter++;
         return true;
       }
     }

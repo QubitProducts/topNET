@@ -44,7 +44,7 @@ public abstract class HandlingThread extends Thread {
   private int singlePassDelay = 0;
   private final Object sleepingLocker = new Object();
   
-  private static volatile long closedIdleCounter = 0; // less more counter...
+  static volatile long handlingClosedIdleCounter = 0; // less more counter...
   
   private static int SPIN_BEFORE_COUNT = 500;
   
@@ -232,8 +232,7 @@ public abstract class HandlingThread extends Thread {
       if (this.getServer().getLimitsHandler() != null) {
         return this.getServer().getLimitsHandler().handleTimeout(null, idle, dataHandler);
       } else {
-        log.log(Level.INFO,
-            "HT Max idle gained - closing, total: {0}", ++closedIdleCounter);
+        handlingClosedIdleCounter++;
         return true;
       }
     }
