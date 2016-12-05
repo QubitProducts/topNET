@@ -46,6 +46,12 @@ public abstract class HandlingThread extends Thread {
   
   private static volatile long closedIdleCounter = 0; // less more counter...
   
+  private static int SPIN_BEFORE_COUNT = 500;
+  
+  static void setSpinCountBeforeSleep(int value) {
+    SPIN_BEFORE_COUNT = value;
+  }
+  
   abstract public boolean addJob(SocketChannel channel, Long acceptTime);
   abstract boolean canAddJob();
   
@@ -64,12 +70,18 @@ public abstract class HandlingThread extends Thread {
   }
   
   private void trySomeWork() {
+    long count = 1;
     while (this.hasJobs()) {
-      if (!this.waitForSomethingToIO(this.runSinglePass())) {
-        // if it is not waiting for IO, try standard break
-        if (this.singlePassDelay > 0) {
-          this.takeSomeBreak(this.singlePassDelay);
+      if (this.runSinglePass()) {
+        if (count-- < 1) {
+          this.waitForSomethingToIO();
         }
+      } else {
+        count = SPIN_BEFORE_COUNT;
+      }
+      // if it is not waiting for IO, try standard break
+      if (this.singlePassDelay > 0) {
+        this.takeSomeBreak(this.singlePassDelay);
       }
     }
       this.sleepNow();
@@ -159,8 +171,8 @@ public abstract class HandlingThread extends Thread {
 
   public static volatile long totalWaitedIO = 0;
 
-  protected boolean waitForSomethingToIO(boolean wait) {
-    if (this.delayForNoIOReadsInSuite > 0 && wait) {// code is 0 if no IO occured
+  protected boolean waitForSomethingToIO() {
+    if (this.delayForNoIOReadsInSuite > 0) {// code is 0 if no IO occured
       totalWaitedIO++;
       takeSomeBreak(this.delayForNoIOReadsInSuite);
       return true;
@@ -245,7 +257,7 @@ public abstract class HandlingThread extends Thread {
   }
   
   /**
-   * Returns how many jobs had some IO operations. IO operations.
+   * Tells if there was should wait for IO.
    *
    * @return
    */
