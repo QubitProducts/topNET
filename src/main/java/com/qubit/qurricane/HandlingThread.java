@@ -46,9 +46,9 @@ public abstract class HandlingThread extends Thread {
   
   private static volatile long closedIdleCounter = 0; // less more counter...
   
-  private static int SPIN_BEFORE_COUNT = 500;
+  private static int SPIN_BEFORE_COUNT = 200;
   
-  static void setSpinCountBeforeSleep(int value) {
+  public static void setSpinCountBeforeSleep(int value) {
     SPIN_BEFORE_COUNT = value;
   }
   
