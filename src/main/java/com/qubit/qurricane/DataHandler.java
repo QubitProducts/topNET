@@ -19,10 +19,8 @@
  */
 package com.qubit.qurricane;
 
-import static com.qubit.qurricane.Handler.HTTP_0_9;
 import static com.qubit.qurricane.Handler.HTTP_1_0;
 import static com.qubit.qurricane.Handler.HTTP_1_1;
-import static com.qubit.qurricane.Handler.HTTP_1_x;
 import com.qubit.qurricane.errors.ErrorHandlingConfig;
 import com.qubit.qurricane.errors.ErrorTypes;
 import static com.qubit.qurricane.errors.ErrorTypes.BAD_CONTENT_HEADER;
@@ -106,6 +104,7 @@ public final class DataHandler {
   private boolean wasMarkedAsMoreDataIsComing;
   private volatile SocketChannel channel;
   private long acceptedTime;
+  private long requestStartedTime;
   private boolean bufferSizeCalculatedForWriting = false;
   protected volatile HandlingThread owningThread = null;
   private boolean reqInitialized = false;
@@ -192,7 +191,6 @@ public final class DataHandler {
       if (read > 0) {
         currentSum += read;
         this.size += read;
-        this.touch();
       } else if (read == -1) {
         // connection closed!
         return -1;
@@ -204,6 +202,13 @@ public final class DataHandler {
       }
     }
 
+    if (currentSum > 0) {
+      this.touch();
+      if (this.getRequestStartedTime() == 0) {
+        this.setRequestStartedTime(this.touch);
+      }
+    }
+    
     if (read < 0) {
       return read;
     } else {
@@ -1064,5 +1069,19 @@ public final class DataHandler {
    */
   public byte[] getRequestHttpProtocol() {
     return this.requestHttpProtocol;
+  }
+
+  /**
+   * @return the requestStartedTime
+   */
+  public long getRequestStartedTime() {
+    return requestStartedTime;
+  }
+
+  /**
+   * @param requestStartedTime the requestStartedTime to set
+   */
+  public void setRequestStartedTime(long requestStartedTime) {
+    this.requestStartedTime = requestStartedTime;
   }
 }
