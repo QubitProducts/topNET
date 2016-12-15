@@ -19,23 +19,16 @@
  */
 package com.qubit.topnet;
 
+import com.qubit.topnet.waitonly.WaitTypeServer;
+
 /**
  *
- * @author Peter Fronc <peter.fronc@qubitdigital.com>
+ * @author piotr
  */
-public interface GeneralGlobalHandlingHooks {
-
-  public void handleStarted(DataHandler dh);
-
-  public void handleHeadersReady(DataHandler dh);
-
-  public void handleBodyReady(DataHandler dh);
-
-  public void handleBeforeHandlingProcessing(DataHandler dh);
+public class AcceptOnlyEventsTypeServer extends WaitTypeServer {
   
-  public void handleAfterHandlingProcessed(DataHandler dh);
+  public AcceptOnlyEventsTypeServer(String address, int port) {
+    super(address, port);
+  }
   
-  public void onFinishedAndClosedHandler(DataHandler dh);
-  
-  public void requestFinishedHandler(DataHandler dh);
 }

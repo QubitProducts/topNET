@@ -19,23 +19,16 @@
  */
 package com.qubit.topnet;
 
+import com.qubit.topnet.eventonly.EventTypeServer;
+
 /**
  *
- * @author Peter Fronc <peter.fronc@qubitdigital.com>
+ * @author piotr
  */
-public interface GeneralGlobalHandlingHooks {
-
-  public void handleStarted(DataHandler dh);
-
-  public void handleHeadersReady(DataHandler dh);
-
-  public void handleBodyReady(DataHandler dh);
-
-  public void handleBeforeHandlingProcessing(DataHandler dh);
+public class PureEventsTypeServer extends EventTypeServer {
   
-  public void handleAfterHandlingProcessed(DataHandler dh);
+  public PureEventsTypeServer(String address, int port) {
+    super(address, port);
+  }
   
-  public void onFinishedAndClosedHandler(DataHandler dh);
-  
-  public void requestFinishedHandler(DataHandler dh);
 }

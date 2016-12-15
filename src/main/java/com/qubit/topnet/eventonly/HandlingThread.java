@@ -1,5 +1,5 @@
 /*
- * Qurrican
+ * topNET
  * Fast HTTP DefaultServer Solution.
  * Copyright 2016, Qubit Group <www.qubit.com>
  * 

@@ -1,8 +1,8 @@
-# qurricane
+# topNET
 
 ## Introduction
 
-Qurricane is one of Qubit's open source projects. The idea was to create a very lightweight but highly customizable asynchronous HTTP server. Qurricane has been designed with ease of usability in mind, see example section to check on how it's achieved.
+topNET is one of Qubit's open source projects. The idea was to create a very lightweight but highly customizable asynchronous HTTP server. topNET has been designed with ease of usability in mind, see example section to check on how it's achieved.
 
 ## Design Key Points
 * Performance
@@ -11,7 +11,7 @@ Qurricane is one of Qubit's open source projects. The idea was to create a very 
 * Configurability
 
 ### Performance
-Qurricane uses Java asynchronous NIO API for handling connections traffic, it consists on thread pools that handle R/W operations. There is a separate thread that is dedicated for accepting only connections stage and it is working in non-blocking mode. Qurricane is designed to be able to put hardware to it's limits, but can be configured to slown down by using server options.
+topNET uses Java asynchronous NIO API for handling connections traffic, it consists on thread pools that handle R/W operations. There is a separate thread that is dedicated for accepting only connections stage and it is working in non-blocking mode. topNET is designed to be able to put hardware to it's limits, but can be configured to slown down by using server options.
 Each thread from a pool maintain its own or shared "jobs" queue which correspond to incoming connections. There is 3 types of handling threads:
 * pool - this type is a simplest one and uses atomic reference array with constant size created upon server start. It is safest and lightest way that stores thread jobs. 
 * pool-shared - same type as pool but all threads share same pool.
@@ -21,16 +21,16 @@ Each thread from a pool maintain its own or shared "jobs" queue which correspond
 In most of the cases, "pool" will be absolutely fine and best choice. If you are not sure, just leave the defaults - server by default use "pool" type. Default configuration does also check how many cpu-s is in the system in orther to estimate amount of used threads (if there is many cpus/core there will be more threads assigned).
 
 Server processing is limited to almost absolute minimum, while request URL and headers will be recognised, extended functionality like parsing url parameters or POST body parameters is not included. There is a wide choice of API that can be used for parsing parameters.
-Qurricane focuses solely on performance and flexibilty and it is able to test your hardware I/O limits.
+topNET focuses solely on performance and flexibilty and it is able to test your hardware I/O limits.
 
 ### Usage Simplicity
-Qurricane requires a Server instance to be created to start processing requests. Service handlers can be added to server class and can be chained, there is many way how your application can chain processign and choose which url/method is bounded to which handler. There is plenty of choice in terms of customization.
+topNET requires a Server instance to be created to start processing requests. Service handlers can be added to server class and can be chained, there is many way how your application can chain processign and choose which url/method is bounded to which handler. There is plenty of choice in terms of customization.
 To create typical server application all is needed is a server instance and handler classes that will implement how to handle request. See examples section for more details.
 
 ### Flexibility
 Handling threads amounts (pools), jobs queues size, processing delays and many more options are adjustable to system needs. By default system checks available cpus and will create adequate handling threads amount for each cpu to handle requests. Server can be easily configured to use little resources and to slow down it's IO, throughput of the server is a result of setting buffer size and "breaks" latencies during data polling in the queues. It can be configured to response very fast but to limit transfer speeds or vice versa. Delays can be controlled on each processing level.
 
-Qurricane is extremely small but can serve same heavy loads and application complexity as fully featured "official" servers such as tomcat, jboss or glassfish. Being very small and highly customizable it's an excellent solution as for mobile devices as for powerful desktop stations.
+topNET is extremely small but can serve same heavy loads and application complexity as fully featured "official" servers such as tomcat, jboss or glassfish. Being very small and highly customizable it's an excellent solution as for mobile devices as for powerful desktop stations.
 
 
 ##Examples
@@ -38,8 +38,8 @@ Qurricane is extremely small but can serve same heavy loads and application comp
 To create server instance:
 
 ```java
-import com.qubit.qurricane.Server;
-import com.qubit.qurricane.examples.EchoHandler;
+import com.qubit.topnet.Server;
+import com.qubit.topnet.examples.EchoHandler;
 
 public static void main(String[] args) {
 	Server server = new Server("localhost", 3456);
@@ -69,7 +69,7 @@ public static void main(String[] args) {
 }
 ```
 
-To see more usage exapmles, check out the examples 'com.qubit.qurricane.examples'.
+To see more usage exapmles, check out the examples 'com.qubit.topnet.examples'.
 
 ##Author
 Peter Fronc <peter.fronc@qubit.com>
@@ -83,7 +83,7 @@ Some benchmarks using ab tool.
 ```
 ----------------------------------------------------------------------------
 QURRICANE (delayed no-I/O config):
-Server Software:        Qurricane
+Server Software:        topNET
 Server Hostname:        127.0.0.1
 Server Port:            3456
 
@@ -177,7 +177,7 @@ Total:         14   34  20.6     23      71
 
 ----------------------------------------------------------------------------
 QURRICANE:
-Server Software:        Qurricane
+Server Software:        topNET
 Server Hostname:        127.0.0.1
 Server Port:            3456
 

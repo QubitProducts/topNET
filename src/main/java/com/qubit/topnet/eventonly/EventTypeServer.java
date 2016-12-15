@@ -1,5 +1,5 @@
 /*
- * Qurrican
+ * topNET
  * Fast HTTP Server Solution.
  * Copyright 2016, Qubit Group <www.qubit.com>
  * 
@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 import java.util.ArrayDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
