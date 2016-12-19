@@ -81,7 +81,7 @@ repositories {
   mavenCentral()
   mavenLocal()
   maven { 
-    url "http://opentag-test.qubitproducts.com/mvn/repository/snapshots"
+    url ""
   }
 }
 
@@ -112,7 +112,7 @@ uploadArchives {
   if (installRemoteAll) {
     repositories.mavenDeployer {
         repository(
-          url: "http://opentag-test.qubitproducts.com/mvn/repository/internal") {
+          url: "") {
             authentication(userName: "maven", password: "...")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
@@ -123,7 +123,7 @@ uploadArchives {
   if (installRemoteAllSnapshots) {
     repositories.mavenDeployer {
         repository(
-          url: "http://opentag-test.qubitproducts.com/mvn/repository/snapshots") {
+          url: "") {
             authentication(userName: "maven", password: "...")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId

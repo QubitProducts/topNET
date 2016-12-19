@@ -1,1 +1,1 @@
-gradle run -PmainClass=com.qubit.topnet.Demo
+gradle run -PmainClass=com.qubit.topnet.examples.Demo
