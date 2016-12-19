@@ -2,7 +2,8 @@
 
 ## Introduction
 
-topNET is one of Qubit's open source projects. The idea was to create a very lightweight but highly customizable asynchronous HTTP server. topNET has been designed with ease of usability in mind, see example section to check on how it's achieved.
+topNET is a fast and small HTTP server. The idea is to have a very lightweight but highly customizable asynchronous HTTP server. topNET has been designed with ease of usability in mind, see example section to check on how it's achieved.
+This server, when correctly configured can perform on NGINX level of performance, benchmarks provided are agains most populare http servers.
 
 ## Design Key Points
 * Performance
