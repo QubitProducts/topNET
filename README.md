@@ -12,10 +12,22 @@ This server, when correctly configured can perform on NGINX level of performance
 * Configurability
 
 ### Performance
+
+Server implementation has two basic versions, one is based on a typical even only based R/W operations wakups and a second version where all R/W operations are handled in full isolation by handling threads, the main difference is that main accept loop in event based version case wakes threads to process some R/W when they become available where second version does only accepting connections and let threads to decide on their own when they should be awake for R/W operations.
+Both versions have similiar performance in average use case, however under heavy load - server may be be faster and have better latency for the second case where accept loop only accepts connections (in this case when no job has anythng to R/W thread will sleep for short time).
+
+Both versions have equal functionality, to use event only based server, use:
+```
+com.qubit.topnet.PureEventsTypeServer
+```
+for wait based server type:
+```
+com.qubit.topnet.AcceptOnlyEventsTypeServer
+```
+
 topNET uses Java asynchronous NIO API for handling connections traffic, it consists on thread pools that handle R/W operations. There is a separate thread that is dedicated for accepting only connections stage and it is working in non-blocking mode. topNET is designed to be able to put hardware to it's limits, but can be configured to slown down by using server options.
 Each thread from a pool maintain its own or shared "jobs" queue which correspond to incoming connections. There is 3 types of handling threads:
 * pool - this type is a simplest one and uses atomic reference array with constant size created upon server start. It is safest and lightest way that stores thread jobs. 
-* pool-shared - same type as pool but all threads share same pool.
 * queue - this type is similar to "pool" but uses concurrent list instead of statically sized array like in "pool" case. While "pool" type thread scans the array to find jobs to do, this thread peeks jobs from head and add to tail in typical FILO manner. Each thread of "queue" type maintain its own local queue instance.
 * queue-shared - this is same as "queue" type with the difference that all threads share same concurrent queue. This type of jobs may work better for servers that perform slow asynchronous operations and threads can stuck for long time in one place.
 
@@ -39,34 +51,43 @@ topNET is extremely small but can serve same heavy loads and application complex
 To create server instance:
 
 ```java
-import com.qubit.topnet.Server;
+import com.qubit.topnet.AcceptOnlyEventsTypeServer;
 import com.qubit.topnet.examples.EchoHandler;
 
 public static void main(String[] args) {
-	Server server = new Server("localhost", 3456);
+	AcceptOnlyEventsTypeServer server = 
+        new AcceptOnlyEventsTypeServer("localhost", 3456);
 
-	// custom setup
-	server.setRequestBufferSize(32 * 1024); // this is buffer for readin, buffers for reading are hold by threads
+	server.setMaxGrowningBufferChunkSize(64 * 1024); 
+        // this is a growing buffer size limit.
+        // Growing buffer, is a class that is used to store data for R/W operations. 
+        // topNET uses dedicated buffer chain for R/W operations, 
+        // each chain chunk will have maximum size of specified by this setter.
+
 	server.setJobsPerThread(256);
-  	server.setThreadsAmount(16);
-  	server.setDataHandlerWriteBufferSize(1024); // this is buffer for writing back, those buffers are hold by 
-  												// data handler objects. 
-  												// Data handler objects are the jobs in threads queues.
-  	server.setDefaultIdleTime(25 * 1000);		// This is how long server will wait for R/W before closing.
-  												// This property is configurable on handler level.
-  	server.setDelayForNoIOReadsInSuite(30);		// This property indicates how many milisconds thread will sleep 
-  												// if there is no I/O occuring in its queue (queue having jobs!).
-  												// Threads sleeping can be waked up at any time if accepting 
-  												// connection thread is updating the queue.
-  	server.setSinglePoolPassThreadDelay(0);		// This is how to set any delay between "rounds" of 
-  												// reading/writing from/to jobs. Value larger than zero will 
-  												// cause a sleep every time thread is checking queue for I/O 
-  												// (read/write -> wait etc.).
-  												// This is a direct way to slow down server - when necessary.
+        // how many jobs each thread can have (max)
+  	
+    server.setThreadsAmount(16);
+        // maximum amount of threads
 
-  	server.registerHandlerByPath("/echo", new EchoHandler()); //register demo handler (echoing data back)
+  	server.setDefaultIdleTime(25 * 1000);
+        // This is how many miliseconds server will wait for R/W 
+        // before closing connection.
+  		// This property is also configurable on a handler level.
 
-  	server.start(); // start the server
+  	server.setDelayForNoIOReadsInSuite(30);
+        // (only for accept type server)
+        // This property indicates how many nanoseconds thread will sleep (if
+        // value is larger than 1000000 then it corresponds to value miliseconds after dividing by 1000000).
+  		// Wait occurs when if there is no I/O occuring in entire threads queue 
+        // (queue having jobs but none has anything to read or write!.
+
+  	
+  	server.registerHandlerByPath("/echo", new EchoHandler());
+        //register demo handler (echoing data back)
+
+  	server.start();
+        // start the server
 }
 ```
 
