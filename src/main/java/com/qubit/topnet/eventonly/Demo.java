@@ -54,7 +54,6 @@ public class Demo {
     BytesStream.doNotShrinkBuffersAfterJob = false;
     boolean scalingDown = true;
     boolean autoScaling = true;
-    long acceptDelay = 0;
 
     EventTypeServer s = new EventTypeServer("localhost", 4456);
 
@@ -63,7 +62,6 @@ public class Demo {
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
     s.setPoolType(PoolType.POOL);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setAutoscalingThreads(autoScaling);
@@ -87,7 +85,6 @@ public class Demo {
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setAutoScalingDown(scalingDown);
@@ -110,7 +107,6 @@ public class Demo {
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setAutoScalingDown(scalingDown);
@@ -133,7 +129,6 @@ public class Demo {
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
     s.setThreadsAmount(2 * th);
     s.setPoolType(PoolType.QUEUE_SHARED);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setAutoScalingDown(scalingDown);

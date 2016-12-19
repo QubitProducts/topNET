@@ -55,7 +55,6 @@ public class Demo {
     int noIOdelay = 400 * 1000; //nanoseconds, or N*1000000 ms == (n * ms)
     BytesStream.doNotShrinkBuffersAfterJob = false;
     boolean scalingDown = true;
-    long acceptDelay = 0;
     
     WaitTypeServer s = new WaitTypeServer("localhost", 3456);
     
@@ -65,7 +64,6 @@ public class Demo {
     s.setThreadsAmount(th);
     s.setPoolType(PoolType.POOL);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
@@ -90,7 +88,6 @@ public class Demo {
     s.setThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
@@ -115,7 +112,6 @@ public class Demo {
     s.setThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
@@ -140,7 +136,6 @@ public class Demo {
     s.setThreadsAmount(2 * th);
     s.setPoolType(PoolType.QUEUE_SHARED);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
-    s.setAcceptDelay(acceptDelay);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);

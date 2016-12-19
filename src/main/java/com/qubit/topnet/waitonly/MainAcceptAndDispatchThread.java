@@ -55,7 +55,6 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private final Selector acceptSelector;
   private final WaitTypeServer server;
-  private long acceptDelay;
   private final long maxIdleAfterAccept;
   private boolean running;
   private boolean waitingForReadEvents = true;
@@ -86,13 +85,6 @@ class MainAcceptAndDispatchThread extends Thread {
     this.setRunning(true);
     while (this.isRunning()) {
 
-      if (this.getAcceptDelay() > 0) {
-        try {
-          Thread.sleep(this.getAcceptDelay());
-        } catch (InterruptedException ex) {
-        }
-      }
-
       try {
         // pick current events list:
         acceptSelector.select();
@@ -121,7 +113,7 @@ class MainAcceptAndDispatchThread extends Thread {
               }
             } else {//if (key.isReadable()) { // only READ is registered
               Long acceptTime = (Long) key.attachment();
-              if (this.handleMaxIdle(acceptTime, this.maxIdleAfterAccept, key)) {
+              if (this.handleMaxIdle(acceptTime, key)) {
                 key.cancel(); // already too long 
                 WaitTypeServer.close((SocketChannel) key.channel());
               } else {
@@ -217,28 +209,16 @@ class MainAcceptAndDispatchThread extends Thread {
 
     return false;
   }
-  
-  /**
-   * @return the acceptDelay
-   */
-  public long getAcceptDelay() {
-    return acceptDelay;
-  }
-
-  /**
-   * @param acceptDelay the acceptDelay to set
-   */
-  public void setAcceptDelay(long acceptDelay) {
-    this.acceptDelay = acceptDelay;
-  }
 
   private long closedIdleCounter = 0;
 
-  protected boolean handleMaxIdle(Long ts, long idle, SelectionKey key) {
+  protected boolean handleMaxIdle(Long ts, SelectionKey key) {
     //check if connection is not open too long! Prevent DDoS
-    if (idle != 0 && (System.currentTimeMillis() - ts) > idle) {
+    if (this.maxIdleAfterAccept != 0 &&
+        (System.currentTimeMillis() - ts) > this.maxIdleAfterAccept) {
       if (this.server.getLimitsHandler() != null) {
-        return this.server.getLimitsHandler().handleTimeout(key, idle, null);
+        return this.server.getLimitsHandler()
+            .handleTimeout(key, this.maxIdleAfterAccept, null);
       } else {
         closedIdleCounter++;
         return true;

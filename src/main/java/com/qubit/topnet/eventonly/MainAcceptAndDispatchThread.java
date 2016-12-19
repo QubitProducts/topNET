@@ -54,7 +54,6 @@ class MainAcceptAndDispatchThread extends Thread {
 
   private final Selector channelSelector;
   private final EventTypeServer server;
-  private long acceptDelay;
   private boolean running;
   private long timeSinceCouldntAddJob = 0;
   private long noSlotsAvailableTimeout = 20;
@@ -62,30 +61,25 @@ class MainAcceptAndDispatchThread extends Thread {
   private long scalingDownTryPeriodMS = 5000;
   private boolean autoScalingDown = true;
 
-  MainAcceptAndDispatchThread(final EventTypeServer server,
-                                  final Selector channelSelector)
+  MainAcceptAndDispatchThread(EventTypeServer server,
+                              Selector channelSelector,
+                              long maxIdleAfterAccept)
       throws IOException {
     this.server = server;
+    this.maxIdleAfterAccept = maxIdleAfterAccept;
     this.channelSelector = channelSelector;
   }
 
   private int acceptedCnt = 0;
   private int currentThread = 0;
-
+  long maxIdleAfterAccept;
   long lastMeassured = System.currentTimeMillis();
-  
+    
   @Override
   public void run() {
     this.lastdownScaleTried = lastMeassured;
     this.setRunning(true);
     while (this.isRunning()) {
-
-      if (this.getAcceptDelay() > 0) {
-        try {
-          Thread.sleep(this.getAcceptDelay());
-        } catch (InterruptedException ex) {
-        }
-      }
 
       try {
         // pick current events list:
@@ -105,17 +99,26 @@ class MainAcceptAndDispatchThread extends Thread {
               SocketChannel channel;
               if ((channel = this.server.accept()) != null) {
                 acceptedCnt++;
-                channel.register(getChannelSelector(),
+                if (this.maxIdleAfterAccept > 0) {
+                  SelectionKey newKey = 
+                    channel.register(getChannelSelector(), OP_READ);
+                  this.checkOutdatedKeys();
+                  
+                  SelectionKeyLink skl = 
+                      new SelectionKeyLink(newKey, System.currentTimeMillis());
+                  newKey.attach(skl);
+                  SelectionKeyLink.add(skl);
+                } else {
+                  channel.register(getChannelSelector(),
                     OP_READ,
                     System.currentTimeMillis());
+                }
               }
             } else {
               if (key.attachment() instanceof HandlingThread) {
                 ((HandlingThread) key.attachment()).wakeup();
               } else {
-                Long acceptTime = (Long) key.attachment();
-
-                if (!this.tryAddingJob(key, acceptTime, handlingThreads)) {
+                if (!this.tryAddingJob(key, handlingThreads)) {
                   // failed adding job
                   if (this.timeSinceCouldntAddJob == 0) {
                     this.timeSinceCouldntAddJob = System.currentTimeMillis();
@@ -124,7 +127,7 @@ class MainAcceptAndDispatchThread extends Thread {
                     this.timeSinceCouldntAddJob = 0;
                     if (this.server.addThread()) {
                       handlingThreads = this.server.getHandlingThreads();
-                      this.tryAddingJob(key, acceptTime, handlingThreads);
+                      this.tryAddingJob(key, handlingThreads);
                     }
                   }
                 }
@@ -152,7 +155,7 @@ class MainAcceptAndDispatchThread extends Thread {
       if (this.autoScalingDown) {
         this.scaleDownIfCan();
       }
-
+      
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
           log.log(Level.INFO, "Accepted connections: {0}", acceptedCnt);
           log.log(Level.INFO,
@@ -170,17 +173,29 @@ class MainAcceptAndDispatchThread extends Thread {
   }
 
   private boolean tryAddingJob(SelectionKey key,
-                                Long acceptTime,
-                                HandlingThread[] handlingThreads) {
-    HandlingThread owningThread = this.startReading(
-        handlingThreads,
-        key,
-        acceptTime);
-    if (owningThread != null) {
-      // job added, remove from selector
-      key.attach(owningThread);
-      return true;
+                               HandlingThread[] handlingThreads) {
+    
+    if (this.maxIdleAfterAccept > 0) {
+      SelectionKeyLink skl = (SelectionKeyLink) key.attachment();
+      HandlingThread owningThread = this.startReading(handlingThreads,
+                                                      key,
+                                                      skl.acceptTime);
+      if (owningThread != null) {
+        skl.remove(); // important to remove - SelectionKeyLink is used ti 
+        key.attach(owningThread);
+        return true;
+      }
+    } else {
+      Long acceptTime = (Long) key.attachment();
+      HandlingThread owningThread = this.startReading(handlingThreads,
+                                                      key,
+                                                      acceptTime);
+      if (owningThread != null) {
+        key.attach(owningThread);
+        return true;
+      }
     }
+    
     return false;
   }
 
@@ -205,34 +220,7 @@ class MainAcceptAndDispatchThread extends Thread {
     return false;
   }
 
-  /**
-   * @return the acceptDelay
-   */
-  public long getAcceptDelay() {
-    return acceptDelay;
-  }
-
-  /**
-   * @param acceptDelay the acceptDelay to set
-   */
-  public void setAcceptDelay(long acceptDelay) {
-    this.acceptDelay = acceptDelay;
-  }
-
   private long closedIdleCounter = 0;
-
-  protected boolean handleMaxIdle(Long ts, long idle, SelectionKey key) {
-    //check if connection is not open too long! Prevent DDoS
-    if (idle != 0 && (System.currentTimeMillis() - ts) > idle) {
-      if (this.server.getLimitsHandler() != null) {
-        return this.server.getLimitsHandler().handleTimeout(key, idle, null);
-      } else {
-        closedIdleCounter++;
-        return true;
-      }
-    }
-    return false;
-  }
 
   /**
    * @return the running
@@ -333,5 +321,49 @@ class MainAcceptAndDispatchThread extends Thread {
    */
   public Selector getChannelSelector() {
     return channelSelector;
+  }
+
+  long lastChecked = 0;
+  
+  private void checkOutdatedKeys() {
+    long currentTime = System.currentTimeMillis();
+    if (currentTime - this.lastChecked > this.maxIdleAfterAccept) {
+      this.lastChecked = currentTime;
+
+      SelectionKeyLink current = SelectionKeyLink.first;
+
+      while (current != null) {
+        SelectionKey sKey = current.key;
+        SelectionKeyLink nextElem = current.next;
+        Object numOrThread = sKey.attachment();
+        
+        if (numOrThread instanceof SelectionKeyLink) {
+          Long acceptTime = ((SelectionKeyLink) numOrThread).acceptTime;
+
+          if (this.handleMaxIdle(acceptTime, sKey)) {
+            sKey.cancel(); // already too long 
+            EventTypeServer.close((SocketChannel) sKey.channel());
+            current.remove();
+          }
+        }
+        
+        current = nextElem;
+      }
+    }
+  }
+
+  protected boolean handleMaxIdle(Long ts, SelectionKey key) {
+    //check if connection is not open too long! Prevent DDoS
+    if (this.maxIdleAfterAccept != 0 &&
+        (System.currentTimeMillis() - ts) > this.maxIdleAfterAccept) {
+      if (this.server.getLimitsHandler() != null) {
+        return this.server.getLimitsHandler()
+            .handleTimeout(key, this.maxIdleAfterAccept, null);
+      } else {
+        closedIdleCounter++;
+        return true;
+      }
+    }
+    return false;
   }
 }

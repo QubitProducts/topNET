@@ -41,7 +41,6 @@ public class WaitTypeServer extends ServerBase {
   final static Logger log = Logger.getLogger(WaitTypeServer.class.getName());
   
   private int delayForNoIOReadsInSuite = 100 * 1000;
-  private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private HandlingThread[] handlingThreads;
@@ -89,8 +88,6 @@ public class WaitTypeServer extends ServerBase {
 
     log.info("Threads handling type used: " + this.getPoolType().name());
     this.setupThreadsList();
-
-    mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
 
     mainAcceptDispatcher.setWaitingForReadEvents(this.isWaitingForReadEvents());
     
@@ -379,17 +376,4 @@ public class WaitTypeServer extends ServerBase {
     this.delayForNoIOReadsInSuite = delayForNoIOReadsInSuite;
   }
 
-  /**
-   * @return the defaultAcceptIdleTime
-   */
-  public long getDefaultAcceptIdleTime() {
-    return defaultAcceptIdleTime;
-  }
-
-  /**
-   * @param defaultAcceptIdleTime the defaultAcceptIdleTime to set
-   */
-  public void setDefaultAcceptIdleTime(long defaultAcceptIdleTime) {
-    this.defaultAcceptIdleTime = defaultAcceptIdleTime;
-  }
 }

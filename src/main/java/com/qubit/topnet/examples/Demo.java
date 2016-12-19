@@ -17,7 +17,7 @@
  * 
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
-package com.qubit.topnet;
+package com.qubit.topnet.examples;
 
 /**
  *

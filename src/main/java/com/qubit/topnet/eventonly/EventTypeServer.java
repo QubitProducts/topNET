@@ -82,13 +82,15 @@ public class EventTypeServer extends ServerBase {
     getServerChannel().register(getChannelSelector(), SelectionKey.OP_ACCEPT);
     
     this.mainAcceptDispatcher = 
-            new MainAcceptAndDispatchThread(this, getChannelSelector());
+            new MainAcceptAndDispatchThread(
+                this,
+                getChannelSelector(),
+                this.getDefaultAcceptIdleTime());
 
     log.info("Threads handling type used: " + this.getPoolType().name());
+    
     this.setupThreadsList();
-
-    mainAcceptDispatcher.setAcceptDelay(this.getAcceptDelay());
-        
+    
     mainAcceptDispatcher.setNoSlotsAvailableTimeout(
         this.getNoSlotsAvailableTimeout());
     

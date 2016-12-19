@@ -70,7 +70,6 @@ public abstract class ServerBase {
   public static final int SCALING_UNLIMITED = 0;
 
   public int port = -1;
-  private long acceptDelay = 0;
   private InetSocketAddress listenAddress = null;
   private String address = null;
   private ServerSocketChannel serverChannel;
@@ -104,6 +103,7 @@ public abstract class ServerBase {
 
   public final Map<String, Handler> plainPathHandlers = new HashMap<>();
   public final List<Handler> matchingPathHandlers = new ArrayList<>();
+  private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
 
   public ServerBase(String address, int port) {
     this.port = port;
@@ -287,20 +287,6 @@ public abstract class ServerBase {
   abstract public void removeThread(AbstractHandlingThread thread);
 
   abstract public boolean hasThreads();
-  
-  /**
-   * @return the acceptDelay
-   */
-  public long getAcceptDelay() {
-    return acceptDelay;
-  }
-
-  /**
-   * @param acceptDelay the acceptDelay to set
-   */
-  public void setAcceptDelay(long acceptDelay) {
-    this.acceptDelay = acceptDelay;
-  }
 
   /**
    * @param maxGrowningBufferChunkSize the maxGrowningBufferChunkSize to set
@@ -634,5 +620,19 @@ public abstract class ServerBase {
    */
   public void setServerChannel(ServerSocketChannel serverChannel) {
     this.serverChannel = serverChannel;
+  }
+  
+ /**
+  * @return the defaultAcceptIdleTime
+  */
+  public long getDefaultAcceptIdleTime() {
+    return defaultAcceptIdleTime;
+  }
+
+  /**
+   * @param defaultAcceptIdleTime the defaultAcceptIdleTime to set
+   */
+  public void setDefaultAcceptIdleTime(long defaultAcceptIdleTime) {
+    this.defaultAcceptIdleTime = defaultAcceptIdleTime;
   }
 }
