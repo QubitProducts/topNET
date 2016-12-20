@@ -9,7 +9,7 @@
         <name must-exist="no">debug</name>
       </task-names>
       <task-args>
-        <arg>-PmainClass=com.qubit.qurricane.examples.Demo</arg>
+        <arg>-PmainClass=com.qubit.topnet.examples.Demo</arg>
         <arg>-PmainArgs="['--experiments=ccc']"</arg>
       </task-args>
       <task-jvm-args/>
@@ -21,7 +21,7 @@
         <name must-exist="no">run</name>
       </task-names>
       <task-args>
-        <arg>-PmainClass=com.qubit.qurricane.examples.Demo</arg>
+        <arg>-PmainClass=com.qubit.topnet.examples.Demo</arg>
       </task-args>
       <task-jvm-args/>
     </task>
