@@ -19,10 +19,6 @@
  */
 package com.qubit.topnet.examples;
 
-/**
- *
- * @author piotr
- */
 public class Demo {
   public static void main(String[] args) throws Exception {
     com.qubit.topnet.eventonly.Demo.main(args);

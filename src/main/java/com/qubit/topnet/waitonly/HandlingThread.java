@@ -24,7 +24,6 @@ import com.qubit.topnet.DataHandler;
 import static com.qubit.topnet.DataHandler.bodyReadyHandler;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
