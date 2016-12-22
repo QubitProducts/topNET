@@ -74,30 +74,15 @@ public class BytesStream {
     shrinkingBuffersAfterJob = aShrinkingBuffersAfterJob;
   }
   
-  public int bufferElementSize = getDefaultBufferChunkSize();
+  private int bufferElementSize = getDefaultBufferChunkSize();
   private BufferWrapper currentBufferReading;
   private BufferWrapper currentBufferWriting;
   private int currentBufferReadPosition = 0;
   private byte[] bytesCache = null;
   
-  BufferWrapper last;
-  BufferWrapper first;
+  private BufferWrapper last;
+  private BufferWrapper first;
   
-  /**
-   * @return the bufferElementSize
-   */
-  public int getBufferElementSize() {
-    return bufferElementSize;
-  }
-
-  /**
-   * @param aBufferElementSize the bufferElementSize to set
-   */
-  public void setBufferElementSize(int aBufferElementSize) {
-    bufferElementSize = aBufferElementSize;
-  }
-
-
   public BytesStream() {
     this.init();
   }
@@ -341,5 +326,26 @@ public class BytesStream {
     last = currentBufferReading;
     currentBufferReadPosition = 0;
   }
+  
+  public BufferWrapper getFirst() {
+    return first;
+  }
+  
+  public BufferWrapper getLast() {
+    return last;
+  }
+  
+  /**
+   * @return the bufferElementSize
+   */
+  public int getBufferElementSize() {
+    return bufferElementSize;
+  }
 
+  /**
+   * @param aBufferElementSize the bufferElementSize to set
+   */
+  public void setBufferElementSize(int aBufferElementSize) {
+    bufferElementSize = aBufferElementSize;
+  }
 }
