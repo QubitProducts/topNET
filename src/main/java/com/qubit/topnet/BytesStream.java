@@ -78,6 +78,7 @@ public class BytesStream {
   private BufferWrapper currentBufferReading;
   private BufferWrapper currentBufferWriting;
   private int currentBufferReadPosition = 0;
+  private byte[] bytesCache = null;
   
   BufferWrapper last;
   BufferWrapper first;
@@ -130,8 +131,6 @@ public class BytesStream {
     return this.currentBufferWriting.getByteBuffer();
   }
   
-  byte[] bytes = null;
-  
   public StringBuilder readAvailableToReadAsString(Charset charset) {
     BufferWrapper start = this.currentBufferReading;
     StringBuilder builder = new StringBuilder();
@@ -151,15 +150,15 @@ public class BytesStream {
       if (buffer.hasArray()) {
         builder.append(new String(buffer.array(), pos, amount, charset));
       } else {
-        if (bytes == null || bytes.length != buffer.capacity()) {
-          bytes = new byte[amount];
+        if (bytesCache == null || bytesCache.length != buffer.capacity()) {
+          bytesCache = new byte[amount];
         }
         
         for (int c = 0; c < amount; c++) {
-          bytes[c] = buffer.get(pos + c);
+          bytesCache[c] = buffer.get(pos + c);
         }
         
-        builder.append(new String(bytes, 0, amount, charset));
+        builder.append(new String(bytesCache, 0, amount, charset));
       }
       
       pos = 0;// next buffer starts from 0
