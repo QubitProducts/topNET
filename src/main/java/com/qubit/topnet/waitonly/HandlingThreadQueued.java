@@ -21,9 +21,8 @@
 package com.qubit.topnet.waitonly;
 
 import com.qubit.topnet.DataHandler;
-import com.qubit.topnet.ServerBase;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -129,9 +128,10 @@ public class HandlingThreadQueued extends HandlingThread {
   }
   
   /**
-   *
-   * @param key
-   * @return
+   * 
+   * @param channel
+   * @param ts
+   * @return 
    */
   @Override
   public boolean addJob(SocketChannel channel, Long ts) {
@@ -174,10 +174,7 @@ public class HandlingThreadQueued extends HandlingThread {
   
   @Override
   public boolean canAddJob() {
-    if (limit < 0 || limit > this.jobsLeft()) {
-      return true;
-    }
-    return false;
+    return limit < 0 || limit > this.jobsLeft();
   }
 
   /**
@@ -197,11 +194,7 @@ public class HandlingThreadQueued extends HandlingThread {
   
   @Override
   public List<DataHandler> getValidJobs() {
-    List<DataHandler> tmp = new ArrayList<>();
-    for (DataHandler job : jobs.toArray(new DataHandler[]{})) {
-      tmp.add(job);
-    }
-    return tmp;
+    return Arrays.asList(jobs.toArray(new DataHandler[]{}));
   }
 
   private ConcurrentLinkedDeque<DataHandler> recycledJobs = 

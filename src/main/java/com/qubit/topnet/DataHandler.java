@@ -62,7 +62,17 @@ public final class DataHandler {
   public static void setGeneralGlobalHandlingHooks(GeneralGlobalHandlingHooks handler) {
     postPreProcessingHandler = handler;
   }
+
+  public static final byte[] BHTTP_0_9 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
+  public static final byte[] BHTTP_1_0 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
+  public static final byte[] BHTTP_1_1 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
+  public static final byte[] BHTTP_1_x = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
   
+    
   private volatile long touch; // check if its needed volatile
   private volatile int size = 0; // check if its needed volatile
 
@@ -81,42 +91,58 @@ public final class DataHandler {
   private String lastHeaderName = null;
 
   private final byte[] currentHeaderLine;
-  private long contentLength = 0; // -1 is used to distinguish cases when no 
+  private long contentLength = 0; // -1 is used to distinguish cases when no
+  
+  private byte[] requestHttpProtocol = BHTTP_1_0;
+  private char[] responseHttpProtocol = getDefaultProtocol();
 
   private Request request;
   private Response response;
   private ErrorTypes errorOccured;
   private Throwable errorException;
   private Handler handlerUsed;
-
-  public static final byte[] BHTTP_0_9 = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
-  public static final byte[] BHTTP_1_0 = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
-  public static final byte[] BHTTP_1_1 = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
-  public static final byte[] BHTTP_1_x = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
+  public volatile AbstractHandlingThread owningThread = null;
+  private volatile SocketChannel channel = null;
+  private SelectionKey selectionKey = null;
   
   private String parameters;
-
-  private char[] responseHttpProtocol = getDefaultProtocol();
-  
   private boolean headersOnly = false;
   private volatile ServerBase server;
   private final int maxGrowningBufferChunkSize;
   private boolean wasMarkedAsMoreDataIsComing;
-  private volatile SocketChannel channel;
+  
   private long acceptedTime;
   private long requestStartedTime = 0;
   private boolean bufferSizeCalculatedForWriting = false;
-  public volatile AbstractHandlingThread owningThread = null;
   private boolean reqInitialized = false;
   int currentBufferWrittenIndex = 0;
   int currentReadingPositionInWrittenBufByWrite = 0;
   private int currentHeaderLineLength = 0;
-  private byte[] requestHttpProtocol = BHTTP_1_0;
-  private SelectionKey selectionKey = null;
+  
+  public DataHandler(ServerBase server, SelectionKey key) {
+    this.init(server, key);
+    this.currentHeaderLine = new byte[server.getDefaultHeaderSizeLimit()];
+    this.maxGrowningBufferChunkSize = server.getMaxGrowningBufferChunkSize();
+  }
+  
+  public DataHandler(ServerBase server, SocketChannel channel) {
+    this.init(server, channel);
+    this.currentHeaderLine = new byte[server.getDefaultHeaderSizeLimit()];
+    this.maxGrowningBufferChunkSize = server.getMaxGrowningBufferChunkSize();
+  }
+  
+  public void init(ServerBase server, SocketChannel channel) {
+    this.channel = channel;
+    this.server = server;
+    touch = System.currentTimeMillis();
+  }
+
+  public void init(ServerBase server, SelectionKey key) {
+    this.channel = (SocketChannel) key.channel();
+    this.selectionKey = key;
+    this.server = server;
+    touch = System.currentTimeMillis();
+  }
   
   public void reset() {
     resetForNewRequest();
@@ -138,12 +164,15 @@ public final class DataHandler {
     lastHeaderName = null;
     currentHeaderLineLength = 0;
     contentLength = 0;
+    
     if (request != null) {
       request.reset();
     }
+    
     if (response != null) {
       response.reset();
     }
+    
     errorOccured = null;
     errorException = null;
     handlerUsed = null;
@@ -156,23 +185,7 @@ public final class DataHandler {
     requestHttpProtocol = BHTTP_1_0;
     wasMarkedAsMoreDataIsComing = false;
     acceptedTime = 0;
-    setRequestStartedTime(0);
-  }
-  
-  public static char[] getDefaultProtocol() {
-    return HTTP_1_0;
-  }
-  
-  public DataHandler(ServerBase server, SelectionKey key) {
-    this.init(server, key);
-    this.currentHeaderLine = new byte[server.getDefaultHeaderSizeLimit()];
-    this.maxGrowningBufferChunkSize = server.getMaxGrowningBufferChunkSize();
-  }
-  
-  public DataHandler(ServerBase server, SocketChannel channel) {
-    this.init(server, channel);
-    this.currentHeaderLine = new byte[server.getDefaultHeaderSizeLimit()];
-    this.maxGrowningBufferChunkSize = server.getMaxGrowningBufferChunkSize();
+    this.setRequestStartedTime(0);
   }
   
   // returns -2 when done reading -1 when data stream  to read is finished , 
@@ -197,9 +210,8 @@ public final class DataHandler {
     int currentSum = 0;
     
     while (read != -2 && 
-        (read = this.channel.read(
-            request.getBytesStream().getNotEmptyCurrentBuffer())) > 0) {
-      
+            (read = this.channel.read(
+                    request.getBytesStream().getNotEmptyCurrentBuffer())) > 0) {
       
       if (read > 0) {
         currentSum += read;
@@ -266,14 +278,6 @@ public final class DataHandler {
       if (Arrays.equals(this.getRequestHttpProtocol(), BHTTP_1_1)) {
         this.responseHttpProtocol = HTTP_1_1;
       }
-      // use defaults instead
-//      else if (Arrays.equals(proto, BHTTP_1_1)) {
-//        this.responseHttpProtocol = HTTP_1_1;
-//      } else if (Arrays.equals(proto, BHTTP_0_9)) {
-//        return true; // no headers
-//      } else if (Arrays.equals(proto, BHTTP_1_x)) {
-//         this.responseHttpProtocol = HTTP_1_1;
-//      }
       
       return false;
     } else {
@@ -322,10 +326,8 @@ public final class DataHandler {
     }
     return this.path;
   }
-
   
-  
-  // returns true if reading is finished. any error handling should happend after reading foinished.
+  // returns true if reading is finished. any error handling should happend after reading finished.
   private boolean flushReads(BytesStream stream)
           throws UnsupportedEncodingException {
 
@@ -518,26 +520,25 @@ public final class DataHandler {
         return this.getFinishedWritingResponse();
       }
     }
-
     
     if (!this.response.isTooLateToChangeHeaders()) {
       this.response.setTooLateToChangeHeaders(true);
     }
     
     ByteBuffer writeBuffer ;
-    BytesStream bs = request.getBytesStream();
+    BytesStream bytesStream = request.getBytesStream();
     
     // adjust dynamicly buf size for future reads
     if (!this.bufferSizeCalculatedForWriting) {
       this.bufferSizeCalculatedForWriting = true;
       if (response.getContentLength() > 0) {
-        long bufSize = response.getContentLength() - bs.dataSize();
+        long bufSize = response.getContentLength() - bytesStream.dataSize();
         if (bufSize <= BytesStream.getDefaultBufferChunkSize()) {
           bufSize = BytesStream.getDefaultBufferChunkSize();
         } else {
           bufSize = this.calculateBufferSizeByContentSize(bufSize);
         }
-        bs.setBufferElementSize((int)bufSize);
+        bytesStream.setBufferElementSize((int)bufSize);
       }
     }
     
@@ -549,9 +550,9 @@ public final class DataHandler {
       writtenFromBuffer = 0;
       
       if (currentReadingPositionInWrittenBufByWrite == 0) {
-        writeBuffer = bs.getNotEmptyCurrentBuffer();
+        writeBuffer = bytesStream.getNotEmptyCurrentBuffer();
       } else {
-        writeBuffer = bs.getCurrentBufferWriting().getByteBuffer();
+        writeBuffer = bytesStream.getCurrentBufferWriting().getByteBuffer();
         // havent finished reading from buffer, and will wait here
       }
       
@@ -580,7 +581,7 @@ public final class DataHandler {
       }
       
     } while (writtenFromBuffer > 0);
-
+    
     if (written > 0) {
       this.touch();
     }
@@ -609,7 +610,6 @@ public final class DataHandler {
   // returns true if writing should be stopped function using it should reply 
   // asap - typically its used to repoly unsupported fullPath 
   private ErrorTypes headersAreReadySoProcessReqAndRes(Handler handler) {
-    
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
     } else {
@@ -1017,19 +1017,6 @@ public final class DataHandler {
   private int calculateBufferSizeByContentSize(long cl) {
     return Math.min(this.maxGrowningBufferChunkSize, (int) (cl / 2));
   }
-
-  public void init(ServerBase server, SocketChannel channel) {
-    this.channel = channel;
-    this.server = server;
-    touch = System.currentTimeMillis();
-  }
-
-  public void init(ServerBase server, SelectionKey key) {
-    this.channel = (SocketChannel) key.channel();
-    this.selectionKey = key;
-    this.server = server;
-    touch = System.currentTimeMillis();
-  }
   
   private String getHeader(String name) {
     for (String[] header : headers) {
@@ -1130,5 +1117,9 @@ public final class DataHandler {
    */
   public void setRequestStartedTime(long requestStartedTime) {
     this.requestStartedTime = requestStartedTime;
+  }
+  
+  public static char[] getDefaultProtocol() {
+    return HTTP_1_0;
   }
 }

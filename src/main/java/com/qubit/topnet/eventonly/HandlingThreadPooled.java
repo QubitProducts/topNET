@@ -35,12 +35,10 @@ import java.util.logging.Logger;
 class HandlingThreadPooled extends HandlingThread {
 
   private final DataHandlerHolder[] jobs;
-
   private final EventTypeServer server;
-
   private final long maxIdle;
 
-  static final Logger log
+  private static final Logger log
       = Logger.getLogger(HandlingThreadPooled.class.getName());
 
   public HandlingThreadPooled(

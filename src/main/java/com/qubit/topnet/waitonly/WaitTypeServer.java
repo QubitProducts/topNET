@@ -38,13 +38,11 @@ import java.util.logging.Logger;
  */
 public class WaitTypeServer extends ServerBase {
   
-  final static Logger log = Logger.getLogger(WaitTypeServer.class.getName());
+  private final static Logger log = Logger.getLogger(WaitTypeServer.class.getName());
   
   private int delayForNoIOReadsInSuite = 100 * 1000;
-  
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private HandlingThread[] handlingThreads;
-  
   
   public WaitTypeServer(String address, int port) {
     super(address, port);
@@ -80,7 +78,7 @@ public class WaitTypeServer extends ServerBase {
 
     this.setChannelSelector(Selector.open());
 
-    getServerChannel().register(getChannelSelector(), SelectionKey.OP_ACCEPT);
+    this.getServerChannel().register(getChannelSelector(), SelectionKey.OP_ACCEPT);
 
     this.mainAcceptDispatcher = 
             new MainAcceptAndDispatchThread(
@@ -104,7 +102,7 @@ public class WaitTypeServer extends ServerBase {
         "Server starting at {0} on port {1}\nPool type: {2}",
         new Object[]{
           getListenAddress().getHostName(),
-          port,
+          this.getPort(),
           this.getPoolType()});
   }
 

@@ -30,5 +30,4 @@ public class PureEventsTypeServer extends EventTypeServer {
   public PureEventsTypeServer(String address, int port) {
     super(address, port);
   }
-  
 }

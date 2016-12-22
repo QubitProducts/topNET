@@ -38,18 +38,17 @@ import java.util.logging.Logger;
  */
 public class Response {
 
-  public static String serverName;
+  public static String serverName = "topNET";// + "/" + SERVER_VERSION;
   
-  static private final String CRLF = "\r\n";
-  static private final String OK_200 = "200 OK" + CRLF;
-  static private final String OK_204 = "204 No Content" + CRLF;
+  private static final String CRLF = "\r\n";
+  private static final String OK_200 = "200 OK" + CRLF;
+  private static final String OK_204 = "204 No Content" + CRLF;
 
   private static final ThreadLocal<ServerTime> serverTime;
   
   static final Logger log = Logger.getLogger(Response.class.getName());
 
   static {
-    serverName = "topNET";// + "/" + SERVER_VERSION;
     serverTime = new ThreadLocal<ServerTime>() {
       @Override
       protected ServerTime initialValue() {
@@ -102,6 +101,47 @@ public class Response {
   
   public Response () {
     this.httpProtocol = getDefaultProtocol();
+  }
+  
+  public static ResponseStream prepareResponseStreamFromInputStream(
+          InputStream bodyStream) {
+    ResponseStream r = new ResponseStream();
+    r.setBodyStream(bodyStream);
+    return r;
+  }
+
+  /**
+   * @return the inputStreamForBody
+   */
+  public InputStream getStreamToReadFrom() {
+    return inputStreamForBody;
+  }
+
+  public void reset() {
+    if (headers != null) {
+      headers.clear();
+    }
+    
+    httpCode = 200;
+    responseStream = null;
+    tooLateToChangeHeaders = false;
+    contentLength = -1;
+    contentType = "text/html";
+    charset = null;
+    forcingClosingAfterRequest = false;
+    tellingConnectionClose = false;
+    moreDataComing = false;
+    stringBuffer = null;
+    inputStreamForBody = null;
+    attachment = null;
+    httpProtocol = null;
+  }
+  
+  /**
+   * @return the headers
+   */
+  public List<String[]> getHeaders() {
+    return headers;
   }
   
   /**
@@ -515,46 +555,5 @@ public class Response {
    */
   public void setStringBuffer(StringBuilder stringBuffer) {
     this.stringBuffer = stringBuffer;
-  }
-
-  public static ResponseStream prepareResponseStreamFromInputStream(
-          InputStream bodyStream) {
-    ResponseStream r = new ResponseStream();
-    r.setBodyStream(bodyStream);
-    return r;
-  }
-
-  /**
-   * @return the inputStreamForBody
-   */
-  public InputStream getStreamToReadFrom() {
-    return inputStreamForBody;
-  }
-
-  public void reset() {
-    if (headers != null) {
-      headers.clear();
-    }
-    
-    httpCode = 200;
-    responseStream = null;
-    tooLateToChangeHeaders = false;
-    contentLength = -1;
-    contentType = "text/html";
-    charset = null;
-    forcingClosingAfterRequest = false;
-    tellingConnectionClose = false;
-    moreDataComing = false;
-    stringBuffer = null;
-    inputStreamForBody = null;
-    attachment = null;
-    httpProtocol = null;
-  }
-  
-  /**
-   * @return the headers
-   */
-  public List<String[]> getHeaders() {
-    return headers;
   }
 }

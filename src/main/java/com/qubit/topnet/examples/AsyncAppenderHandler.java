@@ -37,7 +37,6 @@ public class AsyncAppenderHandler extends Handler {
   @Override
   public boolean process(final Request request, final Response response) 
           throws Exception {
-//    response.setResponseStream(new ResponseStream());
     response.setHttpProtocol(HTTP_1_1);
     response.setMoreDataComing(true);
     response.setContentLength(-1);// 1 value trick
@@ -62,22 +61,6 @@ public class AsyncAppenderHandler extends Handler {
           Thread.sleep(1000);
           stream.print("Hello after 2 sec!<br>\n");
           Thread.sleep(1000);
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
-          stream.print("Hello after 3 sec!<br>\n");
           stream.print("Hello after 3 sec!<br>\n");
         } catch (InterruptedException ex) {
           Logger.getLogger(AsyncAppenderHandler.class.getName())

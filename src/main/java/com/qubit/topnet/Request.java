@@ -38,7 +38,6 @@ public class Request {
   private List<String[]> headers;
   private SocketChannel channel;
   private String bodyStringCache;
-
   private final BytesStream bytesStream = new BytesStream();
   private String path;
   private String method;
@@ -46,10 +45,11 @@ public class Request {
   private String fullPath;
   private Throwable associatedException;
   private Object attachment;
-
   private Map<String, Object> attributes;
   private long createdTime;
   private Runnable writeFinishedHandler;
+  
+  public Request() {}
   
   public void init(SocketChannel channel, List<String[]> headers) {
     this.headers = headers;
@@ -57,6 +57,44 @@ public class Request {
     this.createdTime = new Date().getTime();
   }
 
+  /**
+   * @return the bytesStream
+   */
+  public BytesStream getBytesStream() {
+    return bytesStream;
+  }
+  
+  protected void reset() {
+    if (this.bytesStream != null) {
+      this.bytesStream.shrinkLessMore();
+      this.bytesStream.reset();
+    }
+    
+    headers.clear();
+    channel = null;
+    bodyStringCache = null;
+    path = null;
+    method = null;
+    pathParameters = null;
+    fullPath = null;
+    associatedException = null;
+    attachment = null;
+
+    if (attributes != null) {
+      attributes.clear();
+    }
+    
+    createdTime = 0;
+    writeFinishedHandler = null;
+  }
+  
+  /**
+   * @return the headers
+   */
+  public List<String[]> getHeaders() {
+    return headers;
+  }
+  
   public String getBodyString() throws OutputStreamAlreadySetException {
     if (this.bodyStringCache == null) {
         
@@ -218,43 +256,5 @@ public class Request {
    */
   public Runnable getWriteFinishedHandler() {
     return writeFinishedHandler;
-  }
-
-  /**
-   * @return the bytesStream
-   */
-  public BytesStream getBytesStream() {
-    return bytesStream;
-  }
-  
-  protected void reset() {
-    if (this.bytesStream != null) {
-      this.bytesStream.shrinkLessMore();
-      this.bytesStream.reset();
-    }
-    
-    headers.clear();
-    channel = null;
-    bodyStringCache = null;
-
-    path = null;
-    method = null;
-    pathParameters = null;
-    fullPath = null;
-    associatedException = null;
-    attachment = null;
-
-    if (attributes != null) {
-      attributes.clear();
-    }
-    createdTime = 0;
-    writeFinishedHandler = null;
-  }
-  
-  /**
-   * @return the headers
-   */
-  public List<String[]> getHeaders() {
-    return headers;
   }
 }

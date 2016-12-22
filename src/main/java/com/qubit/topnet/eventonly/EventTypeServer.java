@@ -38,7 +38,7 @@ import java.util.logging.Logger;
  */
 public class EventTypeServer extends ServerBase {
   
-  final static Logger log = Logger.getLogger(EventTypeServer.class.getName());
+  private final static Logger log = Logger.getLogger(EventTypeServer.class.getName());
   
   private HandlingThread[] handlingThreads;
   
@@ -104,7 +104,7 @@ public class EventTypeServer extends ServerBase {
             "Server starting at {0} on port {1}\nPool type: {2}", 
             new Object[]{
               getListenAddress().getHostName(),
-              port,
+              this.getPort(),
               this.getPoolType()});
   }
 

@@ -24,7 +24,7 @@ package com.qubit.topnet.utils;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-
+//@todo consider using new Java api
 public class Pair<T, V> {
   
   private T left;
@@ -62,6 +62,4 @@ public class Pair<T, V> {
   public void setRight(V right) {
     this.right = right;
   }
-  
-  
 }

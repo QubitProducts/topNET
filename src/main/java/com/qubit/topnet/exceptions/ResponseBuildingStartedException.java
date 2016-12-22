@@ -17,7 +17,6 @@
  * 
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
-
 package com.qubit.topnet.exceptions;
 
 /**
@@ -28,5 +27,4 @@ public class ResponseBuildingStartedException extends Exception {
 
   public ResponseBuildingStartedException() {
   }
-  
 }

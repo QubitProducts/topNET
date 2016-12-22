@@ -34,9 +34,9 @@ public class SleepyHandler extends Handler {
   public boolean process(Request request, Response response) 
           throws Exception {
     
-    Thread.sleep(10);
+    Thread.sleep(100);
     
-    response.print("I was sleeping 10 ms...");
+    response.print("I was sleeping 100 ms...");
 
     return true;
   }

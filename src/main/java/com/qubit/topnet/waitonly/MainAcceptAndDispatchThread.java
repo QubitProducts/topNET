@@ -21,7 +21,6 @@ package com.qubit.topnet.waitonly;
 
 import static com.qubit.topnet.waitonly.HandlingThread.handlingClosedIdleCounter;
 import static com.qubit.topnet.waitonly.HandlingThread.totalWaitedIO;
-import static com.qubit.topnet.waitonly.WaitTypeServer.log;
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
@@ -30,6 +29,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -38,6 +38,8 @@ import java.util.logging.Level;
 class MainAcceptAndDispatchThread extends Thread {
 
   private static long infoLogsFrequency = 10 * 1000;
+  private final static Logger log = 
+      Logger.getLogger(MainAcceptAndDispatchThread.class.getName());
 
   /**
    * @return the infoLogsFrequency
@@ -199,17 +201,7 @@ class MainAcceptAndDispatchThread extends Thread {
       return this.fillUpThreadsOneByOne(handlingThreads, channel, acceptTime);
     }
   }
-
-  private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
-    for (HandlingThread handlingThread : handlingThreads) {
-      if (handlingThread != null && handlingThread.canAddJob()) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
+  
   private long closedIdleCounter = 0;
 
   protected boolean handleMaxIdle(Long ts, SelectionKey key) {
@@ -334,4 +326,4 @@ class MainAcceptAndDispatchThread extends Thread {
   public void setAutoScalingDown(boolean autoScalingDown) {
     this.autoScalingDown = autoScalingDown;
   }
-                  }
+}

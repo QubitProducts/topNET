@@ -31,6 +31,7 @@ import java.util.TimeZone;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 class ServerTime {
+  
   DateFormat dateFormat;
 
   public ServerTime () {
