@@ -20,12 +20,11 @@
 
 package com.qubit.topnet;
 
-import java.io.IOException;
+import java.io.InputStream;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public interface ResponseReader {
-  public int read() throws IOException;
+public abstract class ResponseReader extends InputStream {
 }

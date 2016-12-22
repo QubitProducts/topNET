@@ -394,7 +394,7 @@ public final class DataHandler {
           }
         } else {
           if (currentHeaderLineLength < server.getDefaultHeaderSizeLimit()) {
-            currentHeaderLine[currentHeaderLineLength++] = (byte) current;
+            currentHeaderLine[currentHeaderLineLength++] = (byte)current;
           } else {
              this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
              return true;
