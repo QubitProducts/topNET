@@ -30,6 +30,7 @@ public class BytesStream {
 
   private static int defaultBufferChunkSize = 64 * 1024;
   private static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
+  // purposely static and not on server instance.
   private static boolean shrinkingBuffersAfterJob = true;
 
   /**
