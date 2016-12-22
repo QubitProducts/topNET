@@ -53,7 +53,7 @@ public class Demo {
     boolean waitForEvents = true;
     
     int noIOdelay = 400 * 1000; //nanoseconds, or N*1000000 ms == (n * ms)
-    BytesStream.doNotShrinkBuffersAfterJob = false;
+    BytesStream.setShrinkingBuffersAfterJob(false);
     boolean scalingDown = true;
     
     WaitTypeServer s = new WaitTypeServer("localhost", 3456);

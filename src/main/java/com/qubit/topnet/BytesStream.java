@@ -30,7 +30,7 @@ public class BytesStream {
 
   private static int defaultBufferChunkSize = 64 * 1024;
   private static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
-  public static boolean doNotShrinkBuffersAfterJob = false;
+  private static boolean shrinkingBuffersAfterJob = true;
 
   /**
    * @return the defaultBufferChunkSize
@@ -58,6 +58,20 @@ public class BytesStream {
    */
   public static void setMinimumBytesToKeepAfterJobShrink(int aMinimumBytesToKeepAfterJobShrink) {
     minimumBytesToKeepAfterJobShrink = aMinimumBytesToKeepAfterJobShrink;
+  }
+
+  /**
+   * @return the shrinkingBuffersAfterJob
+   */
+  public static boolean isShrinkingBuffersAfterJob() {
+    return shrinkingBuffersAfterJob;
+  }
+
+  /**
+   * @param aShrinkingBuffersAfterJob the shrinkingBuffersAfterJob to set
+   */
+  public static void setShrinkingBuffersAfterJob(boolean aShrinkingBuffersAfterJob) {
+    shrinkingBuffersAfterJob = aShrinkingBuffersAfterJob;
   }
   
   public int bufferElementSize = getDefaultBufferChunkSize();
@@ -299,10 +313,9 @@ public class BytesStream {
   }
   
   public void shrinkLessMore() {
-    if (doNotShrinkBuffersAfterJob) {
-      return;
+    if (isShrinkingBuffersAfterJob()) {
+      this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
     }
-    this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
   }
   
   /**

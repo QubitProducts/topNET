@@ -51,7 +51,7 @@ public class Demo {
     int channelWriteBufSize = -1;//4 * 1024 * 1024;
     int th = 3;
 
-    BytesStream.doNotShrinkBuffersAfterJob = false;
+    BytesStream.setShrinkingBuffersAfterJob(false);
     boolean scalingDown = true;
     boolean autoScaling = true;
 
