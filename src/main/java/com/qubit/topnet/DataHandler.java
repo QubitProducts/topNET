@@ -19,6 +19,7 @@
  */
 package com.qubit.topnet;
 
+import static com.qubit.topnet.BytesStream.NO_BYTES_LEFT_VAL;
 import static com.qubit.topnet.Handler.HTTP_1_0;
 import static com.qubit.topnet.Handler.HTTP_1_1;
 import com.qubit.topnet.errors.ErrorHandlingConfig;
@@ -211,7 +212,7 @@ public final class DataHandler {
     
     while (read != -2 && 
             (read = this.channel.read(
-                    request.getBytesStream().getNotEmptyCurrentBuffer())) > 0) {
+                    request.getBytesStream().getBufferToWrite())) > 0) {
       
       if (read > 0) {
         currentSum += read;
@@ -332,9 +333,9 @@ public final class DataHandler {
           throws UnsupportedEncodingException {
 
     if (!this.headersReady) {
-      byte current;
+      int current;
       
-      while ((current = stream.read()) != -1) {
+      while ((current = stream.readByte()) != NO_BYTES_LEFT_VAL) {
           if (current == '\n' &&
               currentHeaderLine[currentHeaderLineLength - 1] == '\r') {
           
@@ -347,8 +348,8 @@ public final class DataHandler {
 
           if (this.headersReady) {
             if (this.contentLength > 0 && 
-                this.contentLength > stream.getBufferElementSize() * 2) {
-              stream.setBufferElementSize(
+                this.contentLength > stream.getSingleBufferChunkSize() * 2) {
+              stream.setSingleBufferChunkSize(
                   this.calculateBufferSizeByContentSize(this.contentLength));
             }
             
@@ -393,7 +394,7 @@ public final class DataHandler {
           }
         } else {
           if (currentHeaderLineLength < server.getDefaultHeaderSizeLimit()) {
-            currentHeaderLine[currentHeaderLineLength++] = current;
+            currentHeaderLine[currentHeaderLineLength++] = (byte) current;
           } else {
              this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
              return true;
@@ -538,7 +539,7 @@ public final class DataHandler {
         } else {
           bufSize = this.calculateBufferSizeByContentSize(bufSize);
         }
-        bytesStream.setBufferElementSize((int)bufSize);
+        bytesStream.setSingleBufferChunkSize((int)bufSize);
       }
     }
     
@@ -550,9 +551,9 @@ public final class DataHandler {
       writtenFromBuffer = 0;
       
       if (currentReadingPositionInWrittenBufByWrite == 0) {
-        writeBuffer = bytesStream.getNotEmptyCurrentBuffer();
+        writeBuffer = bytesStream.getBufferToWrite();
       } else {
-        writeBuffer = bytesStream.getCurrentBufferWriting().getByteBuffer();
+        writeBuffer = bytesStream.getCurrentWritingBuffer().getByteBuffer();
         // havent finished reading from buffer, and will wait here
       }
       
