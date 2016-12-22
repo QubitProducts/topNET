@@ -114,7 +114,7 @@ public class Request {
       }
       
       this.bodyStringCache = bytesStream
-          .readAvailableToReadAsString(charset).toString();
+          .readAvailableBytesAsString(charset).toString();
     }
 
     return this.bodyStringCache;
