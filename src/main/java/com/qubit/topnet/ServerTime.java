@@ -58,7 +58,7 @@ class ServerTime {
   }
   
   public static String getCachedTime() {
-    long now = new Date().getTime();
+    long now = System.currentTimeMillis();
     if (cachedTime == null || (lastRead + 499) < now) {
       lastRead = now;
       cachedTime = serverTime.get().getTime();
