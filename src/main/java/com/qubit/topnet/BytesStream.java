@@ -177,10 +177,12 @@ public class BytesStream {
   /**
    * Reads byte from this bytes stream and increments 
    * `this.currentBufferReadPosition`.
-   * @return byte read  or 0xff if nothing left to read.
+   * @return byte read  or NO_BYTES_LEFT_VAL if nothing left to read.
    */
   public int readByte() {
+    //@todo refactor to use buf function and read into array
     ByteBuffer buf = currentReadingBuffer.getByteBuffer();
+    
     if (currentBufferReadPosition < buf.position()) {
       
       return buf.get(currentBufferReadPosition++);
@@ -224,6 +226,7 @@ public class BytesStream {
     }
   }
   
+  //@todo convert it to numerical algo
   public long availableToRead() {
     if (currentReadingBuffer.getByteBuffer() == null) {
       return 0;

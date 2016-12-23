@@ -32,11 +32,6 @@ import java.util.logging.Logger;
  */
 public abstract class Handler {
   
-  public static final char[] HTTP_0_9 = "HTTP/0.9".toCharArray();
-  public static final char[] HTTP_1_0 = "HTTP/1.0".toCharArray();
-  public static final char[] HTTP_1_1 = "HTTP/1.1".toCharArray();
-  public static final char[] HTTP_1_x = "HTTP/1.x".toCharArray();
-  
   static final Logger log = Logger.getLogger(Handler.class.getName());
   
   private Handler next;

@@ -20,8 +20,8 @@
 package com.qubit.topnet;
 
 import static com.qubit.topnet.BytesStream.NO_BYTES_LEFT_VAL;
-import static com.qubit.topnet.Handler.HTTP_1_0;
-import static com.qubit.topnet.Handler.HTTP_1_1;
+import static com.qubit.topnet.ServerBase.HTTP_1_0;
+import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import com.qubit.topnet.errors.ErrorHandlingConfig;
 import com.qubit.topnet.errors.ErrorTypes;
 import static com.qubit.topnet.errors.ErrorTypes.BAD_CONTENT_HEADER;
@@ -94,8 +94,8 @@ public final class DataHandler {
   private final byte[] currentHeaderLine;
   private long contentLength = 0; // -1 is used to distinguish cases when no
   
-  private byte[] requestHttpProtocol = BHTTP_1_0;
-  private char[] responseHttpProtocol = getDefaultProtocol();
+  private byte[] requestHttpProtocolBytes = BHTTP_1_0;
+  private int responseHttpProtocol = getDefaultProtocol();
 
   private Request request;
   private Response response;
@@ -183,7 +183,7 @@ public final class DataHandler {
     currentReadingPositionInWrittenBufByWrite = 0;
     reqInitialized = false;
     responseHttpProtocol = getDefaultProtocol();
-    requestHttpProtocol = BHTTP_1_0;
+    requestHttpProtocolBytes = BHTTP_1_0;
     wasMarkedAsMoreDataIsComing = false;
     acceptedTime = 0;
     this.setRequestStartedTime(0);
@@ -275,8 +275,9 @@ public final class DataHandler {
     if (proto_idx != -1) {
       this.fullPath = new String(line, methodStart, proto_idx - methodStart);
       
-      this.requestHttpProtocol = Arrays.copyOfRange(line, proto_idx + 1, len);
-      if (Arrays.equals(this.getRequestHttpProtocol(), BHTTP_1_1)) {
+      this.requestHttpProtocolBytes = Arrays.copyOfRange(line, proto_idx + 1, len);
+      // we reply with 1.0 or 1.1, whatever client tries to choose
+      if (Arrays.equals(this.requestHttpProtocolBytes, BHTTP_1_1)) {
         this.responseHttpProtocol = HTTP_1_1;
       }
       
@@ -355,7 +356,7 @@ public final class DataHandler {
             
             {
               // headers just finished
-              if (this.server.getProtocol() != null) {
+              if (this.server.getProtocol() > 0) {
                 response.setHttpProtocol(server.getProtocol());
               } else {
                 response.setHttpProtocol(this.responseHttpProtocol);
@@ -526,7 +527,6 @@ public final class DataHandler {
       this.response.setTooLateToChangeHeaders(true);
     }
     
-    ByteBuffer writeBuffer ;
     BytesStream bytesStream = request.getBytesStream();
     
     // adjust dynamicly buf size for future reads
@@ -545,7 +545,8 @@ public final class DataHandler {
     
     int written = 0;
     int ch = 0;
-    int writtenFromBuffer = 0;
+    int writtenFromBuffer;
+    ByteBuffer writeBuffer;
     
     do {
       writtenFromBuffer = 0;
@@ -751,7 +752,7 @@ public final class DataHandler {
       }
     }
     
-    if (Arrays.equals(this.responseHttpProtocol, HTTP_1_1)) {
+    if (this.responseHttpProtocol == HTTP_1_1) {
       return false;
     }
     
@@ -1072,8 +1073,8 @@ public final class DataHandler {
   /**
    * @return the requestHttpProtocol
    */
-  public byte[] getRequestHttpProtocol() {
-    return this.requestHttpProtocol;
+  public byte[] getRequestHttpProtocolBytes() {
+    return this.requestHttpProtocolBytes;
   }
 
     /**
@@ -1120,7 +1121,7 @@ public final class DataHandler {
     this.requestStartedTime = requestStartedTime;
   }
   
-  public static char[] getDefaultProtocol() {
+  public static int getDefaultProtocol() {
     return HTTP_1_0;
   }
 }

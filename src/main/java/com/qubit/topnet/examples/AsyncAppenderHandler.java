@@ -23,6 +23,7 @@ package com.qubit.topnet.examples;
 import com.qubit.topnet.Handler;
 import com.qubit.topnet.Request;
 import com.qubit.topnet.Response;
+import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;

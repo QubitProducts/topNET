@@ -35,12 +35,20 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ *  public static final int HTTP_0_9 = 0;
+  public static final int HTTP_1_0 = 1;
+  public static final int HTTP_1_1 = 2;
+  public static final int HTTP_1_x = 3;
  * @author piotr
  */
 public abstract class ServerBase {
 
   private final static Logger log = Logger.getLogger(ServerBase.class.getName());
+  
+  public static final int HTTP_0_9 = 0;
+  public static final int HTTP_1_0 = 1;
+  public static final int HTTP_1_1 = 2;
+  public static final int HTTP_1_x = 3;
   
   private static boolean tellingConnectionClose = false;
   private static final int THREAD_JOBS_SIZE;
@@ -96,7 +104,7 @@ public abstract class ServerBase {
   private int latencyPerformancePref = 0;
   private int bandwithPerformancePref = 0;
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
-  private char[] protocol;
+  private int protocol = -1;
   private Selector channelSelector;
 
   public final Map<String, Handler> plainPathHandlers = new HashMap<>();
@@ -553,7 +561,7 @@ public abstract class ServerBase {
     this.bandwithPerformancePref = bandwithPerformancePref;
   }
 
-  public char[] getProtocol() {
+  public int getProtocol() {
     return this.protocol;
   }
 

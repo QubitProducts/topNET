@@ -25,12 +25,14 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 class ServerTime {
+  static private final Logger log = Logger.getLogger(ServerTime.class.getName());
   
   DateFormat dateFormat;
 
@@ -42,13 +44,25 @@ class ServerTime {
   }
   
   static volatile private long lastRead = 0;
-  String cachedTime = null;
+  static private volatile String cachedTime = null;
   
-  public String getCachedTime() {
+  private static final ThreadLocal<ServerTime> serverTime;
+
+  static {
+    serverTime = new ThreadLocal<ServerTime>() {
+      @Override
+      protected ServerTime initialValue() {
+        return new ServerTime();
+      }
+    };
+  }
+  
+  public static String getCachedTime() {
     long now = new Date().getTime();
-    if (cachedTime == null || (lastRead + 777) < now) {
+    if (cachedTime == null || (lastRead + 499) < now) {
       lastRead = now;
-      cachedTime = getTime();
+      cachedTime = serverTime.get().getTime();
+      log.info(cachedTime);
     }
     return cachedTime;
   }
