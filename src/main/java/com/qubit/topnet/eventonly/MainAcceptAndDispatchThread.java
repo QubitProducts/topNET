@@ -20,7 +20,7 @@
 package com.qubit.topnet.eventonly;
 
 import static com.qubit.topnet.eventonly.HandlingThread.handlingClosedIdleCounter;
-import static com.qubit.topnet.eventonly.EventTypeServer.log;
+import com.qubit.topnet.eventonly.SelectionKeyChain.SelectionKeyLink;
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
@@ -29,6 +29,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -36,8 +37,11 @@ import java.util.logging.Level;
  */
 class MainAcceptAndDispatchThread extends Thread {
 
+  private final static Logger log = 
+      Logger.getLogger(MainAcceptAndDispatchThread.class.getName());
+  
   private static long infoLogsFrequency = 10 * 1000;
-
+  
   /**
    * @return the infoLogsFrequency
    */
@@ -68,12 +72,14 @@ class MainAcceptAndDispatchThread extends Thread {
     this.server = server;
     this.maxIdleAfterAccept = maxIdleAfterAccept;
     this.channelSelector = channelSelector;
+    this.unprocessedSelectionKeyChain = new SelectionKeyChain();
   }
 
   private int acceptedCnt = 0;
   private int currentThread = 0;
   long maxIdleAfterAccept;
   long lastMeassured = System.currentTimeMillis();
+  SelectionKeyChain unprocessedSelectionKeyChain;
     
   @Override
   public void run() {
@@ -105,9 +111,12 @@ class MainAcceptAndDispatchThread extends Thread {
                   this.checkOutdatedKeys();
                   
                   SelectionKeyLink skl = 
-                      new SelectionKeyLink(newKey, System.currentTimeMillis());
+                      unprocessedSelectionKeyChain.new SelectionKeyLink(
+                          newKey,
+                          System.currentTimeMillis());
+                  
                   newKey.attach(skl);
-                  SelectionKeyLink.add(skl);
+                  unprocessedSelectionKeyChain.add(skl);
                 } else {
                   channel.register(getChannelSelector(),
                     OP_READ,
@@ -178,8 +187,7 @@ class MainAcceptAndDispatchThread extends Thread {
     if (this.maxIdleAfterAccept > 0) {
       SelectionKeyLink skl = (SelectionKeyLink) key.attachment();
       HandlingThread owningThread = this.startReading(handlingThreads,
-                                                      key,
-                                                      skl.acceptTime);
+                                                      key, skl.getAcceptTime());
       if (owningThread != null) {
         skl.remove(); // important to remove - SelectionKeyLink is used ti 
         key.attach(owningThread);
@@ -208,16 +216,6 @@ class MainAcceptAndDispatchThread extends Thread {
     } else {
       return this.fillUpThreadsOneByOne(handlingThreads, key, acceptTime);
     }
-  }
-
-  private boolean thereAreFreeJobs(HandlingThread[] handlingThreads) {
-    for (HandlingThread handlingThread : handlingThreads) {
-      if (handlingThread != null && handlingThread.canAddJob()) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   private long closedIdleCounter = 0;
@@ -330,15 +328,15 @@ class MainAcceptAndDispatchThread extends Thread {
     if (currentTime - this.lastChecked > this.maxIdleAfterAccept) {
       this.lastChecked = currentTime;
 
-      SelectionKeyLink current = SelectionKeyLink.first;
+      SelectionKeyLink current = unprocessedSelectionKeyChain.getFirst();
 
       while (current != null) {
-        SelectionKey sKey = current.key;
-        SelectionKeyLink nextElem = current.next;
+        SelectionKey sKey = current.getKey();
+        SelectionKeyLink nextElem = current.getNext();
         Object numOrThread = sKey.attachment();
         
         if (numOrThread instanceof SelectionKeyLink) {
-          Long acceptTime = ((SelectionKeyLink) numOrThread).acceptTime;
+          Long acceptTime = ((SelectionKeyLink) numOrThread).getAcceptTime();
 
           if (this.handleMaxIdle(acceptTime, sKey)) {
             sKey.cancel(); // already too long 

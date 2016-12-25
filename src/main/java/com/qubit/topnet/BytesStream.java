@@ -30,7 +30,8 @@ public class BytesStream {
 
   private static int defaultBufferChunkSize = 64 * 1024;
   private static int minimumBytesToKeepAfterJobShrink = 256 * 1024;
-  public static boolean doNotShrinkBuffersAfterJob = false;
+  // purposely static and not on server instance.
+  private static boolean shrinkingBuffersAfterJob = true;
 
   /**
    * @return the defaultBufferChunkSize
@@ -59,67 +60,78 @@ public class BytesStream {
   public static void setMinimumBytesToKeepAfterJobShrink(int aMinimumBytesToKeepAfterJobShrink) {
     minimumBytesToKeepAfterJobShrink = aMinimumBytesToKeepAfterJobShrink;
   }
+
+  /**
+   * @return the shrinkingBuffersAfterJob
+   */
+  public static boolean isShrinkingBuffersAfterJob() {
+    return shrinkingBuffersAfterJob;
+  }
+
+  /**
+   * @param aShrinkingBuffersAfterJob the shrinkingBuffersAfterJob to set
+   */
+  public static void setShrinkingBuffersAfterJob(boolean aShrinkingBuffersAfterJob) {
+    shrinkingBuffersAfterJob = aShrinkingBuffersAfterJob;
+  }
   
-  public int bufferElementSize = getDefaultBufferChunkSize();
-  private BufferWrapper currentBufferReading;
-  private BufferWrapper currentBufferWriting;
+  private int singleBufferChunkSize = getDefaultBufferChunkSize();
+  private BufferWrapper currentReadingBuffer;
+  private BufferWrapper currentWritingBuffer;
   private int currentBufferReadPosition = 0;
+  private byte[] bytesCache = null;
   
-  BufferWrapper last;
-  BufferWrapper first;
+  private BufferWrapper last;
+  private BufferWrapper first;
   
-  /**
-   * @return the bufferElementSize
-   */
-  public int getBufferElementSize() {
-    return bufferElementSize;
-  }
-
-  /**
-   * @param aBufferElementSize the bufferElementSize to set
-   */
-  public void setBufferElementSize(int aBufferElementSize) {
-    bufferElementSize = aBufferElementSize;
-  }
-
-
   public BytesStream() {
     this.init();
   }
+  
+  private void init() {
+    currentReadingBuffer = new BufferWrapper();
+    currentWritingBuffer = currentReadingBuffer;
+    first = currentReadingBuffer;
+    last = currentReadingBuffer;
+    currentBufferReadPosition = 0;
+  }
 
   private void addBuf() {
-    if (this.currentBufferWriting.getNext() == null) {
-      if (currentBufferWriting.getByteBuffer() == null) {
-        currentBufferWriting.setByteBuffer(
-            ByteBuffer.allocateDirect(bufferElementSize));
+    if (this.currentWritingBuffer.getNext() == null) {
+      if (currentWritingBuffer.getByteBuffer() == null) {
+        currentWritingBuffer.setByteBuffer(
+            ByteBuffer.allocateDirect(singleBufferChunkSize));
       } else {
-        this.currentBufferWriting = (new BufferWrapper());
-        this.currentBufferWriting
-            .setByteBuffer(ByteBuffer.allocateDirect(bufferElementSize));
+        this.currentWritingBuffer = (new BufferWrapper());
+        this.currentWritingBuffer
+            .setByteBuffer(ByteBuffer.allocateDirect(singleBufferChunkSize));
         
-        this.last.setNext(this.currentBufferWriting);
-        this.currentBufferWriting.setPrev(this.last);
-        this.last = this.currentBufferWriting;
+        this.last.setNext(this.currentWritingBuffer);
+        this.currentWritingBuffer.setPrev(this.last);
+        this.last = this.currentWritingBuffer;
       }
     } else {
-      this.currentBufferWriting = this.currentBufferWriting.getNext();
-      this.last = this.currentBufferWriting;
-      this.currentBufferWriting.getByteBuffer().clear();
+      this.currentWritingBuffer = this.currentWritingBuffer.getNext();
+      this.last = this.currentWritingBuffer;
+      this.currentWritingBuffer.getByteBuffer().clear();
     }
   }
 
-  public ByteBuffer getNotEmptyCurrentBuffer() {
-    if (this.currentBufferWriting.getByteBuffer() == null
-        || !this.currentBufferWriting.getByteBuffer().hasRemaining()) {
+  public ByteBuffer getBufferToWrite() {
+    if (this.currentWritingBuffer.getByteBuffer() == null
+        || !this.currentWritingBuffer.getByteBuffer().hasRemaining()) {
       this.addBuf();
     }
-    return this.currentBufferWriting.getByteBuffer();
+    return this.currentWritingBuffer.getByteBuffer();
   }
   
-  byte[] bytes = null;
-  
-  public StringBuilder readAvailableToReadAsString(Charset charset) {
-    BufferWrapper start = this.currentBufferReading;
+  /**
+   * Reads all available bytes as string - does not change 'currentBufferReadPosition'.
+   * @param charset
+   * @return StringBuilder
+   */
+  public StringBuilder readAvailableBytesAsString(Charset charset) {
+    BufferWrapper start = this.currentReadingBuffer;
     StringBuilder builder = new StringBuilder();
     
     if (start.getByteBuffer() == null) {
@@ -137,15 +149,15 @@ public class BytesStream {
       if (buffer.hasArray()) {
         builder.append(new String(buffer.array(), pos, amount, charset));
       } else {
-        if (bytes == null || bytes.length != buffer.capacity()) {
-          bytes = new byte[amount];
+        if (bytesCache == null || bytesCache.length != buffer.capacity()) {
+          bytesCache = new byte[amount];
         }
         
         for (int c = 0; c < amount; c++) {
-          bytes[c] = buffer.get(pos + c);
+          bytesCache[c] = buffer.get(pos + c);
         }
         
-        builder.append(new String(bytes, 0, amount, charset));
+        builder.append(new String(bytesCache, 0, amount, charset));
       }
       
       pos = 0;// next buffer starts from 0
@@ -160,35 +172,44 @@ public class BytesStream {
     return builder;
   }
 
-  public byte read() {
-    ByteBuffer buf = currentBufferReading.getByteBuffer();
+  public static final int NO_BYTES_LEFT_VAL = Byte.MAX_VALUE * 2;
+  
+  /**
+   * Reads byte from this bytes stream and increments 
+   * `this.currentBufferReadPosition`.
+   * @return byte read  or NO_BYTES_LEFT_VAL if nothing left to read.
+   */
+  public int readByte() {
+    //@todo refactor to use buf function and read into array
+    ByteBuffer buf = currentReadingBuffer.getByteBuffer();
+    
     if (currentBufferReadPosition < buf.position()) {
       
       return buf.get(currentBufferReadPosition++);
     
     } else if (!buf.hasRemaining()) {
       
-      if (this.currentBufferReading.getNext() != null) {
+      if (this.currentReadingBuffer.getNext() != null) {
         
-        currentBufferReading = this.currentBufferReading.getNext();
+        currentReadingBuffer = this.currentReadingBuffer.getNext();
         currentBufferReadPosition = 0;
-        return this.read();
+        return this.readByte();
         
       } else {
         
-        return -1;
+        return NO_BYTES_LEFT_VAL;
         
       }
     } else {
       
-      return -1;
+      return NO_BYTES_LEFT_VAL;
       
     }
   }
   
   public void reset() {
-    this.currentBufferReading = first;
-    this.currentBufferWriting = first;
+    this.currentReadingBuffer = first;
+    this.currentWritingBuffer = first;
     last = first;
     this.clear();
     this.currentBufferReadPosition = 0;
@@ -205,14 +226,15 @@ public class BytesStream {
     }
   }
   
+  //@todo convert it to numerical algo
   public long availableToRead() {
-    if (currentBufferReading.getByteBuffer() == null) {
+    if (currentReadingBuffer.getByteBuffer() == null) {
       return 0;
     }
     
     long amount = 0;
     int pos = currentBufferReadPosition;
-    BufferWrapper start = currentBufferReading;
+    BufferWrapper start = currentReadingBuffer;
     
     while (start != null) {
       amount += (start.getByteBuffer().position() - pos);
@@ -239,7 +261,7 @@ public class BytesStream {
     while (start != null) {
       amount += start.getByteBuffer().position();
       
-      if (start == currentBufferWriting) {
+      if (start == currentWritingBuffer) {
         break;
       }
       
@@ -294,40 +316,49 @@ public class BytesStream {
   }
   
   public void dropAlreadyRead() {
-    first = this.currentBufferReading;
+    first = this.currentReadingBuffer;
     first.setPrev(null);
   }
   
   public void shrinkLessMore() {
-    if (doNotShrinkBuffersAfterJob) {
-      return;
+    if (isShrinkingBuffersAfterJob()) {
+      this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
     }
-    this.shrinkLessMore(minimumBytesToKeepAfterJobShrink);
   }
   
   /**
-   * @return the currentBufferReading
+   * @return the currentReadingBuffer
    */
-  public BufferWrapper getCurrentBufferReading() {
-    return currentBufferReading;
+  public BufferWrapper getCurrentReadingBuffer() {
+    return currentReadingBuffer;
   }
 
   /**
-   * @return the currentBufferWriting
+   * @return the currentWritingBuffer
    */
-  public BufferWrapper getCurrentBufferWriting() {
-    return currentBufferWriting;
+  public BufferWrapper getCurrentWritingBuffer() {
+    return currentWritingBuffer;
+  }
+  
+  public BufferWrapper getFirst() {
+    return first;
+  }
+  
+  public BufferWrapper getLast() {
+    return last;
+  }
+  
+  /**
+   * @return the singleBufferChunkSize
+   */
+  public int getSingleBufferChunkSize() {
+    return singleBufferChunkSize;
   }
 
   /**
-   * 
+   * @param aBufferElementSize the singleBufferChunkSize to set
    */
-  private void init() {
-    currentBufferReading = new BufferWrapper();
-    currentBufferWriting = currentBufferReading;
-    first = currentBufferReading;
-    last = currentBufferReading;
-    currentBufferReadPosition = 0;
+  public void setSingleBufferChunkSize(int aBufferElementSize) {
+    singleBufferChunkSize = aBufferElementSize;
   }
-
 }

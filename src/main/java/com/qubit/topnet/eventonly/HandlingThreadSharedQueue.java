@@ -54,6 +54,7 @@ public class HandlingThreadSharedQueue extends HandlingThreadQueued {
   /**
    * @param limit the limit to set
    */
+  @Override
   public void setLimit(int limit) {
     HandlingThreadSharedQueue.limit = limit;
   }

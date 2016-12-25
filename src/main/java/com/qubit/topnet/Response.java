@@ -21,6 +21,7 @@
 package com.qubit.topnet;
 
 import static com.qubit.topnet.DataHandler.getDefaultProtocol;
+import static com.qubit.topnet.ServerTime.getCachedTime;
 import com.qubit.topnet.exceptions.ResponseBuildingStartedException;
 import com.qubit.topnet.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
@@ -37,26 +38,19 @@ import java.util.logging.Logger;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class Response {
-
-  public static String serverName;
+  static private final Logger log = Logger.getLogger(Response.class.getName());
   
-  static private final String CRLF = "\r\n";
-  static private final String OK_200 = "200 OK" + CRLF;
-  static private final String OK_204 = "204 No Content" + CRLF;
-
-  private static final ThreadLocal<ServerTime> serverTime;
+  public static String serverName = "topNET";// + "/" + SERVER_VERSION;
   
-  static final Logger log = Logger.getLogger(Response.class.getName());
+  private static final String CRLF = "\r\n";
+  private static final String OK_200 = "200 OK" + CRLF;
+  private static final String OK_204 = "204 No Content" + CRLF;
+  public static final char[] HTTP_0_9_CHARS = "HTTP/0.9".toCharArray();
+  public static final char[] HTTP_1_0_CHARS = "HTTP/1.0".toCharArray();
+  public static final char[] HTTP_1_1_CHARS = "HTTP/1.1".toCharArray();
+  public static final char[] HTTP_1_x_CHARS = "HTTP/1.x".toCharArray();
 
-  static {
-    serverName = "topNET";// + "/" + SERVER_VERSION;
-    serverTime = new ThreadLocal<ServerTime>() {
-      @Override
-      protected ServerTime initialValue() {
-        return new ServerTime();
-      }
-    };
-  }
+  
 
   private static void appendServerHeaer(StringBuilder buffer) {
     if (Response.serverName != null) {
@@ -94,14 +88,55 @@ public class Response {
   private StringBuilder stringBuffer = null;
   private InputStream inputStreamForBody;
   private Object attachment;
-  private char[] httpProtocol;
+  private int httpProtocol = 1;
 
-  public void init (char[] httpProtocol) {
+  public void init (int httpProtocol) {
     this.httpProtocol = httpProtocol;
   }
   
   public Response () {
     this.httpProtocol = getDefaultProtocol();
+  }
+  
+  public static ResponseStream prepareResponseStreamFromInputStream(
+          InputStream bodyStream) {
+    ResponseStream r = new ResponseStream();
+    r.setBodyStream(bodyStream);
+    return r;
+  }
+
+  /**
+   * @return the inputStreamForBody
+   */
+  public InputStream getStreamToReadFrom() {
+    return inputStreamForBody;
+  }
+
+  public void reset() {
+    if (headers != null) {
+      headers.clear();
+    }
+    
+    httpCode = 200;
+    responseStream = null;
+    tooLateToChangeHeaders = false;
+    contentLength = -1;
+    contentType = "text/html";
+    charset = null;
+    forcingClosingAfterRequest = false;
+    tellingConnectionClose = false;
+    moreDataComing = false;
+    stringBuffer = null;
+    inputStreamForBody = null;
+    attachment = null;
+    httpProtocol = 1;
+  }
+  
+  /**
+   * @return the headers
+   */
+  public List<String[]> getHeaders() {
+    return headers;
   }
   
   /**
@@ -134,13 +169,16 @@ public class Response {
   }
 
   public StringBuilder getHeadersBuffer() {
-    StringBuilder buffer
+    StringBuilder buffer = new StringBuilder();
+    String baseHeaders
             = getHeadersBufferWithoutEOL(
                     this.httpCode,
                     this.getHttpProtocol());
 
+    buffer.append(baseHeaders);
+    
     try {
-      this.addHeaders(buffer);
+      this.addHeadersString(buffer);
     } catch (TooLateToChangeHeadersException ex) {
       log.log(Level.SEVERE, "This should never happen.", ex);
     }
@@ -150,13 +188,39 @@ public class Response {
     return buffer;
   }
 
-  public static StringBuilder getHeadersBufferWithoutEOL(
-          int httpCode, char[] httpProtocol) {
-
+  private static String[] headersBufferWithoutEOLCache = new String[1024 << 2];
+  
+  public static String getHeadersBufferWithoutEOL(
+          int httpCode, int httpProtocol) {
+    int index = (httpCode << 2) | httpProtocol;
+    
+    if (index < headersBufferWithoutEOLCache.length) {
+      if (headersBufferWithoutEOLCache[index] != null) {
+        return headersBufferWithoutEOLCache[index];
+      }
+    }
+    
     StringBuilder buffer = new StringBuilder();
     int httpCodeNum = httpCode;
 
-    buffer.append(httpProtocol);
+    switch (httpProtocol) {
+      case 0:
+        buffer.append(HTTP_0_9_CHARS);
+        break;
+      case 1:
+        buffer.append(HTTP_1_0_CHARS);
+        break;
+      case 2:
+        buffer.append(HTTP_1_1_CHARS);
+        break;
+      case 3:
+        buffer.append(HTTP_1_x_CHARS);
+        break;
+      default:
+        buffer.append(HTTP_1_0_CHARS);
+        break;
+    }
+    
     buffer.append(' ');
 
     switch (httpCodeNum) {
@@ -184,17 +248,22 @@ public class Response {
         break;
     }
 
-    buffer.append("Date: ");
-    buffer.append(serverTime.get().getCachedTime());
-    buffer.append(CRLF);
-
     Response.appendServerHeaer(buffer);
 
-    return buffer;
+    if (index < headersBufferWithoutEOLCache.length) {
+      headersBufferWithoutEOLCache[index] = buffer.toString();
+    }
+    
+    return headersBufferWithoutEOLCache[index];
   }
 
-  private void addHeaders(StringBuilder buffer)
+  private void addHeadersString(StringBuilder buffer)
           throws TooLateToChangeHeadersException {
+    // add date!
+    buffer.append("Date: ");
+    buffer.append(getCachedTime());
+    buffer.append(CRLF);
+    
     for (String[] header : headers) {
       buffer.append(header[0]);
       buffer.append(": ");
@@ -478,14 +547,14 @@ public class Response {
   /**
    * @return the httpProtocol
    */
-  public char[] getHttpProtocol() {
+  public int getHttpProtocol() {
     return httpProtocol;
   }
 
   /**
    * @param httpProtocol the httpProtocol to set
    */
-  public void setHttpProtocol(char[] httpProtocol) {
+  public void setHttpProtocol(int httpProtocol) {
     this.httpProtocol = httpProtocol;
   }
 
@@ -515,46 +584,5 @@ public class Response {
    */
   public void setStringBuffer(StringBuilder stringBuffer) {
     this.stringBuffer = stringBuffer;
-  }
-
-  public static ResponseStream prepareResponseStreamFromInputStream(
-          InputStream bodyStream) {
-    ResponseStream r = new ResponseStream();
-    r.setBodyStream(bodyStream);
-    return r;
-  }
-
-  /**
-   * @return the inputStreamForBody
-   */
-  public InputStream getStreamToReadFrom() {
-    return inputStreamForBody;
-  }
-
-  public void reset() {
-    if (headers != null) {
-      headers.clear();
-    }
-    
-    httpCode = 200;
-    responseStream = null;
-    tooLateToChangeHeaders = false;
-    contentLength = -1;
-    contentType = "text/html";
-    charset = null;
-    forcingClosingAfterRequest = false;
-    tellingConnectionClose = false;
-    moreDataComing = false;
-    stringBuffer = null;
-    inputStreamForBody = null;
-    attachment = null;
-    httpProtocol = null;
-  }
-  
-  /**
-   * @return the headers
-   */
-  public List<String[]> getHeaders() {
-    return headers;
   }
 }

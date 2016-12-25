@@ -40,7 +40,7 @@ public class HandlingThreadPooled extends HandlingThread {
   
   private final long maxIdle;
 
-  static final Logger log
+  private static final Logger log
           = Logger.getLogger(HandlingThreadPooled.class.getName());
 
   public HandlingThreadPooled(
@@ -172,6 +172,7 @@ public class HandlingThreadPooled extends HandlingThread {
   /**
    * @return the server
    */
+  @Override
   public WaitTypeServer getServer() {
     return server;
   }

@@ -35,27 +35,35 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ *  public static final int HTTP_0_9 = 0;
+  public static final int HTTP_1_0 = 1;
+  public static final int HTTP_1_1 = 2;
+  public static final int HTTP_1_x = 3;
  * @author piotr
  */
 public abstract class ServerBase {
 
-  final static Logger log = Logger.getLogger(ServerBase.class.getName());
+  private final static Logger log = Logger.getLogger(ServerBase.class.getName());
+  
+  public static final int HTTP_0_9 = 0;
+  public static final int HTTP_1_0 = 1;
+  public static final int HTTP_1_1 = 2;
+  public static final int HTTP_1_x = 3;
   
   private static boolean tellingConnectionClose = false;
-
-  public final static String SERVER_VERSION = "1.5.2";
-
   private static final int THREAD_JOBS_SIZE;
   private static final int THREADS_POOL_SIZE;
-  public static final int MAX_IDLE_TOUT = 15 * 1000; // miliseconds
-
+  
   static {
     THREADS_POOL_SIZE
         = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
     THREAD_JOBS_SIZE = 64;
   }
-
+  
+  public final static String SERVER_VERSION = "1.5.2";
+  public static final int MAX_IDLE_TOUT = 15 * 1000; // miliseconds
+  public static final int SCALING_UNLIMITED = 0;
+  
   /**
    * Runs DataHandler.setGeneralGlobalHandlingHooks(...)
    *
@@ -65,11 +73,8 @@ public abstract class ServerBase {
       GeneralGlobalHandlingHooks hooks) {
     DataHandler.setGeneralGlobalHandlingHooks(hooks);
   }
-  
-//  public static Log log = new Log(Server.class);
-  public static final int SCALING_UNLIMITED = 0;
 
-  public int port = -1;
+  private int port = -1;
   private InetSocketAddress listenAddress = null;
   private String address = null;
   private ServerSocketChannel serverChannel;
@@ -98,13 +103,13 @@ public abstract class ServerBase {
   private int connectionTimePerformancePref = 0;
   private int latencyPerformancePref = 0;
   private int bandwithPerformancePref = 0;
-  private char[] protocol;
+  private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
+  private int protocol = -1;
   private Selector channelSelector;
 
   public final Map<String, Handler> plainPathHandlers = new HashMap<>();
   public final List<Handler> matchingPathHandlers = new ArrayList<>();
-  private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
-
+  
   public ServerBase(String address, int port) {
     this.port = port;
     this.address = address;
@@ -556,7 +561,7 @@ public abstract class ServerBase {
     this.bandwithPerformancePref = bandwithPerformancePref;
   }
 
-  public char[] getProtocol() {
+  public int getProtocol() {
     return this.protocol;
   }
 

@@ -31,6 +31,7 @@ public abstract class LimitsHandler {
    * level timeout. Other timeout have dh as reference.
    * @param key
    * @param idle
+   * @param object
    * @return true if channel should be closed and job ended.
    */
   public abstract boolean handleTimeout(

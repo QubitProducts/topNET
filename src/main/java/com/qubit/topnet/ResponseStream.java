@@ -27,7 +27,7 @@ import java.io.InputStream;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class ResponseStream implements ResponseReader {
+public class ResponseStream extends ResponseReader {
 
   private InputStream headersStream;
   private InputStream bodyStream;
@@ -43,6 +43,7 @@ public class ResponseStream implements ResponseReader {
    * @return
    * @throws IOException
    */
+  @Override
   public int read() throws IOException {
     
     if (this.headersRead) {

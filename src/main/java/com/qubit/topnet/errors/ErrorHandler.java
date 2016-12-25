@@ -32,7 +32,7 @@ import java.util.logging.Logger;
  */
 public class ErrorHandler extends Handler {
   
-  static public final Handler[] errorHandlers = new Handler[1024];
+  public static final Handler[] errorHandlers = new Handler[1024];
   
   private int code;
   private ErrorTypes type;

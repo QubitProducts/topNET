@@ -21,7 +21,7 @@ package com.qubit.topnet.eventonly;
 
 import com.qubit.topnet.DataHandler;
 import java.nio.channels.SelectionKey;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -36,11 +36,12 @@ class HandlingThreadQueued extends HandlingThread {
 
   private final ConcurrentLinkedDeque<DataHandler> jobs
       = new ConcurrentLinkedDeque<>();
+  
   private final long maxIdle;
   private int limit = 16;
   private final EventTypeServer server;
 
-  static final Logger log = Logger.getLogger(
+  private static final Logger log = Logger.getLogger(
       HandlingThreadQueued.class.getName());
   boolean syncPlease = false;
 
@@ -51,7 +52,7 @@ class HandlingThreadQueued extends HandlingThread {
       int defaultMaxMessageSize,
       long maxIdle) {
     this.server = server;
-    this.setLimit(jobsSize);
+    this.limit = jobsSize;
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
   }
@@ -172,10 +173,7 @@ class HandlingThreadQueued extends HandlingThread {
 
   @Override
   boolean canAddJob() {
-    if (getLimit() < 0 || getLimit() > this.jobsLeft()) {
-      return true;
-    }
-    return false;
+    return getLimit() < 0 || getLimit() > this.jobsLeft();
   }
 
   /**
@@ -195,11 +193,7 @@ class HandlingThreadQueued extends HandlingThread {
 
   @Override
   public List<DataHandler> getValidJobs() {
-    List<DataHandler> tmp = new ArrayList<>();
-    for (DataHandler job : jobs.toArray(new DataHandler[]{})) {
-      tmp.add(job);
-    }
-    return tmp;
+    return Arrays.asList(jobs.toArray(new DataHandler[]{}));
   }
 
   private ConcurrentLinkedDeque<DataHandler> recycledJobs

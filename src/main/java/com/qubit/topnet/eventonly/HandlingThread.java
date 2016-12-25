@@ -25,7 +25,6 @@ import static com.qubit.topnet.DataHandler.bodyReadyHandler;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -39,6 +38,11 @@ public abstract class HandlingThread extends AbstractHandlingThread {
       = Logger.getLogger(HandlingThread.class.getName());
 
   static volatile long handlingClosedIdleCounter = 0;
+  private static int spinBeforeCount = 0;
+  
+  public static void setSpinCountBeforeSleep(int value) {
+    spinBeforeCount = value;
+  }
   
   private int defaultMaxMessageSize;
   private boolean running;
@@ -46,12 +50,6 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   protected volatile long jobsRemoved = 0;
   private final Object sleepingLocker = new Object();
   
-  private static int SPIN_BEFORE_COUNT = 0;
-  
-  public static void setSpinCountBeforeSleep(int value) {
-    SPIN_BEFORE_COUNT = value;
-  }
-    
   abstract public boolean addJob(SelectionKey key, Long acceptTime);
   abstract boolean canAddJob();
   
@@ -70,7 +68,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   }
   
   private void trySomeWork() {
-    long count = SPIN_BEFORE_COUNT;
+    long count = spinBeforeCount;
     while (this.hasJobs()) {
       if (this.runSinglePass()) {
         if (count < 1) {
@@ -79,7 +77,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
           count--;
         }
       } else {
-        count = SPIN_BEFORE_COUNT;
+        count = spinBeforeCount;
       }
     }
     
@@ -246,6 +244,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   /**
    * @return the jobsAdded
    */
+  @Override
   public long getJobsAdded() {
     return jobsAdded;
   }
@@ -253,6 +252,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   /**
    * @return the jobsRemoved
    */
+  @Override
   public long getJobsRemoved() {
     return jobsRemoved;
   }

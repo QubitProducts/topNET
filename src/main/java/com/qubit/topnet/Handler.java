@@ -31,14 +31,9 @@ import java.util.logging.Logger;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public abstract class Handler {
-
-  
-  public static final char[] HTTP_0_9 = "HTTP/0.9".toCharArray();
-  public static final char[] HTTP_1_0 = "HTTP/1.0".toCharArray();
-  public static final char[] HTTP_1_1 = "HTTP/1.1".toCharArray();
-  public static final char[] HTTP_1_x = "HTTP/1.x".toCharArray();
   
   static final Logger log = Logger.getLogger(Handler.class.getName());
+  
   private Handler next;
 
   public Handler getInstance() {
@@ -65,11 +60,10 @@ public abstract class Handler {
     }
   }
 
-  public boolean onBeforeOutputStreamIsSet(
-                                    Request request,
-                                    Response response) {
+  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
     return true;
   }
+  
   //@todo zmien nazwy na onBodyReady, onHeadersReady, onBeforeReadingBody
   public final Pair<Handler, Throwable> 
         doProcess(Request request, Response response, DataHandler dh) {
@@ -97,8 +91,8 @@ public abstract class Handler {
   }
          
   // request is ready, with full body, unless different stream been passed
-  public abstract boolean
-         process(Request request, Response response) throws Exception;
+  public abstract boolean process(Request request, Response response) 
+      throws Exception;
 
   public boolean supports(String method) {
     return true;

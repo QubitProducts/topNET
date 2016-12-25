@@ -24,7 +24,6 @@ import com.qubit.topnet.DataHandler;
 import static com.qubit.topnet.DataHandler.bodyReadyHandler;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,8 +33,13 @@ import java.util.logging.Logger;
  */
 public abstract class HandlingThread extends AbstractHandlingThread {
 
-  static final Logger log
+  private static final Logger log
       = Logger.getLogger(HandlingThread.class.getName());
+  private static int spinBeforeCount = 1000;
+  
+  public static void setSpinCountBeforeSleep(int value) {
+    spinBeforeCount = value;
+  }
 
   private int defaultMaxMessageSize;
   private int delayForNoIOReadsInSuite = 100 * 1000;
@@ -45,12 +49,6 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   private final Object sleepingLocker = new Object();
   
   static volatile long handlingClosedIdleCounter = 0; // less more counter...
-  
-  private static int SPIN_BEFORE_COUNT = 1000;
-  
-  public static void setSpinCountBeforeSleep(int value) {
-    SPIN_BEFORE_COUNT = value;
-  }
   
   abstract public boolean addJob(SocketChannel channel, Long acceptTime);
   abstract public boolean canAddJob();
@@ -70,14 +68,14 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   }
   
   private void trySomeWork() {
-    long count = SPIN_BEFORE_COUNT;
+    long count = spinBeforeCount;
     while (this.hasJobs()) {
       if (this.runSinglePass()) {
         if (count-- < 1) {
           this.waitForSomethingToIO();
         }
       } else {
-        count = SPIN_BEFORE_COUNT;
+        count = spinBeforeCount;
       }
     }
       this.sleepNow();
@@ -282,6 +280,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   /**
    * @return the jobsAdded
    */
+  @Override
   public long getJobsAdded() {
     return jobsAdded;
   }
@@ -289,6 +288,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   /**
    * @return the jobsRemoved
    */
+  @Override
   public long getJobsRemoved() {
     return jobsRemoved;
   }
