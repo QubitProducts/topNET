@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public class BufferWrapper {
   

@@ -21,7 +21,7 @@ package com.qubit.topnet;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public enum PoolType {
   POOL,

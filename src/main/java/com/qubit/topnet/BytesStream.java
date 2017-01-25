@@ -24,7 +24,7 @@ import java.nio.charset.Charset;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public class BytesStream {
 

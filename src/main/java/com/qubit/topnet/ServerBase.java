@@ -39,7 +39,7 @@ import java.util.logging.Logger;
   public static final int HTTP_1_0 = 1;
   public static final int HTTP_1_1 = 2;
   public static final int HTTP_1_x = 3;
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public abstract class ServerBase {
 
