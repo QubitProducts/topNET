@@ -480,7 +480,7 @@ public final class DataHandler {
                            // not even started and multiline ?
             }
           } else {
-            String[] twoStrings = this.parseHeader(line, lineLen);
+            String[] twoStrings = DataHandler.parseHeader(line, lineLen);
 
             if (twoStrings != null) {
               lastHeaderName = twoStrings[0];
