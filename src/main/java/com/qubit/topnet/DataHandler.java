@@ -34,9 +34,8 @@ import java.nio.channels.SelectionKey;
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.nio.channels.SelectionKey.OP_WRITE;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
+import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,6 +46,8 @@ import java.util.logging.Logger;
  */
 public final class DataHandler {
 
+  static final Charset headerCharset = Charset.forName("ISO-8859-1");
+  
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
   
   public static GeneralGlobalHandlingHooks postPreProcessingHandler;
@@ -77,7 +78,6 @@ public final class DataHandler {
   private volatile long touch; // check if its needed volatile
   private volatile int size = 0; // check if its needed volatile
 
-  private final List<String[]> headers = new ArrayList<>();
   
   public AtomicReference<AbstractHandlingThread> atomicRefToHandlingThread;
 
@@ -154,7 +154,6 @@ public final class DataHandler {
   protected void resetForNewRequest() {
     parameters = null;
     size = 0;
-    headers.clear();
     method = null;
     fullPath = null;
     path = null;
@@ -197,12 +196,12 @@ public final class DataHandler {
     if (this.request == null) {
       this.request = new Request();
       this.response = new Response();
-      this.request.init(this.channel, this.headers);
+      this.request.init(this.channel);
       this.response.init(this.responseHttpProtocol);
       this.reqInitialized = true;
     } else if (!this.reqInitialized) {
       this.reqInitialized = true;
-      this.request.init(this.channel, this.headers);
+      this.request.init(this.channel);
       this.response.init(this.responseHttpProtocol);
       this.request.getBytesStream().reset();
     }
@@ -262,7 +261,7 @@ public final class DataHandler {
   }
   
   private boolean setMethodAndPathFromLine(byte[] line, int len) {
-    int idx = this.indexOf(line, len, ' ', 0);
+    int idx = DataHandler.indexOf(line, len, ' ', 0);
     
     if (idx < 1) {
       return true; // no headers
@@ -270,12 +269,14 @@ public final class DataHandler {
     
     this.method = new String(line, 0, idx);
     int methodStart = idx + 1;
-    int proto_idx = this.indexOf(line, len, ' ', methodStart);
+    int protocol_idx = DataHandler.indexOf(line, len, ' ', methodStart);
     
-    if (proto_idx != -1) {
-      this.fullPath = new String(line, methodStart, proto_idx - methodStart);
+    if (protocol_idx != -1) {
+      this.fullPath = 
+        new String(line, methodStart, protocol_idx - methodStart, headerCharset);
       
-      this.requestHttpProtocolBytes = Arrays.copyOfRange(line, proto_idx + 1, len);
+      this.requestHttpProtocolBytes = 
+          Arrays.copyOfRange(line, protocol_idx + 1, len);
       // we reply with 1.0 or 1.1, whatever client tries to choose
       if (Arrays.equals(this.requestHttpProtocolBytes, BHTTP_1_1)) {
         this.responseHttpProtocol = HTTP_1_1;
@@ -283,7 +284,7 @@ public final class DataHandler {
       
       return false;
     } else {
-      this.fullPath = new String(line, methodStart, len);
+      this.fullPath = new String(line, methodStart, len - idx - 1, headerCharset);
       return true; // no headers
     }
   }
@@ -294,14 +295,20 @@ public final class DataHandler {
   public String getMethod() {
     return method;
   }
-
-  private String[] parseHeader(byte[] line, int len) {
-    int idx = this.indexOf(line, len, ':', 0);
+  
+  @SuppressWarnings("empty-statement")
+  public static String[] parseHeader(byte[] line, int len) {
+    int idx = DataHandler.indexOf(line, len, ':', 0);
     if (idx > 0) {
-      // 2 removes ": " part
+      
+      int valueIdx = idx;
+      while (valueIdx < len && line[valueIdx + 1] == ' ') {
+        valueIdx++;
+      }
+      
       return new String[]{
-        new String(line, 0, idx),
-        new String(line, idx + 2, len - (idx + 2))
+        new String(line, 0, idx, headerCharset),
+        new String(line, valueIdx + 1, len - (valueIdx + 1), headerCharset)
       };
     } else {
       return null;
@@ -394,7 +401,8 @@ public final class DataHandler {
             break;
           }
         } else {
-          if (currentHeaderLineLength < server.getDefaultHeaderSizeLimit()) {
+            //server.getDefaultHeaderSizeLimit() === currentHeaderLine.length
+          if (currentHeaderLineLength < currentHeaderLine.length) {
             currentHeaderLine[currentHeaderLineLength++] = (byte)current;
           } else {
              this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
@@ -456,12 +464,16 @@ public final class DataHandler {
         // must be headers first, check if at the end of headers - empty line
         if (lineLen > 0) {
 
-          // check if not multiline header
-          if (line[0] == ('\t')) {
+          // check if not multiline header, headers use single byte encoding
+          if (line[0] == ('\t') || line[0] == (' ')) { // tab or space
             // multiline header, check if any header was read!
             if (lastHeaderName != null) {
-              this.putHeader(lastHeaderName, 
-                  this.getHeader(lastHeaderName) + "\n" + line);
+              // @todo improve performance here
+              if (line.length > 1) {
+                this.putHeader(lastHeaderName, 
+                  this.getHeader(lastHeaderName) + "\n" + 
+                      new String(line, 1, line.length - 1, headerCharset));
+              }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
               return true; // yuck! headers malformed!! 
@@ -1021,7 +1033,7 @@ public final class DataHandler {
   }
   
   private String getHeader(String name) {
-    for (String[] header : headers) {
+    for (String[] header : this.request.getHeaders()) {
       if (header[0].equals(name)) {
         return header[1];
       }
@@ -1030,7 +1042,7 @@ public final class DataHandler {
   }
 
   private void putHeader(String lastHeaderName, String string) {
-    this.headers.add(new String[]{lastHeaderName, string});
+    this.request.getHeaders().add(new String[]{lastHeaderName, string});
   }
 
   private boolean checkIfBodyRequired(byte[] line, int idx) {
@@ -1061,7 +1073,7 @@ public final class DataHandler {
     return true;
   }
 
-  private int indexOf(byte[] line, int len, char c, int from) {
+  public static int indexOf(byte[] line, int len, char c, int from) {
     for (int i = from; i < len; i++) {
       if (line[i] == c) {
         return i;
