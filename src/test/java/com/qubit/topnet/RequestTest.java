@@ -157,87 +157,60 @@ public class RequestTest {
     assertEquals(expResult, instance.getBodyParameters());
   }
 
-  /**
-   * Test of getBodyParametersList method, of class Request.
-   */
-  @Test
-  public void testGetBodyParametersList() {
-    System.out.println("getBodyParametersList");
-    Request instance = new Request();
-    List expResult = null;
-    List result = instance.getBodyParametersList();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
-
-  /**
-   * Test of getBodyParametersMappedLists method, of class Request.
-   */
-  @Test
-  public void testGetBodyParametersMappedLists() {
-    System.out.println("getBodyParametersMappedLists");
-    Request instance = new Request();
-    Map<String, List<String>> expResult = null;
-    Map<String, List<String>> result = instance.getBodyParametersMappedLists();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
-
-  /**
-   * Test of getParameters method, of class Request.
-   */
   @Test
   public void testGetParameters() {
-    System.out.println("getParameters");
+    System.out.println("getBodyParameters");
     Request instance = new Request();
+    instance.getBytesStream().setSingleBufferChunkSize(16000);
+    ByteBuffer buf = null;
+    
     Map<String, String> expResult = null;
-    Map<String, String> result = instance.getParameters();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
+    
+    expResult = new HashMap<>();
+    instance.reset();
+    instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
+    instance.analyzePathAndSplit();
+    buf = instance.getBytesStream().getBufferToWrite();
+    buf.put("abc=1234".getBytes());
+    expResult.put("koko", "1234");
+    expResult.put("cdn", "1&!@%");
+    expResult.put("abc", "1234");
+    assertEquals(expResult, instance.getParameters());
 
-  /**
-   * Test of getParametersList method, of class Request.
-   */
-  @Test
-  public void testGetParametersList() {
-    System.out.println("getParametersList");
-    Request instance = new Request();
-    List expResult = null;
-    List result = instance.getParametersList();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
+    
+    expResult = new HashMap<>();
+    instance.reset();
+    instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
+    instance.analyzePathAndSplit();
+    buf = instance.getBytesStream().getBufferToWrite();
+    buf.put("&abc=1234&&&".getBytes());
+    expResult.put("koko", "1234");
+    expResult.put("cdn", "1&!@%");
+    expResult.put("abc", "1234");
+    assertEquals(expResult, instance.getParameters());
 
-  /**
-   * Test of getParametersMappedLists method, of class Request.
-   */
-  @Test
-  public void testGetParametersMappedLists() {
-    System.out.println("getParametersMappedLists");
-    Request instance = new Request();
-    Map<String, List<String>> expResult = null;
-    Map<String, List<String>> result = instance.getParametersMappedLists();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+    expResult = new HashMap<>();
+    instance.reset();
+    instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
+    instance.analyzePathAndSplit();
+    buf = instance.getBytesStream().getBufferToWrite();
+    buf.put("&&&&abc=&==1234&&&".getBytes());
+    expResult.put("koko", "1234");
+    expResult.put("cdn", "1&!@%");
+    expResult.put("abc", "");
+    expResult.put("", "=1234");
+    assertEquals(expResult, instance.getParameters());
+    
+    expResult = new HashMap<>();
+    instance.reset();
+    instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
+    instance.analyzePathAndSplit();
+    buf = instance.getBytesStream().getBufferToWrite();
+    buf.put("&&&&abc=&==1234%26!%40%10%25&&&".getBytes());
+    expResult.put("koko", "1234");
+    expResult.put("cdn", "1&!@%");
+    expResult.put("abc", "");
+    expResult.put("", "=1234&!@%");
+    assertEquals(expResult, instance.getParameters());
   }
-
-  /**
-   * Test of parseParameters method, of class Request.
-   */
-  @Test
-  public void testParseParameters() {
-    System.out.println("parseParameters");
-    Request.Values results = null;
-    String params = "";
-    Request.parseParameters(results, params, "UTF-8");
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
-
 }

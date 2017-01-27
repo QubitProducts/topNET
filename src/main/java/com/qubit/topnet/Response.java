@@ -20,7 +20,7 @@
 
 package com.qubit.topnet;
 
-import static com.qubit.topnet.DataHandler.getDefaultProtocol;
+import static com.qubit.topnet.Request.getDefaultProtocol;
 import static com.qubit.topnet.ServerTime.getCachedTime;
 import com.qubit.topnet.exceptions.ResponseBuildingStartedException;
 import com.qubit.topnet.exceptions.TooLateToChangeHeadersException;
@@ -49,8 +49,6 @@ public class Response {
   public static final char[] HTTP_1_0_CHARS = "HTTP/1.0".toCharArray();
   public static final char[] HTTP_1_1_CHARS = "HTTP/1.1".toCharArray();
   public static final char[] HTTP_1_x_CHARS = "HTTP/1.x".toCharArray();
-
-  
 
   private static void appendServerHeaer(StringBuilder buffer) {
     if (Response.serverName != null) {
@@ -113,23 +111,23 @@ public class Response {
   }
 
   public void reset() {
-    if (headers != null) {
-      headers.clear();
+    if (this.headers != null) {
+      this.headers.clear();
     }
     
-    httpCode = 200;
-    responseStream = null;
-    tooLateToChangeHeaders = false;
-    contentLength = -1;
-    contentType = "text/html";
-    charset = null;
-    forcingClosingAfterRequest = false;
-    tellingConnectionClose = false;
-    moreDataComing = false;
-    stringBuffer = null;
-    inputStreamForBody = null;
-    attachment = null;
-    httpProtocol = 1;
+    this.httpCode = 200;
+    this.responseStream = null;
+    this.tooLateToChangeHeaders = false;
+    this.contentLength = -1;
+    this.contentType = "text/html";
+    this.charset = null;
+    this.forcingClosingAfterRequest = false;
+    this.tellingConnectionClose = false;
+    this.moreDataComing = false;
+    this.stringBuffer = null;
+    this.inputStreamForBody = null;
+    this.attachment = null;
+    this.httpProtocol = 1;
   }
   
   /**

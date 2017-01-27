@@ -20,7 +20,6 @@
 package com.qubit.topnet;
 
 import static com.qubit.topnet.BytesStream.NO_BYTES_LEFT_VAL;
-import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import com.qubit.topnet.errors.ErrorHandlingConfig;
 import com.qubit.topnet.errors.ErrorTypes;
@@ -34,7 +33,6 @@ import static java.nio.channels.SelectionKey.OP_READ;
 import static java.nio.channels.SelectionKey.OP_WRITE;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,8 +43,6 @@ import java.util.logging.Logger;
  */
 public final class DataHandler {
 
-  
-  
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
   
   public static GeneralGlobalHandlingHooks postPreProcessingHandler;
@@ -63,28 +59,15 @@ public final class DataHandler {
   public static void setGeneralGlobalHandlingHooks(GeneralGlobalHandlingHooks handler) {
     postPreProcessingHandler = handler;
   }
-
-  public static final byte[] BHTTP_0_9 = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
-  public static final byte[] BHTTP_1_0 = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
-  public static final byte[] BHTTP_1_1 = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
-  public static final byte[] BHTTP_1_x = 
-      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
   
-    
+  public AtomicReference<AbstractHandlingThread> atomicRefToHandlingThread;
+  public boolean writingResponse = false;
+  public volatile AbstractHandlingThread owningThread = null;
+  
   private volatile long touch; // check if its needed volatile
   private volatile int size = 0; // check if its needed volatile
 
-  
-  public AtomicReference<AbstractHandlingThread> atomicRefToHandlingThread;
-
-  private String method;
-  private String fullPath;
-  private String path;
   private boolean headersReady;
-  public boolean writingResponse = false;
   private boolean bodyRequired = false;
 
   private boolean firstLine = true;
@@ -94,19 +77,14 @@ public final class DataHandler {
   private final byte[] currentHeaderLine;
   private long contentLength = 0; // -1 is used to distinguish cases when no
   
-  private byte[] requestHttpProtocolBytes = BHTTP_1_0;
-  private int responseHttpProtocol = getDefaultProtocol();
-
   private Request request;
   private Response response;
   private ErrorTypes errorOccured;
   private Throwable errorException;
   private Handler handlerUsed;
-  public volatile AbstractHandlingThread owningThread = null;
   private volatile SocketChannel channel = null;
   private SelectionKey selectionKey = null;
   
-  private String parameters;
   private boolean headersOnly = false;
   private volatile ServerBase server;
   private final int maxGrowningBufferChunkSize;
@@ -119,6 +97,7 @@ public final class DataHandler {
   int currentBufferWrittenIndex = 0;
   int currentReadingPositionInWrittenBufByWrite = 0;
   private int currentHeaderLineLength = 0;
+  
   
   public DataHandler(ServerBase server, SelectionKey key) {
     this.init(server, key);
@@ -152,40 +131,34 @@ public final class DataHandler {
   }
 
   protected void resetForNewRequest() {
-    parameters = null;
-    size = 0;
-    method = null;
-    fullPath = null;
-    path = null;
-    headersReady = false;
-    writingResponse = false;
-    bodyRequired = false;
-    firstLine = true;
-    lastHeaderName = null;
-    lastHeaderValue = null;
-    currentHeaderLineLength = 0;
-    contentLength = 0;
+    this.size = 0;
+    this.headersReady = false;
+    this.writingResponse = false;
+    this.bodyRequired = false;
+    this.firstLine = true;
+    this.lastHeaderName = null;
+    this.lastHeaderValue = null;
+    this.currentHeaderLineLength = 0;
+    this.contentLength = 0;
     
-    if (request != null) {
-      request.reset();
+    if (this.request != null) {
+      this.request.reset();
     }
     
-    if (response != null) {
-      response.reset();
+    if (this.response != null) {
+      this.response.reset();
     }
     
-    errorOccured = null;
-    errorException = null;
-    handlerUsed = null;
-    headersOnly = false;
-    bufferSizeCalculatedForWriting = false;
-    currentBufferWrittenIndex = 0;
-    currentReadingPositionInWrittenBufByWrite = 0;
-    reqInitialized = false;
-    responseHttpProtocol = getDefaultProtocol();
-    requestHttpProtocolBytes = BHTTP_1_0;
-    wasMarkedAsMoreDataIsComing = false;
-    acceptedTime = 0;
+    this.errorOccured = null;
+    this.errorException = null;
+    this.handlerUsed = null;
+    this.headersOnly = false;
+    this.bufferSizeCalculatedForWriting = false;
+    this.currentBufferWrittenIndex = 0;
+    this.currentReadingPositionInWrittenBufByWrite = 0;
+    this.reqInitialized = false;
+    this.wasMarkedAsMoreDataIsComing = false;
+    this.acceptedTime = 0;
     this.setRequestStartedTime(0);
   }
   
@@ -198,12 +171,12 @@ public final class DataHandler {
       this.request = new Request();
       this.response = new Response();
       this.request.init(this.channel, this.server);
-      this.response.init(this.responseHttpProtocol);
+      this.response.init(this.request.getRequestedHttpProtocol());
       this.reqInitialized = true;
     } else if (!this.reqInitialized) {
       this.reqInitialized = true;
       this.request.init(this.channel, this.server);
-      this.response.init(this.responseHttpProtocol);
+      this.response.init(this.request.getRequestedHttpProtocol());
       this.request.getBytesStream().reset();
     }
     
@@ -257,50 +230,6 @@ public final class DataHandler {
     return size;
   }
   
-  private boolean setMethodAndPathFromLine(byte[] line, int len) {
-    int idx = DataHandler.indexOf(line, len, ' ', 0);
-    
-    if (idx < 1) {
-      return true; // no headers
-    }
-    
-    this.method = new String(line, 0, idx);
-    int methodStart = idx + 1;
-    int protocol_idx = DataHandler.indexOf(line, len, ' ', methodStart);
-    
-    if (protocol_idx != -1) {
-      this.fullPath = new String(
-          line,
-          methodStart,
-          protocol_idx - methodStart,
-          this.server.getUrlCharset());
-      
-      this.requestHttpProtocolBytes = 
-          Arrays.copyOfRange(line, protocol_idx + 1, len);
-      // we reply with 1.0 or 1.1, whatever client tries to choose
-      if (Arrays.equals(this.requestHttpProtocolBytes, BHTTP_1_1)) {
-        this.responseHttpProtocol = HTTP_1_1;
-      }
-      
-      return false;
-    } else {
-      this.fullPath = new String(
-          line,
-          methodStart,
-          len - idx - 1,
-          this.server.getUrlCharset());
-      
-      return true; // no headers
-    }
-  }
-
-  /**
-   * @return the method
-   */
-  public String getMethod() {
-    return method;
-  }
-  
   @SuppressWarnings("empty-statement")
   public static String[] parseHeader(byte[] line, int len, Charset headerCharset) {
     int idx = DataHandler.indexOf(line, len, ':', 0);
@@ -318,27 +247,6 @@ public final class DataHandler {
     } else {
       return null;
     }
-  }
-
-  /**
-   * @return the fullPath
-   */
-  public String getFullPath() {
-    return fullPath;
-  }
-
-  private String analyzePathAndSplit() {
-    if (this.path == null && this.fullPath != null) {
-      int idx = this.fullPath.indexOf("?");
-      if (idx == -1) {
-        this.path = this.fullPath;
-        this.parameters = "";
-      } else {
-        this.path = this.fullPath.substring(0, idx);
-        this.parameters = this.fullPath.substring(idx + 1);
-      }
-    }
-    return this.path;
   }
   
   // returns true if reading is finished. any error handling should happend after reading finished.
@@ -373,7 +281,8 @@ public final class DataHandler {
               if (this.server.getProtocol() > 0) {
                 response.setHttpProtocol(server.getProtocol());
               } else {
-                response.setHttpProtocol(this.responseHttpProtocol);
+                response.setHttpProtocol(
+                    this.request.getRequestedHttpProtocol());
               }
               
               if (this.errorOccured != null) {
@@ -383,9 +292,9 @@ public final class DataHandler {
               // paths must be ready by headers setup
               this.handlerUsed = 
                   this.server.getHandlerForPath(
-                      this.fullPath,
-                      this.path,
-                      this.parameters);
+                      this.request.getFullPath(),
+                      this.request.getPath(),
+                      this.request.getQueryString());
 
               this.errorOccured
                   = this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
@@ -441,28 +350,25 @@ public final class DataHandler {
     currentHeaderLineLength = 0; // reset
 
     if (firstLine) {
+      //order here defined is for a reason
       firstLine = false;
 
       bodyRequired = this.checkIfBodyRequired(line, lineLen);
       // two birds as one
       // true if no headers should be read!
-      boolean noHeaders = this.setMethodAndPathFromLine(line, lineLen);
+      boolean noHeaders = this.request.setMethodAndPathFromLine(line, lineLen);
       
-      if (this.method == null) {
+      // check nonsense:
+      if (this.request.getMethod() == null) {
         this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
         return true;
       }
       
-      if (this.method.equals("HEAD")) {
+      if (this.request.getMethod().equals("HEAD")) {
         this.headersOnly = true;
       }
       
-      this.analyzePathAndSplit();
-
-      if (this.method == null) {
-        this.errorOccured = ErrorTypes.HTTP_UNSET_METHOD;
-        return true;
-      }
+      this.request.analyzePathAndSplit();
       
       if (noHeaders) {
         this.headersReady = true;
@@ -654,15 +560,11 @@ public final class DataHandler {
     if (handler == null) {
       return ErrorTypes.HTTP_NOT_FOUND;
     } else {
-      this.request.setPath(this.path);
-      this.request.setFullPath(this.fullPath);
-      this.request.setPathParameters(this.parameters);
-      this.request.setMethod(this.method);
       
       Handler tmp = handler;
       
       while(tmp != null) {
-        if (tmp.supports(this.method)) {
+        if (tmp.supports(this.request.getMethod())) {
           return null;
         }
         tmp = tmp.getNext();
@@ -793,7 +695,7 @@ public final class DataHandler {
       }
     }
     
-    if (this.responseHttpProtocol == HTTP_1_1) {
+    if (this.request.getRequestedHttpProtocol() == HTTP_1_1) {
       return false;
     }
     
@@ -1006,13 +908,6 @@ public final class DataHandler {
       }
     }
   }
-  
-  /**
-   * @return the path
-   */
-  public String getPath() {
-    return path;
-  }
 
   /**
    * @return the errorOccured
@@ -1033,13 +928,6 @@ public final class DataHandler {
    */
   public Handler getHandlerUsed() {
     return handlerUsed;
-  }
-
-  /**
-   * @return the parameters
-   */
-  public String getParameters() {
-    return parameters;
   }
 
   private void markWriting() throws ClosedChannelException {
@@ -1114,14 +1002,7 @@ public final class DataHandler {
   }
 
   /**
-   * @return the requestHttpProtocol
-   */
-  public byte[] getRequestHttpProtocolBytes() {
-    return this.requestHttpProtocolBytes;
-  }
-
-    /**
-     * @return the selectionKey
+   * @return the selectionKey
    */
   public SelectionKey getSelectionKey() {
     return selectionKey;
@@ -1164,7 +1045,4 @@ public final class DataHandler {
     this.requestStartedTime = requestStartedTime;
   }
   
-  public static int getDefaultProtocol() {
-    return HTTP_1_0;
-  }
 }

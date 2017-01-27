@@ -20,12 +20,15 @@
 
 package com.qubit.topnet;
 
+import static com.qubit.topnet.ServerBase.HTTP_1_0;
+import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -43,14 +46,23 @@ public class Request {
   
   public static boolean cacheParameters = false;
   
+  public static final byte[] BHTTP_0_9 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '0', '.', '9'};
+  public static final byte[] BHTTP_1_0 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '0'};
+  public static final byte[] BHTTP_1_1 = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', '1'};
+  public static final byte[] BHTTP_1_x = 
+      new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
+  
   private List<String[]> headers = new ArrayList<>();
   private SocketChannel channel;
   private String bodyStringCache;
   private final BytesStream bytesStream = new BytesStream();
   private String path;
   private String method;
-  private String pathParameters;
   private String fullPath;
+  private String queryString;
   private Throwable associatedException;
   private Object attachment;
   private Map<String, Object> attributes;
@@ -67,6 +79,8 @@ public class Request {
   private List<String[]> bodyParametersList = null;
   private Map<String, List<String>> bodyParametersMappedList = null;
   
+  private int requestedHttpProtocol = getDefaultProtocol();
+    
   private ServerBase server;
   private String encodingName = "UTF-8";
   
@@ -87,6 +101,7 @@ public class Request {
   }
   
   protected void reset() {
+    this.requestedHttpProtocol = getDefaultProtocol();
     if (this.bytesStream != null) {
       this.bytesStream.shrinkLessMore();
       this.bytesStream.reset();
@@ -97,10 +112,12 @@ public class Request {
     this.bodyStringCache = null;
     this.path = null;
     this.method = null;
-    this.pathParameters = null;
     this.fullPath = null;
     this.associatedException = null;
     this.attachment = null;
+    this.path = null;
+    this.queryString = null;
+    
 
     // reset params buf
     if (cacheParameters) {
@@ -193,15 +210,8 @@ public class Request {
   /**
    * @param method the method to set
    */
-  public void setMethod(String method) {
+  protected void setMethod(String method) {
     this.method = method;
-  }
-
-  /**
-   * @return the pathParameters
-   */
-  public String getPathParameters() {
-    return pathParameters;
   }
 
   /**
@@ -212,20 +222,13 @@ public class Request {
   }
 
   /**
-   * @param pathParameters the pathParameters to set
-   */
-  protected void setPathParameters(String pathParameters) {
-    this.pathParameters = pathParameters;
-  }
-
-  /**
    * @param fullPath the fullPath to set
    */
-  public void setFullPath(String fullPath) {
+  protected void setFullPath(String fullPath) { 
     this.fullPath = fullPath;
   }
 
-  public void setPath(String fullPath) {
+  protected void setPath(String fullPath) {
     this.fullPath = fullPath;
   }
 
@@ -239,7 +242,7 @@ public class Request {
   /**
    * @param associatedException the associatedException to set
    */
-  public void setAssociatedException(Throwable associatedException) {
+  protected void setAssociatedException(Throwable associatedException) {
     this.associatedException = associatedException;
   }
 
@@ -304,7 +307,7 @@ public class Request {
     }
     
     MappedValues vals = new MappedValues();
-    parseParameters(vals, this.getPathParameters(), this.encodingName);
+    parseParameters(vals, this.getQueryString(), this.encodingName);
     
     if (cacheParameters) {
       return this.urlParametersMap = vals.getValues();
@@ -319,7 +322,7 @@ public class Request {
     }
     
     ValuesList vals = new ValuesList();
-    parseParameters(vals, this.getPathParameters(), this.encodingName);
+    parseParameters(vals, this.getQueryString(), this.encodingName);
     
     if (cacheParameters) {
       return this.urlParametersList = vals.getValues();
@@ -334,7 +337,7 @@ public class Request {
     }
     
     MappedValuesLists vals = new MappedValuesLists();
-    parseParameters(vals, this.getPathParameters(), this.encodingName);
+    parseParameters(vals, this.getQueryString(), this.encodingName);
     
     if (cacheParameters) {
       return this.urlParametersMappedList = vals.getValues();
@@ -572,6 +575,22 @@ public class Request {
     return server;
   }
 
+  
+
+  /**
+   * @return the queryString
+   */
+  public String getQueryString() {
+    return queryString;
+  }
+
+  /**
+   * @return the requestedHttpProtocol
+   */
+  public int getRequestedHttpProtocol() {
+    return requestedHttpProtocol;
+  }
+
   public static interface Values {
     public void add(String name, String value);
   }
@@ -620,5 +639,67 @@ public class Request {
     public List<String[]> getValues() {
       return list;
     }
+  }
+  
+  protected String analyzePathAndSplit() {
+    if (this.path == null && this.fullPath != null) {
+      int idx = this.fullPath.indexOf("?");
+      if (idx == -1) {
+        this.path = this.fullPath;
+        this.queryString = "";
+      } else {
+        this.path = this.fullPath.substring(0, idx);
+        this.queryString = this.fullPath.substring(idx + 1);
+      }
+    }
+    return this.path;
+  }
+  
+  /**
+   * 
+   * @param line bytes array
+   * @param len the 'strlen' value
+   * @return true if no headers should be processed
+   */
+  protected boolean setMethodAndPathFromLine(byte[] line, int len) {
+    int idx = DataHandler.indexOf(line, len, ' ', 0);
+    
+    if (idx < 1) {
+      return true; // no headers
+    }
+    
+    this.method = new String(line, 0, idx);
+    int methodStart = idx + 1;
+    int protocol_idx = DataHandler.indexOf(line, len, ' ', methodStart);
+    
+    if (protocol_idx != -1) {
+      this.fullPath = new String(
+          line,
+          methodStart,
+          protocol_idx - methodStart,
+          this.server.getUrlCharset());
+      
+      byte[] requestHttpProtocolBytes = 
+          Arrays.copyOfRange(line, protocol_idx + 1, len);
+      // we reply with 1.0 or 1.1, whatever client tries to choose
+      if (Arrays.equals(requestHttpProtocolBytes, BHTTP_1_1)) {
+        // HTTP_1_0 is default with value 0
+        this.requestedHttpProtocol = HTTP_1_1;
+      }
+      
+      return false;
+    } else {
+      this.fullPath = new String(
+          line,
+          methodStart,
+          len - idx - 1,
+          this.server.getUrlCharset());
+      
+      return true; // no headers
+    }
+  }
+  
+  public static int getDefaultProtocol() {
+    return HTTP_1_0;
   }
 }
