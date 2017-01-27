@@ -256,10 +256,6 @@ public final class DataHandler {
   public int getSize() {
     return size;
   }
-
-  public String getEncoding() {
-    return "UTF-8";
-  }
   
   private boolean setMethodAndPathFromLine(byte[] line, int len) {
     int idx = DataHandler.indexOf(line, len, ' ', 0);
@@ -1068,6 +1064,8 @@ public final class DataHandler {
   }
 
   private boolean checkIfBodyRequired(byte[] line, int idx) {
+    // strictly private method and we assume line length much longer than 
+    // checks provided in here (its obvious)
     if (line[0] == 'G' && // add exclusions
         line[1] == 'E' &&
         line[2] == 'T') {
