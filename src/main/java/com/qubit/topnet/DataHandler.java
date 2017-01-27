@@ -45,7 +45,7 @@ import java.util.logging.Logger;
  */
 public final class DataHandler {
 
-  static final Charset headerCharset = Charset.forName("ISO-8859-1");
+  
   
   final static Logger log = Logger.getLogger(DataHandler.class.getName());
   
@@ -197,12 +197,12 @@ public final class DataHandler {
     if (this.request == null) {
       this.request = new Request();
       this.response = new Response();
-      this.request.init(this.channel);
+      this.request.init(this.channel, this.server);
       this.response.init(this.responseHttpProtocol);
       this.reqInitialized = true;
     } else if (!this.reqInitialized) {
       this.reqInitialized = true;
-      this.request.init(this.channel);
+      this.request.init(this.channel, this.server);
       this.response.init(this.responseHttpProtocol);
       this.request.getBytesStream().reset();
     }
@@ -269,8 +269,11 @@ public final class DataHandler {
     int protocol_idx = DataHandler.indexOf(line, len, ' ', methodStart);
     
     if (protocol_idx != -1) {
-      this.fullPath = 
-        new String(line, methodStart, protocol_idx - methodStart, headerCharset);
+      this.fullPath = new String(
+          line,
+          methodStart,
+          protocol_idx - methodStart,
+          this.server.getUrlCharset());
       
       this.requestHttpProtocolBytes = 
           Arrays.copyOfRange(line, protocol_idx + 1, len);
@@ -281,7 +284,12 @@ public final class DataHandler {
       
       return false;
     } else {
-      this.fullPath = new String(line, methodStart, len - idx - 1, headerCharset);
+      this.fullPath = new String(
+          line,
+          methodStart,
+          len - idx - 1,
+          this.server.getUrlCharset());
+      
       return true; // no headers
     }
   }
@@ -294,7 +302,7 @@ public final class DataHandler {
   }
   
   @SuppressWarnings("empty-statement")
-  public static String[] parseHeader(byte[] line, int len) {
+  public static String[] parseHeader(byte[] line, int len, Charset headerCharset) {
     int idx = DataHandler.indexOf(line, len, ':', 0);
     if (idx > 0) {
       
@@ -475,7 +483,8 @@ public final class DataHandler {
               // @todo improve performance here
               if (lineLen > 1) {// lastHeaderValue never null
                 lastHeaderValue = lastHeaderValue + "\n" + 
-                      new String(line, 1, lineLen - 1, headerCharset);
+                    new String(
+                        line, 1, lineLen - 1, this.server.getHeaderCharset());
               }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
@@ -490,7 +499,9 @@ public final class DataHandler {
               lastHeaderName = lastHeaderValue = null;
             }
             
-            String[] twoStrings = DataHandler.parseHeader(line, lineLen);
+            String[] twoStrings = 
+                DataHandler.parseHeader(
+                    line, lineLen, this.server.getHeaderCharset());
 
             if (twoStrings != null) {
               lastHeaderName = twoStrings[0];

@@ -21,6 +21,8 @@
 package com.qubit.topnet;
 
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -28,6 +30,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -35,6 +39,10 @@ import java.util.Map;
  */
 public class Request {
 
+  private static final Logger log = Logger.getLogger(Request.class.getName());
+  
+  public static boolean cacheParameters = false;
+  
   private List<String[]> headers = new ArrayList<>();
   private SocketChannel channel;
   private String bodyStringCache;
@@ -48,6 +56,7 @@ public class Request {
   private Map<String, Object> attributes;
   private long createdTime;
   private Runnable writeFinishedHandler;
+  // expected values, nulls are meaningful here:
   private Map<String, String> parametersMap = null;
   private List<String[]> parametersList = null;
   private Map<String, List<String>> parametersMappedList = null;
@@ -58,11 +67,15 @@ public class Request {
   private List<String[]> bodyParametersList = null;
   private Map<String, List<String>> bodyParametersMappedList = null;
   
+  private ServerBase server;
+  private String encodingName = "UTF-8";
   
   public Request() {}
   
-  public void init(SocketChannel channel) {
+  public void init(SocketChannel channel, ServerBase server) {
     this.channel = channel;
+    this.server = server;
+    this.encodingName = server.getUrlCharset().name();
     this.createdTime = new Date().getTime();
   }
 
@@ -79,22 +92,35 @@ public class Request {
       this.bytesStream.reset();
     }
     
-    headers.clear();
-    channel = null;
-    bodyStringCache = null;
-    path = null;
-    method = null;
-    pathParameters = null;
-    fullPath = null;
-    associatedException = null;
-    attachment = null;
+    this.headers.clear();
+    this.channel = null;
+    this.bodyStringCache = null;
+    this.path = null;
+    this.method = null;
+    this.pathParameters = null;
+    this.fullPath = null;
+    this.associatedException = null;
+    this.attachment = null;
 
-    if (attributes != null) {
-      attributes.clear();
+    // reset params buf
+    if (cacheParameters) {
+      this.parametersMap = null;
+      this.parametersList = null;
+      this.parametersMappedList = null;
+      this.urlParametersMap = null;
+      this.urlParametersList = null;
+      this.urlParametersMappedList = null;
+      this.bodyParametersMap = null;
+      this.bodyParametersList = null;
+      this.bodyParametersMappedList = null;
     }
     
-    createdTime = 0;
-    writeFinishedHandler = null;
+    if (attributes != null) {
+      this.attributes.clear();
+    }
+    
+    this.createdTime = 0;
+    this.writeFinishedHandler = null;
   }
   
   /**
@@ -273,36 +299,48 @@ public class Request {
   
   */
   public Map<String, String> getUrlParameters() {
-    if (this.urlParametersMap != null) {
+    if (cacheParameters && this.urlParametersMap != null) {
       return this.urlParametersMap;
     }
     
     MappedValues vals = new MappedValues();
-    parseParameters(vals, this.getPathParameters());
+    parseParameters(vals, this.getPathParameters(), this.encodingName);
     
-    return this.urlParametersMap = vals.getValues();
+    if (cacheParameters) {
+      return this.urlParametersMap = vals.getValues();
+    } else {
+      return vals.getValues();
+    }
   }
   
   public List<String[]> getUrlParametersList() {
-    if (this.urlParametersList != null) {
+    if (cacheParameters && this.urlParametersList != null) {
       return this.urlParametersList;
     }
     
     ValuesList vals = new ValuesList();
-    parseParameters(vals, this.getPathParameters());
+    parseParameters(vals, this.getPathParameters(), this.encodingName);
     
-    return this.urlParametersList = vals.getValues();
+    if (cacheParameters) {
+      return this.urlParametersList = vals.getValues();
+    } else {
+      return vals.getValues();
+    }
   }
   
   public Map<String, List<String>> getUrlParametersMappedLists() {
-    if (this.urlParametersMappedList != null) {
+    if (cacheParameters && this.urlParametersMappedList != null) {
       return this.urlParametersMappedList;
     }
     
     MappedValuesLists vals = new MappedValuesLists();
-    parseParameters(vals, this.getPathParameters());
+    parseParameters(vals, this.getPathParameters(), this.encodingName);
     
-    return this.urlParametersMappedList = vals.getValues();
+    if (cacheParameters) {
+      return this.urlParametersMappedList = vals.getValues();
+    } else {
+      return vals.getValues();
+    }
   }
   
   /*
@@ -313,49 +351,76 @@ public class Request {
   
   public Map<String, String> getBodyParameters() {
     try {
-      if (this.bodyParametersMap != null) {
+      if (cacheParameters && this.bodyParametersMap != null) {
         return this.bodyParametersMap;
       }
       
       MappedValues vals = new MappedValues();
-      parseParameters(vals, this.getBodyString());
+      parseParameters(vals, this.getBodyString(), this.encodingName);
       
-      return this.bodyParametersMap = vals.getValues();
+      if (cacheParameters) {
+        return this.bodyParametersMap = vals.getValues();
+      } else {
+        return vals.getValues();
+      }
+      
     } catch (OutputStreamAlreadySetException ex) {
-      this.bodyParametersMap = new HashMap<>();
-      return this.bodyParametersMap;
+      if (cacheParameters) {
+        this.bodyParametersMap = new HashMap<>();
+        return this.bodyParametersMap;
+      } else {
+        return new HashMap<>();
+      }
     }
   }
   
   public List<String[]> getBodyParametersList() {
     try {
-      if (this.bodyParametersList != null) {
+      if (cacheParameters && this.bodyParametersList != null) {
         return this.bodyParametersList;
       }
       
       ValuesList vals = new ValuesList();
-      parseParameters(vals, this.getBodyString());
+      parseParameters(vals, this.getBodyString(), this.encodingName);
       
-      return this.bodyParametersList = vals.getValues();
+      if (cacheParameters) {
+        return this.bodyParametersList = vals.getValues();
+      } else {
+        return vals.getValues();
+      }
+      
     } catch (OutputStreamAlreadySetException ex) {
-      this.bodyParametersList = new ArrayList<>();
-      return this.bodyParametersList;
+      if (cacheParameters) {
+        this.bodyParametersList = new ArrayList<>();
+        return this.bodyParametersList;
+      } else {
+        return new ArrayList<>();
+      }
     }
   }
   
   public Map<String, List<String>> getBodyParametersMappedLists() {
     try {
-      if (this.bodyParametersMappedList != null) {
+      if (cacheParameters && this.bodyParametersMappedList != null) {
         return this.bodyParametersMappedList;
       }
       
       MappedValuesLists vals = new MappedValuesLists();
-      parseParameters(vals, this.getBodyString());
+      parseParameters(vals, this.getBodyString(), this.encodingName);
       
-      return this.bodyParametersMappedList = vals.getValues();
+      if (cacheParameters) {
+        return this.bodyParametersMappedList = vals.getValues();
+      } else {
+        return vals.getValues();
+      }
+      
     } catch (OutputStreamAlreadySetException ex) {
-      this.bodyParametersMappedList = new HashMap<>();
-      return this.bodyParametersMappedList;
+      if (cacheParameters) {
+        this.bodyParametersMappedList = new HashMap<>();
+        return this.bodyParametersMappedList;
+      } else {
+        return new HashMap<>();
+      }
     }
   }
   
@@ -366,7 +431,7 @@ public class Request {
   */
   
   public Map<String, String> getParameters() {
-    if (this.parametersMap != null) {
+    if (cacheParameters && this.parametersMap != null) {
       return this.parametersMap;
     }
     
@@ -377,11 +442,15 @@ public class Request {
       urlType.put(entrySet.getKey(), entrySet.getValue());
     }
     
-    return this.parametersMap = urlType;
+    if (cacheParameters) {
+      this.parametersMap = urlType;
+    }
+    
+    return urlType;
   }
   
   public List<String[]> getParametersList() {
-    if (this.parametersList != null) {
+    if (cacheParameters && this.parametersList != null) {
       return this.parametersList;
     }
     
@@ -392,11 +461,15 @@ public class Request {
       urlType.add(entry);
     }
     
-    return this.parametersList = urlType;
+    if (cacheParameters) {
+      this.parametersList = urlType;
+    }
+    
+    return urlType;
   }
   
   public Map<String, List<String>> getParametersMappedLists() {
-    if (this.parametersMappedList != null) {
+    if (cacheParameters && this.parametersMappedList != null) {
       return this.parametersMappedList;
     }
     
@@ -415,10 +488,14 @@ public class Request {
       }
     }
     
-    return this.parametersMappedList = urlType;
+    if (cacheParameters) {
+      this.parametersMappedList = urlType;
+    }
+    
+    return urlType;
   }
   
-  public static void parseParameters(Values results, String params) {
+  public static void parseParameters(Values results, String params, String encoding) {
     
     if (params == null) return;
     
@@ -438,7 +515,9 @@ public class Request {
         
         { // clearing block
           if (name.length() > 0 || value.length() > 0) {
-            results.add(name.toString(), value.toString());
+            results.add(
+                decodeURI(name.toString(), encoding),
+                decodeURI(value.toString(), encoding));
             name.setLength(0);
             value.setLength(0);
           }
@@ -461,12 +540,36 @@ public class Request {
     
     { // clearing block
       if (name.length() > 0 || value.length() > 0) {
-        results.add(name.toString(), value.toString());
+        results.add(
+            decodeURI(name.toString(), encoding),
+            decodeURI(value.toString(), encoding));
         name.setLength(0);
         value.setLength(0);
       }
     }
-    
+  }
+  
+  public static String decodeURI (String input, String encoding) {
+    try {
+      return URLDecoder.decode(input, encoding);
+    } catch (UnsupportedEncodingException ex) {
+      log.log(Level.WARNING,
+          "Unsupported charset set for encoding: {0} - falling to UTF.",
+          encoding);
+      try {
+        return URLDecoder.decode(input, "UTF-8");
+      } catch (UnsupportedEncodingException ex1) {
+        log.log(Level.SEVERE, "Failed to decode using UTF - check platform!", ex1);
+        return input;
+      }
+    }
+  }
+
+  /**
+   * @return the server
+   */
+  public ServerBase getServer() {
+    return server;
   }
 
   public static interface Values {

@@ -48,47 +48,47 @@ public class RequestTest {
     Map<String, String> expResult = new HashMap<>();
     Request.MappedValues valuesStore = new Request.MappedValues();
 
-    Request.parseParameters(valuesStore, params);
+    Request.parseParameters(valuesStore, params, "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "1234");
-    Request.parseParameters(valuesStore, "abc=1234");
+    Request.parseParameters(valuesStore, "abc=1234", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "1234");
-    Request.parseParameters(valuesStore, "abc=1234&");
+    Request.parseParameters(valuesStore, "abc=1234&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "1234");
-    Request.parseParameters(valuesStore, "&abc=1234&");
+    Request.parseParameters(valuesStore, "&abc=1234&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "1234");
-    Request.parseParameters(valuesStore, "&&&abc=1234&");
+    Request.parseParameters(valuesStore, "&&&abc=1234&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "=1234");
-    Request.parseParameters(valuesStore, "&&&abc==1234&");
+    Request.parseParameters(valuesStore, "&&&abc==1234&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "==1234");
-    Request.parseParameters(valuesStore, "&&&abc===1234&");
+    Request.parseParameters(valuesStore, "&&&abc===1234&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "==1234");
-    Request.parseParameters(valuesStore, "&&&&abc===1234&&&");
+    Request.parseParameters(valuesStore, "&&&&abc===1234&&&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "");
     expResult.put("", "=1234");
-    Request.parseParameters(valuesStore, "&&&&abc=&==1234&&&");
+    Request.parseParameters(valuesStore, "&&&&abc=&==1234&&&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
 
     expResult.put("abc", "");
     expResult.put("", "=1234");
     expResult.put("y", "=4567");
     assertEquals(expResult.size(), 3);
-    Request.parseParameters(valuesStore, "&&&&abc=&==1234&y==4567&&");
+    Request.parseParameters(valuesStore, "&&&&abc=&==1234&y==4567&&", "UTF-8");
     assertEquals(expResult, valuesStore.getValues());
   }
 
@@ -104,7 +104,7 @@ public class RequestTest {
     
     assertEquals(expResult.size(), 3);
     
-    Request.parseParameters(valuesStore, "&&&&abc=&==1234&y==4567&&");
+    Request.parseParameters(valuesStore, "&&&&abc=&==1234&y==4567&&", "UTF-8");
     
     for (Entry<String, List<String>> entry : expResult.entrySet()) {
       assertEquals(entry.getValue(), valuesStore.getValues().get(entry.getKey()));
@@ -146,6 +146,14 @@ public class RequestTest {
     buf.put("&&&&abc=&==1234&&&".getBytes());
     expResult.put("abc", "");
     expResult.put("", "=1234");
+    assertEquals(expResult, instance.getBodyParameters());
+    
+    expResult = new HashMap<>();
+    instance.reset();
+    buf = instance.getBytesStream().getBufferToWrite();
+    buf.put("&&&&abc=&==1234%26!%40%10%25&&&".getBytes());
+    expResult.put("abc", "");
+    expResult.put("", "=1234&!@%");
     assertEquals(expResult, instance.getBodyParameters());
   }
 
@@ -227,7 +235,7 @@ public class RequestTest {
     System.out.println("parseParameters");
     Request.Values results = null;
     String params = "";
-    Request.parseParameters(results, params);
+    Request.parseParameters(results, params, "UTF-8");
     // TODO review the generated test code and remove the default call to fail.
     fail("The test case is a prototype.");
   }

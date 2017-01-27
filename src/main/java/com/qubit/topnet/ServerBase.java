@@ -27,6 +27,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -76,6 +77,9 @@ public abstract class ServerBase {
     DataHandler.setGeneralGlobalHandlingHooks(hooks);
   }
 
+  private Charset headerCharset = Charset.forName("ISO-8859-1");
+  private Charset urlCharset = Charset.forName("ISO-8859-1");
+  
   private int port = -1;
   private InetSocketAddress listenAddress = null;
   private String address = null;
@@ -641,5 +645,33 @@ public abstract class ServerBase {
    */
   public void setDefaultAcceptIdleTime(long defaultAcceptIdleTime) {
     this.defaultAcceptIdleTime = defaultAcceptIdleTime;
+  }
+
+  /**
+   * @return the headerCharset
+   */
+  public Charset getHeaderCharset() {
+    return headerCharset;
+  }
+
+  /**
+   * @param headerCharset the headerCharset to set
+   */
+  public void setHeaderCharset(Charset headerCharset) {
+    this.headerCharset = headerCharset;
+  }
+
+  /**
+   * @return the urlCharset
+   */
+  public Charset getUrlCharset() {
+    return urlCharset;
+  }
+
+  /**
+   * @param urlCharset the urlCharset to set
+   */
+  public void setUrlCharset(Charset urlCharset) {
+    this.urlCharset = urlCharset;
   }
 }
