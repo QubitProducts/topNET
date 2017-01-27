@@ -24,7 +24,6 @@ import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import com.qubit.topnet.errors.ErrorHandlingConfig;
 import com.qubit.topnet.errors.ErrorTypes;
-import static com.qubit.topnet.errors.ErrorTypes.BAD_CONTENT_HEADER;
 import com.qubit.topnet.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -90,6 +89,7 @@ public final class DataHandler {
 
   private boolean firstLine = true;
   private String lastHeaderName = null;
+  private String lastHeaderValue = null;
 
   private final byte[] currentHeaderLine;
   private long contentLength = 0; // -1 is used to distinguish cases when no
@@ -162,6 +162,7 @@ public final class DataHandler {
     bodyRequired = false;
     firstLine = true;
     lastHeaderName = null;
+    lastHeaderValue = null;
     currentHeaderLineLength = 0;
     contentLength = 0;
     
@@ -350,7 +351,9 @@ public final class DataHandler {
           currentHeaderLineLength -= 1;
           
           if (this.processHeaderLine()) {
-            this.errorOccured = BAD_CONTENT_HEADER;
+            if (this.errorOccured == null) {
+              this.errorOccured = ErrorTypes.HTTP_BAD_REQUEST;
+            }
             return true; // finish now!
           }
 
@@ -441,6 +444,11 @@ public final class DataHandler {
       // true if no headers should be read!
       boolean noHeaders = this.setMethodAndPathFromLine(line, lineLen);
       
+      if (this.method == null) {
+        this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
+        return true;
+      }
+      
       if (this.method.equals("HEAD")) {
         this.headersOnly = true;
       }
@@ -469,10 +477,9 @@ public final class DataHandler {
             // multiline header, check if any header was read!
             if (lastHeaderName != null) {
               // @todo improve performance here
-              if (line.length > 1) {
-                this.putHeader(lastHeaderName, 
-                  this.getHeader(lastHeaderName) + "\n" + 
-                      new String(line, 1, line.length - 1, headerCharset));
+              if (lineLen > 1) {// lastHeaderValue never null
+                lastHeaderValue = lastHeaderValue + "\n" + 
+                      new String(line, 1, lineLen - 1, headerCharset);
               }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
@@ -480,6 +487,13 @@ public final class DataHandler {
                            // not even started and multiline ?
             }
           } else {
+            
+            // header flushing block.
+            if (lastHeaderName != null) {
+              this.putHeader(lastHeaderName, lastHeaderValue);
+              lastHeaderName = lastHeaderValue = null;
+            }
+            
             String[] twoStrings = DataHandler.parseHeader(line, lineLen);
 
             if (twoStrings != null) {
@@ -494,7 +508,8 @@ public final class DataHandler {
                     }
                   }
                 }
-                this.putHeader(lastHeaderName, twoStrings[1]);
+                
+                lastHeaderValue = twoStrings[1]; //never null
               }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
@@ -502,6 +517,11 @@ public final class DataHandler {
             }
           }
         } else {
+          // header flushing block.
+          if (lastHeaderName != null) {
+            this.putHeader(lastHeaderName, lastHeaderValue);
+            lastHeaderName = lastHeaderValue = null;
+          }
           this.headersReady = true;
           headersReadyHandler(this);
         }
@@ -648,7 +668,7 @@ public final class DataHandler {
   private Handler getErrorHandler(Handler handler) {
     Handler errorHandler
             = ErrorHandlingConfig.getErrorHandlingConfig()
-            .getDefaultErrorHandler(getErrorCode(), errorOccured);
+            .getDefaultErrorHandler(getErrorCode(), this.errorOccured);
 
     request.setAssociatedException(this.errorException);
 
@@ -733,14 +753,16 @@ public final class DataHandler {
       switch (this.getErrorOccured()) {
         case HTTP_NOT_FOUND:
           return 404;
-        case HTTP_SERVER_ERROR:
-          return 503;
-        case BAD_CONTENT_HEADER:
         case BAD_CONTENT_LENGTH:
         case HTTP_MALFORMED_HEADERS:
         case HTTP_HEADER_TOO_LARGE:
         case HTTP_UNSET_METHOD:
+        case HTTP_BAD_REQUEST:
           return 400;
+        case IO_ERROR:
+        case HTTP_SERVER_ERROR:
+        case HTTP_UNKNOWN_ERROR:
+          return 503;
         default:
           return 503;
       }

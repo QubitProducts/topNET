@@ -25,7 +25,6 @@ package com.qubit.topnet.errors;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public enum ErrorTypes {
-  BAD_CONTENT_HEADER,
   BAD_CONTENT_LENGTH,
   HTTP_NOT_FOUND,
   IO_ERROR,
@@ -33,5 +32,6 @@ public enum ErrorTypes {
   HTTP_MALFORMED_HEADERS,
   HTTP_UNKNOWN_ERROR,
   HTTP_SERVER_ERROR,
-  HTTP_HEADER_TOO_LARGE
+  HTTP_HEADER_TOO_LARGE,
+  HTTP_BAD_REQUEST
 }
