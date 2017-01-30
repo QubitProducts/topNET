@@ -230,13 +230,13 @@ public final class DataHandler {
     return size;
   }
   
-  @SuppressWarnings("empty-statement")
   public static String[] parseHeader(byte[] line, int len, Charset headerCharset) {
     int idx = DataHandler.indexOf(line, len, ':', 0);
     if (idx > 0) {
       
       int valueIdx = idx;
-      while (valueIdx < len && line[valueIdx + 1] == ' ') {
+      while (valueIdx < len &&
+            (line[valueIdx + 1] == ' ' || line[valueIdx + 1] == '\t')) {
         valueIdx++;
       }
       
@@ -412,17 +412,17 @@ public final class DataHandler {
             if (twoStrings != null) {
               lastHeaderName = twoStrings[0];
               if (!lastHeaderName.isEmpty()) {
+                lastHeaderValue = twoStrings[1]; //never null
                 if (lastHeaderName.length() == 14) {//optimisation
                   if (lastHeaderName.toLowerCase().equals("content-length")) {
                     try {
-                      this.contentLength = Long.parseLong(twoStrings[1]);
+                      this.contentLength = 
+                          Long.parseLong(lastHeaderValue.trim(), 10);
                     } catch (NullPointerException | NumberFormatException ex) {
                       // just try, weird stuff ignore in this case...
                     }
                   }
                 }
-                
-                lastHeaderValue = twoStrings[1]; //never null
               }
             } else {
               this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
@@ -1045,4 +1045,7 @@ public final class DataHandler {
     this.requestStartedTime = requestStartedTime;
   }
   
+  public long getContentLength() {
+    return this.contentLength;
+  }
 }
