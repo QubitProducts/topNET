@@ -179,6 +179,13 @@ public class Request {
     return null;
   }
 
+  public String getLowerCaseHeader(String name) {
+    for (String[] header : this.headers) {
+      if (header[0].toLowerCase().equals(name)) return header[1];
+    }
+    return null;
+  }
+  
   public List<String> getHeaders(String name) {
     List<String> ret = new ArrayList<>();
     for (String[] header : this.headers) {
