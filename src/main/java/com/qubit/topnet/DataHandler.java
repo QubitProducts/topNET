@@ -261,12 +261,11 @@ public final class DataHandler {
               currentHeaderLine[currentHeaderLineLength - 1] == '\r') {
           
           currentHeaderLineLength -= 1;
+          ErrorTypes error;
           
-          if (this.processHeaderLine()) {
-            if (this.errorOccured == null) {
-              this.response.setForcingClosingAfterRequest(true);
-              this.errorOccured = ErrorTypes.HTTP_BAD_REQUEST;
-            }
+          if ((error = this.processHeaderLine()) != null) {
+            this.errorOccured = error;
+            this.response.setForcingClosingAfterRequest(true);
             return true; // finish now!
           }
 
@@ -351,7 +350,7 @@ public final class DataHandler {
     return false;
   }
 
-  private boolean processHeaderLine() {
+  private ErrorTypes processHeaderLine() {
     byte[] line = currentHeaderLine;
     int lineLen = currentHeaderLineLength;
     currentHeaderLineLength = 0; // reset
@@ -367,8 +366,7 @@ public final class DataHandler {
       
       // check nonsense:
       if (this.request.getMethod() == null) {
-        this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
-        return true;
+        return ErrorTypes.HTTP_MALFORMED_HEADERS;
       }
       
       if (this.request.getMethod().equals("HEAD")) {
@@ -400,9 +398,7 @@ public final class DataHandler {
                         line, 1, lineLen - 1, this.server.getHeaderCharset());
               }
             } else {
-              this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
-              return true; // yuck! headers malformed!! 
-                           // not even started and multiline ?
+              return ErrorTypes.HTTP_MALFORMED_HEADERS;
             }
           } else {
             
@@ -432,8 +428,7 @@ public final class DataHandler {
                 }
               }
             } else {
-              this.errorOccured = ErrorTypes.HTTP_MALFORMED_HEADERS;
-              return true; // yuck! header malformed!
+              return ErrorTypes.HTTP_MALFORMED_HEADERS;
             }
           }
         } else {
@@ -448,7 +443,7 @@ public final class DataHandler {
       }
     }
 
-    return false;
+    return null;
   }
   
   public int write() throws IOException {
