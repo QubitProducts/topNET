@@ -302,6 +302,11 @@ public final class DataHandler {
 //                return true;
 //              }
 
+              if (this.handlerUsed == null) {
+                this.errorOccured = ErrorTypes.HTTP_NOT_FOUND;
+                return true;
+              }
+              
               this.handlerUsed
                   .triggerOnBeforeOutputStreamIsSet(this.request, this.response);
 

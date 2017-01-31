@@ -23,7 +23,6 @@ package com.qubit.topnet.examples;
 import com.qubit.topnet.Handler;
 import com.qubit.topnet.Request;
 import com.qubit.topnet.Response;
-import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
@@ -38,7 +37,6 @@ public class AsyncAppenderHandler extends Handler {
   @Override
   public boolean process(final Request request, final Response response) 
           throws Exception {
-    response.setHttpProtocol(HTTP_1_1);
     response.setMoreDataComing(true);
     response.setContentLength(-1);// 1 value trick
     ResponseAppendableReader source = new ResponseAppendableReader();
