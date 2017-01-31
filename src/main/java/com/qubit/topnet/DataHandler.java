@@ -296,12 +296,11 @@ public final class DataHandler {
                       this.request.getPath(),
                       this.request.getQueryString());
 
-              this.errorOccured
-                  = this.headersAreReadySoProcessReqAndRes(this.handlerUsed);
-
-              if (this.errorOccured != null) {
-                return true; // stop reading now because of errors! 
-              }
+// @deprecated and removed
+//              if(this.checkIfNoHandlerInChainSupportsMethod(this.handlerUsed)) {
+//                this.errorOccured = ErrorTypes.HTTP_NOT_FOUND;
+//                return true;
+//              }
 
               this.handlerUsed
                   .triggerOnBeforeOutputStreamIsSet(this.request, this.response);
@@ -554,25 +553,26 @@ public final class DataHandler {
     }
   }
 
-  // returns true if writing should be stopped function using it should reply 
-  // asap - typically its used to repoly unsupported fullPath 
-  private ErrorTypes headersAreReadySoProcessReqAndRes(Handler handler) {
-    if (handler == null) {
-      return ErrorTypes.HTTP_NOT_FOUND;
-    } else {
-      
-      Handler tmp = handler;
-      
-      while(tmp != null) {
-        if (tmp.supports(this.request.getMethod())) {
-          return null;
-        }
-        tmp = tmp.getNext();
-      }
-      
-      return ErrorTypes.HTTP_NOT_FOUND;
-    }
-  }
+// @deprecated and removed
+//  // returns true if writing should be stopped function using it should reply 
+//  // asap - typically its used to repoly unsupported fullPath 
+//  private boolean checkIfNoHandlerInChainSupportsMethod(Handler handler) {
+//    if (handler == null) {
+//      return true;
+//    } else {
+//      
+//      Handler tmp = handler;
+//      
+//      while(tmp != null) {
+//        if (tmp.supports(this.request.getMethod())) {
+//          return false;
+//        }
+//        tmp = tmp.getNext();
+//      }
+//      
+//      return true;
+//    }
+//  }
 
   private Handler getErrorHandler(Handler handler) {
     Handler errorHandler
