@@ -5,6 +5,9 @@
  */
 package com.qubit.topnet;
 
+import static com.qubit.topnet.ServerBase.HTTP_0_9;
+import static com.qubit.topnet.errors.ErrorTypes.HTTP_MALFORMED_HEADERS;
+import static com.qubit.topnet.errors.ErrorTypes.HTTP_NOT_FOUND;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
 import java.io.IOException;
 import org.junit.After;
@@ -64,7 +67,7 @@ public class DataHandlerTest {
     DataHandler dataHandler = 
         new DataHandler(server, dummy);
     
-    dataHandler.read();
+    while(dataHandler.read() >= 0);
   
     assertEquals(dataHandler.getRequest()
         .getBodyString(), bodyMsg);
@@ -78,6 +81,174 @@ public class DataHandlerTest {
         .getLowerCaseHeader("header-xmultiline"),
         "abcde ef g, hij \n klmn1p  @#$%\n\t#$&*b ");
   }
+  
+  @Test
+  public void testFailingConsumingHeaders1() 
+      throws IOException,
+      OutputStreamAlreadySetException {
+    String bodyMsg = "{bodyMessage: \"Hello World!\"}";
+    String httpMsg = "POST /echo?param1=1&&param2=2& HTTP/1.1\r\n"
+        + "not-failing :abcde ef g, hij klmn1p  @#$%#$&*b \r\n"
+        + "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+        + "\r\n"
+        + bodyMsg;
+    
+    AcceptOnlyEventsTypeServer server = 
+        new AcceptOnlyEventsTypeServer("localhost", 3456);
+        
+    DummySocketChannel dummy = new DummySocketChannel(null);
+    
+    dummy.init(httpMsg);
+    
+    //do not start server, only for config
+    DataHandler dataHandler = 
+        new DataHandler(server, dummy);
+    
+    while(dataHandler.read() >= 0);
+    
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("not-failing "), "abcde ef g, hij klmn1p  @#$%#$&*b "); 
+    
+  }
+  
+  @Test
+  public void testFailingConsumingHeaders2() 
+      throws IOException,
+      OutputStreamAlreadySetException {
+    String bodyMsg = "{bodyMessage: \"Hello World!\"}";
+    String httpMsg = "POST /echo?param1=1&&param2=2& HTTP/1.1\r\n"
+        + " failing:abcde ef g, hij klmn1p  @#$%#$&*b \r\n"
+        + "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+        + "\r\n"
+        + bodyMsg;
+    
+    AcceptOnlyEventsTypeServer server = 
+        new AcceptOnlyEventsTypeServer("localhost", 3456);
+        
+    DummySocketChannel dummy = new DummySocketChannel(null);
+    
+    dummy.init(httpMsg);
+    
+    //do not start server, only for config
+    DataHandler dataHandler = 
+        new DataHandler(server, dummy);
+    
+    while(dataHandler.read() >= 0);
+    
+    assertEquals(dataHandler.getRequest().getLowerCaseHeader(" failing"), null);
+    assertEquals(dataHandler.getRequest().getLowerCaseHeader("failing"), null);
+    assertEquals(dataHandler.getErrorOccured(), HTTP_MALFORMED_HEADERS);
+    
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("content-length"), null);
+    assertEquals(dataHandler.getContentLength(), 0);
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("header-multiline"), null);
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("header-xmultiline"), null);
+    // it reads after fast fail rest of buffer as the body as 
+    // in application design
+    assertEquals(dataHandler.getRequest()
+        .getBodyString(), "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+        + "\r\n"
+        + bodyMsg);
+  }
+  
+  @Test
+  public void testFailingConsumingHeaders3() 
+      throws IOException,
+      OutputStreamAlreadySetException {
+    String bodyMsg = "{bodyMessage: \"Hello World!\"}";
+    String httpMsg = " POST /echo?param1=1&&param2=2& HTTP/1.1\r\n"
+        + "failing:abcde ef g, hij klmn1p  @#$%#$&*b \r\n"
+        + "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+        + "\r\n"
+        + bodyMsg;
+    
+    AcceptOnlyEventsTypeServer server = 
+        new AcceptOnlyEventsTypeServer("localhost", 3456);
+        
+    DummySocketChannel dummy = new DummySocketChannel(null);
+    
+    dummy.init(httpMsg);
+    
+    //do not start server, only for config
+    DataHandler dataHandler = 
+        new DataHandler(server, dummy);
+    
+    while(dataHandler.read() >= 0);
+    
+    assertEquals(dataHandler.getRequest().getLowerCaseHeader("failing"), null);
+    assertEquals(dataHandler.getErrorOccured(), HTTP_MALFORMED_HEADERS);
+    
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("content-length"), null);
+    assertEquals(dataHandler.getContentLength(), 0);
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("header-multiline"), null);
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("header-xmultiline"), null);
+  }
+  
+  
+  @Test
+  public void testFailingConsumingHeaders4() 
+      throws IOException,
+      OutputStreamAlreadySetException {
+    String bodyMsg = "{bodyMessage: \"Hello World!\"}";
+    String httpMsg = "POST /echo?param1=1&&param2=2&\r\n"
+        + "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+//        + "\r\n"
+        + bodyMsg;
+    
+    AcceptOnlyEventsTypeServer server = 
+        new AcceptOnlyEventsTypeServer("localhost", 3456);
+        
+    DummySocketChannel dummy = new DummySocketChannel(null);
+    
+    dummy.init(httpMsg);
+    
+    //do not start server, only for config
+    DataHandler dataHandler = 
+        new DataHandler(server, dummy);
+    
+    while(dataHandler.read() >= 0);
+    
+    assertEquals(dataHandler.getErrorOccured(), HTTP_NOT_FOUND);
+    assertEquals(dataHandler.getRequest().getRequestedHttpProtocol(), HTTP_0_9);
+    // https 0.9 will consume rest as body and it wont be MALFORMED HEADER CASE.
+    assertEquals(dataHandler.getRequest()
+        .getBodyString(), "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+//        + "\r\n"
+        + bodyMsg);
+    
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("content-length"), null);
+    assertEquals(dataHandler.getContentLength(), 0);
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("header-multiline"), null);
+    assertEquals(dataHandler.getRequest()
+        .getLowerCaseHeader("header-xmultiline"), null);
+  }
+  
   
   @Test
   public void testLongCacheParser() {

@@ -92,10 +92,14 @@ class DummySocketChannel extends SocketChannel {
 
   @Override
   public int read(ByteBuffer dst) throws IOException {
+    if (currentAt == message.length) {
+      return -1;
+    }
+    
     int count = 0;
-    for (int i = currentAt; i < message.length && dst.hasRemaining(); i++) {
+    for (; currentAt < message.length && dst.hasRemaining(); currentAt++) {
       count++;
-      dst.put(message[i]);
+      dst.put(message[currentAt]);
     }
     return count;
   }
