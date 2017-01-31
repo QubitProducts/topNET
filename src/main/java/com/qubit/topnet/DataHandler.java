@@ -264,6 +264,7 @@ public final class DataHandler {
           
           if (this.processHeaderLine()) {
             if (this.errorOccured == null) {
+              this.response.setForcingClosingAfterRequest(true);
               this.errorOccured = ErrorTypes.HTTP_BAD_REQUEST;
             }
             return true; // finish now!
@@ -312,6 +313,7 @@ public final class DataHandler {
 
               if (this.bodyRequired) {
                 if (this.contentLength < 0) {
+                  this.response.setForcingClosingAfterRequest(true);
                   this.errorOccured = ErrorTypes.BAD_CONTENT_LENGTH;
                   return true;
                 }
@@ -325,6 +327,7 @@ public final class DataHandler {
           if (currentHeaderLineLength < currentHeaderLine.length) {
             currentHeaderLine[currentHeaderLineLength++] = (byte)current;
           } else {
+             this.response.setForcingClosingAfterRequest(true);
              this.errorOccured = ErrorTypes.HTTP_HEADER_TOO_LARGE;
              return true;
           }
