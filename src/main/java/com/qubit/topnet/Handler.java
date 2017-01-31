@@ -94,10 +94,6 @@ public abstract class Handler {
   public abstract boolean process(Request request, Response response) 
       throws Exception;
 
-  public boolean supports(String method) {
-    return true;
-  }
-
   public boolean matches(String fullPath, String path, String params) {
     return true;
   }
