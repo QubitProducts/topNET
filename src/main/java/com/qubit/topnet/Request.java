@@ -20,6 +20,7 @@
 
 package com.qubit.topnet;
 
+import static com.qubit.topnet.ServerBase.HTTP_0_9;
 import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
@@ -669,21 +670,21 @@ public class Request {
    * @return true if no headers should be processed
    */
   protected boolean setMethodAndPathFromLine(byte[] line, int len) {
-    int idx = DataHandler.indexOf(line, len, ' ', 0);
+    int method_closing_idx = DataHandler.indexOf(line, len, ' ', 0);
     
-    if (idx < 1) {
+    if (method_closing_idx < 1) {
       return true; // no headers
     }
     
-    this.method = new String(line, 0, idx);
-    int methodStart = idx + 1;
-    int protocol_idx = DataHandler.indexOf(line, len, ' ', methodStart);
+    this.method = new String(line, 0, method_closing_idx);
+    int path_idx = method_closing_idx + 1;
+    int protocol_idx = DataHandler.indexOf(line, len, ' ', path_idx);
     
     if (protocol_idx != -1) {
       this.fullPath = new String(
           line,
-          methodStart,
-          protocol_idx - methodStart,
+          path_idx,
+          protocol_idx - path_idx,
           this.server.getUrlCharset());
       
       byte[] requestHttpProtocolBytes = 
@@ -696,10 +697,11 @@ public class Request {
       
       return false;
     } else {
+      this.requestedHttpProtocol = HTTP_0_9;
       this.fullPath = new String(
           line,
-          methodStart,
-          len - idx - 1,
+          path_idx,
+          len - method_closing_idx - 1,
           this.server.getUrlCharset());
       
       return true; // no headers
