@@ -36,18 +36,38 @@ public abstract class Handler {
   
   private Handler next;
 
+  // consider per thread instance handlers sets
+  /**
+   * Function defining how handler instance is created by topNET engine for 
+   * each request processing chain.
+   * By default this function will create new instance of handler class.
+   * 
+   * It is important to understand that handlers processing chain is build of 
+   * objects returned by this function.
+   * 
+   * This function is shared among all worker threads in topNET!
+   * 
+   * @return instance of handler to be used in request processing.
+   */
   public Handler getInstance() {
     try {
       return this.getClass().newInstance();
     } catch (InstantiationException | IllegalAccessException ex) {
-      log.log(Level.SEVERE, null, ex);
+      log.log(Level.SEVERE, "Bad handlers implementation!", ex);
     }
     return null;
   }
 
   protected Handler() {}
 
-  public void triggerOnBeforeOutputStreamIsSet(Request request, Response response) {
+  /**
+   * Function used by topNET engine to prepare output stream.
+   * This function is reponsible for triggering {@link onBeforeOutputStreamIsSet(Request request, Response response)} event.
+   * 
+   * @param request
+   * @param response 
+   */
+  protected void triggerOnBeforeOutputStreamIsSet(Request request, Response response) {
     if (this.onBeforeOutputStreamIsSet(request, response)) {
       Handler tmp = this.getNext();
       while(tmp != null) {
@@ -60,11 +80,38 @@ public abstract class Handler {
     }
   }
 
+  /**
+   * Important pre output stream setting event handling function.
+   * This function is a last moment before default output stream for request
+   * data is set. If output stream for request will be set - the default
+   * string buffer will not be used.
+   * 
+   * Please not that once you have set your own stream reading code - 
+   * it is recommended clear stream buffer after reading large portions of data
+   * (normally grown buffers are truncated by topNET engine after response is 
+   * sent).
+   * 
+   * This event is triggered on all handlers in the chain till one of handlers
+   * return false.
+   * 
+   * @param request the request
+   * @param response the response
+   * @return true if next handler in chain can change the stream.
+   */
   public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
     return true;
   }
   
   //@todo zmien nazwy na onBodyReady, onHeadersReady, onBeforeReadingBody
+  /**
+   * Default handling caller for this handler, it loops through handling
+   * chain and calling {@link process(Request request, Response response, DataHandler dh)}
+   * on each.
+   * @param request the request object
+   * @param response the reponse object
+   * @param dh data handler object instance used by working thread to handle request and response.
+   * @return Handling result pair of last handler used and error reference if any.
+   */
   public final Pair<Handler, Throwable> 
         doProcess(Request request, Response response, DataHandler dh) {
     Handler tmp = this;
@@ -77,10 +124,11 @@ public abstract class Handler {
           tmp = tmp.getNext();
         }
       } catch (Throwable t) {
+        // pass errors out for handling.
         return new Pair<>(tmp, t);
       }
     }
-    
+    // no errors
     return null;
   }
   
@@ -90,7 +138,16 @@ public abstract class Handler {
     return this.process(request, response);
   }
          
-  // request is ready, with full body, unless different stream been passed
+  /**
+   * Core processing function for requests.
+   * 
+   * 
+   * @param request
+   * @param response
+   * @return true only if handling should be passed to next handler in chain. 
+   * Next handler in chain is referenced bu {@link getNext()}
+   * @throws Exception 
+   */
   public abstract boolean process(Request request, Response response) 
       throws Exception;
 
@@ -134,6 +191,7 @@ public abstract class Handler {
   public void onError(Throwable t) {}
 
   /**
+   * Returns next handler to be used in handling chain or null if none is to be used.
    * @return the next
    */
   public Handler getNext() {
@@ -141,6 +199,10 @@ public abstract class Handler {
   }
 
   /**
+   * Important handling chain setter. Use this function to specify which handler 
+   * should start handling request next. Handler specified by {@link getNext()}
+   * will be used only if {@link process(Request request, Response response) }
+   * return true.
    * @param next the next to set
    */
   public void setNext(Handler next) {

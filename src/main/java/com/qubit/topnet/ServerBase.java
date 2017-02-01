@@ -213,14 +213,58 @@ public abstract class ServerBase {
     this.defaultIdleTime = defaultIdleTime;
   }
 
+  /**
+   * Registers a handler to a path, a path can have one handler only registered.
+   * Registering other handler with same path will cause discarding previous handler.
+   * 
+   * This method of registration does not use wild card characters like "*".
+   * To use advanced matching - use {@link registerPathMatchingHandler()} method.
+   * 
+   * Handlers matched with match function have priority over 
+   * plain path handlers. If there is handler registered to "*" then it will be 
+   * put before plain handler match.
+   * 
+   * @param path a string describing path, example: "/echo"
+   * @param handler a {@link com.qubit.topnet.Handler} instance.
+   */
   public void registerHandlerByPath(String path, Handler handler) {
     plainPathHandlers.put(path, handler);
   }
 
+  /**
+   * Advanced handler matching registration method.
+   * Handler instance registered is added to `matchingPathHandlers` list as last
+   * match (order matters and is used when searching for matching handlers for 
+   * request).
+   * Once handler is added, handler {@link com.qubit.topnet.Handler#match()} method 
+   * will be used to determine  if the handler should be included in the 
+   * handling chain for request.
+   * 
+   * Using this method on a handler already added to the list will cause 
+   * moving handler as last in queue.
+   * 
+   * Note that every handler can changfe at runtime its handling chain
+   * see {@see com.qubit.topnet.Handler#setNext(Handler next)} for more details.
+   * 
+   * @param handler 
+   */
   public void registerPathMatchingHandler(Handler handler) {
+    matchingPathHandlers.remove(handler);
     matchingPathHandlers.add(handler);
   }
 
+  /**
+   * Function finds handler for the path. This function is used by topNET engine
+   * in order to find handlers chain for request.
+   * 
+   * It seeks all matching handlers first in advanced stack (matchingPathHandlers)
+   * and then collects matches from plain handlers list (plainPathHandlers).
+   * 
+   * @param fullPath
+   * @param path
+   * @param params
+   * @return 
+   */
   public Handler getHandlerForPath(
       String fullPath, String path, String params) {
     Handler handler = null;
