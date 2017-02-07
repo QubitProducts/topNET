@@ -297,7 +297,7 @@ public class Response {
       throw new ResponseBuildingStartedException();
     }
     if (this.stringBuffer == null) {
-      this.setStringBuffer(new StringBuilder());
+      this.stringBuffer = new StringBuilder();
     }
     this.stringBuffer.append(str);
   }
@@ -340,8 +340,8 @@ public class Response {
           log.log(Level.SEVERE,
                  "This should never happen - bad implementation.", ex);
         }
-
-        this.stringBuffer.setLength(0);
+//@todo 
+//        this.stringBuffer.setLength(0);
         // @todo setter may be a good idea here
         this.responseStream = 
             prepareResponseStreamFromInputStream(bodyStream);
