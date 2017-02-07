@@ -22,6 +22,7 @@ package com.qubit.topnet.eventonly;
 import com.qubit.topnet.AbstractHandlingThread;
 import com.qubit.topnet.DataHandler;
 import static com.qubit.topnet.DataHandler.bodyReadyHandler;
+import com.qubit.topnet.ServerBase;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -39,20 +40,25 @@ public abstract class HandlingThread extends AbstractHandlingThread {
 
   static volatile long handlingClosedIdleCounter = 0;
   private static int spinBeforeCount = 0;
-  
+
   public static void setSpinCountBeforeSleep(int value) {
     spinBeforeCount = value;
   }
-  
+
   private int defaultMaxMessageSize;
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;
   private final Object sleepingLocker = new Object();
-  
+
+  public HandlingThread(ServerBase server) {
+    super(server);
+  }
+
   abstract public boolean addJob(SelectionKey key, Long acceptTime);
+
   abstract boolean canAddJob();
-  
+
   @Override
   public void run() {
     try {
@@ -60,13 +66,13 @@ public abstract class HandlingThread extends AbstractHandlingThread {
       while (this.isRunning()) {
         this.trySomeWork();
       }
-      
+
       this.trySomeWork();
     } finally {
       this.getServer().removeThread(this);
     }
   }
-  
+
   private void trySomeWork() {
     long count = spinBeforeCount;
     while (this.hasJobs()) {
@@ -80,14 +86,14 @@ public abstract class HandlingThread extends AbstractHandlingThread {
         count = spinBeforeCount;
       }
     }
-    
+
     this.sleepNow();
   }
-  
+
   /**
    * Returns false if not finished writing or
- "this.finishedOrWaitForMoreRequests(...)" when finished. It tells if job can be
-   * released.
+   * "this.finishedOrWaitForMoreRequests(...)" when finished. It tells if job
+   * can be released.
    *
    * @param key
    * @param dataHandler
@@ -139,7 +145,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
         return many;
       }
     }
-    
+
     return -1;
   }
 
@@ -179,12 +185,15 @@ public abstract class HandlingThread extends AbstractHandlingThread {
       synchronized (sleepingLocker) {
         sleepingLocker.wait();
       }
-    } catch (InterruptedException e) {}
+    } catch (InterruptedException e) {
+    }
   }
-  
+
   protected boolean handleMaxIdle(DataHandler dataHandler, long maxIdle) {
-    if (dataHandler.owningThread == null) return false;
-    
+    if (dataHandler.owningThread == null) {
+      return false;
+    }
+
     //check if connection is not open too long! Prevent DDoS
     long idle = dataHandler.getMaxIdle(maxIdle);
     if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
@@ -214,18 +223,13 @@ public abstract class HandlingThread extends AbstractHandlingThread {
 
     return false;
   }
-  
+
   /**
    * Returns if no io was performed and waiting is desired.
    *
    * @return
    */
   protected abstract boolean runSinglePass();
-
-  /**
-   * @return the server
-   */
-  public abstract EventTypeServer getServer();
 
   /**
    * @return the running
@@ -256,7 +260,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   public long getJobsRemoved() {
     return jobsRemoved;
   }
-  
+
   public long jobsLeft() {
     if (jobsAdded < 0) {
       if (jobsRemoved > 0) {
@@ -268,6 +272,6 @@ public abstract class HandlingThread extends AbstractHandlingThread {
       return jobsAdded - jobsRemoved;
     }
   }
-  
+
   public abstract int getLimit();
 }

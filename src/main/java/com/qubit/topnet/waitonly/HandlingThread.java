@@ -22,6 +22,7 @@ package com.qubit.topnet.waitonly;
 import com.qubit.topnet.AbstractHandlingThread;
 import com.qubit.topnet.DataHandler;
 import static com.qubit.topnet.DataHandler.bodyReadyHandler;
+import com.qubit.topnet.ServerBase;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
@@ -33,6 +34,10 @@ import java.util.logging.Logger;
  */
 public abstract class HandlingThread extends AbstractHandlingThread {
 
+  public HandlingThread(ServerBase server) {
+    super(server);
+  }
+  
   private static final Logger log
       = Logger.getLogger(HandlingThread.class.getName());
   private static int spinBeforeCount = 1000;
@@ -243,11 +248,6 @@ public abstract class HandlingThread extends AbstractHandlingThread {
    * @return
    */
   protected abstract boolean runSinglePass();
-
-  /**
-   * @return the server
-   */
-  public abstract WaitTypeServer getServer();
 
   /**
    * @return the delayForNoIOReadsInSuite

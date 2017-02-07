@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -239,13 +240,14 @@ public class Response {
     if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
-    for (int i = 0; i < headers.size();) {
-      if (headers.get(i)[0].equals(name)) {
-        headers.remove(i);
-      } else {
-        i++;
+    
+    for (Iterator<String[]> it = headers.iterator(); it.hasNext();) {
+      String[] header = it.next();
+      if (header[0].equals(name)) {
+        it.remove();
       }
     }
+    
   }
 
   public List<String> getHeaders(String name) {

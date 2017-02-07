@@ -24,7 +24,17 @@ package com.qubit.topnet;
  * @author peter.fronc@qubit.com
  */
 public enum PoolType {
+  /**
+   * Pool of handling threads where each thread has static array with atomic 
+   * references to it's jobs.
+   */
   POOL,
+  /**
+   * Pool type where each thread maintains concurrent queue of it's jobs.
+   */
   QUEUE,
+  /**
+   * Same as {@link QUEUE} type but all threads share same concurrent queue.
+   */
   QUEUE_SHARED
 }

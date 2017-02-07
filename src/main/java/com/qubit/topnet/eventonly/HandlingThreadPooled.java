@@ -35,7 +35,6 @@ import java.util.logging.Logger;
 class HandlingThreadPooled extends HandlingThread {
 
   private final DataHandlerHolder[] jobs;
-  private final EventTypeServer server;
   private final long maxIdle;
 
   private static final Logger log
@@ -47,7 +46,7 @@ class HandlingThreadPooled extends HandlingThread {
       int bufSize,
       int defaultMaxMessageSize,
       long maxIdle) {
-    this.server = server;
+    super(server);
     jobs = new DataHandlerHolder[jobsSize];
     for (int i = 0; i < jobs.length; i++) {
       jobs[i] = new DataHandlerHolder();
@@ -115,7 +114,7 @@ class HandlingThreadPooled extends HandlingThread {
     for (int i = 0; i < this.jobs.length; i++) {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
-        job = new DataHandler(server, key);
+        job = new DataHandler(getServer(), key);
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
         jobsAdded++;
@@ -128,7 +127,7 @@ class HandlingThreadPooled extends HandlingThread {
         return true;
       } else if (job.owningThread == null) {
         job.reset();
-        job.init(server, key);
+        job.init(getServer(), key);
         jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
@@ -154,7 +153,7 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   private void removeJobFromPool(int i) {
-    if (server.isCachingBuffers()) {
+    if (getServer().isCachingBuffers()) {
       this.jobs[i].dataHandler.owningThread = null;
     } else {
       this.jobs[i].dataHandler = null;
@@ -165,14 +164,6 @@ class HandlingThreadPooled extends HandlingThread {
   @Override
   boolean canAddJob() {
     return this.jobsLeft() < this.jobs.length;
-  }
-
-  /**
-   * @return the server
-   */
-  @Override
-  public EventTypeServer getServer() {
-    return server;
   }
 
   @Override

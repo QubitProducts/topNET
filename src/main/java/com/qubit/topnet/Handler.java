@@ -151,6 +151,16 @@ public abstract class Handler {
   public abstract boolean process(Request request, Response response) 
       throws Exception;
 
+  /**
+   * Function used by topNET to check if handler should be included in 
+   * processing chain for given request. This function is used only if handler 
+   * instance is registered with {@link ServerBase#registerMatchingHandler(Handler handler)}.
+   * 
+   * @param fullPath
+   * @param path
+   * @param params
+   * @return 
+   */
   public boolean matches(String fullPath, String path, String params) {
     return true;
   }
@@ -167,7 +177,8 @@ public abstract class Handler {
    * Returns -2 by default - which means that this handler lets server default
    * value to be used. To set no size limit - set -1. Any 0+ value will cause
    * incoming data size limit to be applied.
-   *
+   * 
+   * See {@link ServerBase#setMaxMessageSize(int) }
    * @return the maxIncomingDataSize
    */
   public int getMaxIncomingDataSize() {
@@ -203,6 +214,18 @@ public abstract class Handler {
    * should start handling request next. Handler specified by {@link getNext()}
    * will be used only if {@link process(Request request, Response response) }
    * return true.
+   * 
+   * When you set next handler to be invoked right after current handler - 
+   * remember to not to use shared instance between threads unless its desired.
+   * topNET is strongly multi-threaded, if you use handler directly referenced from 
+   * {@link ServerBase#matchingPathHandlers} or {@link ServerBase#plainPathHandlers}
+   * it's instance may be used by many threads at the same time - if they also 
+   * use setNext() function processing chains may be unpredictable.
+   * 
+   * If you take handler from shared location, call {@link Handler#getInstance()}
+   * to get handler reference.
+   * 
+   * 
    * @param next the next to set
    */
   public void setNext(Handler next) {
