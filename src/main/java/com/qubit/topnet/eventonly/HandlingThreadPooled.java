@@ -114,7 +114,7 @@ class HandlingThreadPooled extends HandlingThread {
     for (int i = 0; i < this.jobs.length; i++) {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
-        job = new DataHandler(getServer(), key);
+        job = new DataHandler(this.server, key);
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
         jobsAdded++;
@@ -127,7 +127,7 @@ class HandlingThreadPooled extends HandlingThread {
         return true;
       } else if (job.owningThread == null) {
         job.reset();
-        job.init(getServer(), key);
+        job.init(this.server, key);
         jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
@@ -153,7 +153,7 @@ class HandlingThreadPooled extends HandlingThread {
   }
 
   private void removeJobFromPool(int i) {
-    if (getServer().isCachingBuffers()) {
+    if (this.server.isCachingBuffers()) {
       this.jobs[i].dataHandler.owningThread = null;
     } else {
       this.jobs[i].dataHandler = null;

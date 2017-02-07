@@ -26,7 +26,7 @@ import java.util.List;
  * @author peter.fronc@qubit.com
  */
 public abstract class AbstractHandlingThread extends Thread {
-  private final ServerBase server;
+  protected final ServerBase server;
 
   public AbstractHandlingThread(ServerBase server){
     this.server = server;
@@ -38,10 +38,4 @@ public abstract class AbstractHandlingThread extends Thread {
 
   abstract public List<DataHandler> getValidJobs();
 
-  /**
-   * @return the server
-   */
-  public ServerBase getServer() {
-    return server;
-  }
 }

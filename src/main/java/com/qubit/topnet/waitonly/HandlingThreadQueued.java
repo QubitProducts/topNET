@@ -106,7 +106,7 @@ public class HandlingThreadQueued extends HandlingThread {
           WaitTypeServer.close(job.getChannel());
           job.connectionClosedHandler();
           jobsRemoved++;
-          if (getServer().isCachingBuffers()) {
+          if (this.server.isCachingBuffers()) {
             this.recycledJobs.addLast(job);
           }
         }
@@ -193,17 +193,17 @@ public class HandlingThreadQueued extends HandlingThread {
   
   private DataHandler getNewJob(SocketChannel channel) {
     
-    if (!this.getServer().isCachingBuffers()) {
-      return new DataHandler(getServer(), channel);
+    if (!this.server.isCachingBuffers()) {
+      return new DataHandler(this.server, channel);
     }
     
     DataHandler job = this.recycledJobs.pollFirst();
     if (job != null) {
       job.reset();
-      job.init(this.getServer(), channel);
+      job.init(this.server, channel);
       return job;
     } else {
-      return new DataHandler(this.getServer(), channel);
+      return new DataHandler(this.server, channel);
     }
   }
 }

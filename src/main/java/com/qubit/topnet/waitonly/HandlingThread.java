@@ -68,7 +68,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
       
       this.trySomeWork();
     } finally {
-      this.getServer().removeThread(this);
+      this.server.removeThread(this);
     }
   }
   
@@ -216,8 +216,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
     //check if connection is not open too long! Prevent DDoS
     long idle = dataHandler.getMaxIdle(maxIdle);
     if (idle != 0 && (System.currentTimeMillis() - dataHandler.getTouch()) > idle) {
-      if (this.getServer().getLimitsHandler() != null) {
-        return this.getServer().getLimitsHandler().handleTimeout(null, idle, dataHandler);
+      if (this.server.getLimitsHandler() != null) {
+        return this.server.getLimitsHandler().handleTimeout(null, idle, dataHandler);
       } else {
         handlingClosedIdleCounter++;
         return true;
@@ -229,8 +229,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
         .getMaxMessageSize(getDefaultMaxMessageSize());
 
     if (maxSize != -1 && dataHandler.getSize() >= maxSize) {
-      if (this.getServer().getLimitsHandler() != null) {
-        return this.getServer().getLimitsHandler()
+      if (this.server.getLimitsHandler() != null) {
+        return this.server.getLimitsHandler()
             .handleSizeLimit(null, idle, dataHandler);
       } else {
         log.log(Level.INFO, "Max size reached - closing: {0}",
