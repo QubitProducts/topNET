@@ -19,10 +19,8 @@ import java.util.Set;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 class DummySocketChannel extends SocketChannel {
-  private int interestOpsValue;
   private byte[] input;
   private ByteBuffer output = ByteBuffer.allocate(64*1024);
-  private final String reply = "";
 
   protected DummySocketChannel(SelectorProvider provider) {
     super(provider);
@@ -110,8 +108,6 @@ class DummySocketChannel extends SocketChannel {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
-  
-  
   @Override
   public int write(ByteBuffer src) throws IOException {
     int pos = src.position();
@@ -119,6 +115,10 @@ class DummySocketChannel extends SocketChannel {
     return src.position() - pos;
   }
 
+  public String getWrittenBackMessage() {
+    return new String(output.array(),0, output.position());
+  }
+  
   @Override
   public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
       throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.

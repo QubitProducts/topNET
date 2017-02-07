@@ -272,7 +272,8 @@ public class DataHandlerTest {
 
       @Override
       public boolean process(Request request, Response response) throws Exception {
-        response.print("Whatever text.");
+        response.print("Whatever text."); 
+        // error message must override existing string buffer
         response.setErrorResponse(503, "Server Error!");
         return false;
       }
@@ -293,14 +294,23 @@ public class DataHandlerTest {
     
     while(dataHandler.read() >= 0);
     
+    assertEquals(
+        dataHandler.getResponse().getStringBuffer().toString(), "Server Error!");
+    
     while(dataHandler.write() >= 0);
     
-    assertEquals(dataHandler.getErrorOccured(), 503);
-    assertEquals(dataHandler.getRequest().getRequestedHttpProtocol(), HTTP_1_0);
-    // https 0.9 will consume rest as body and it wont be MALFORMED HEADER CASE.
-    assertEquals(dataHandler.getRequest().getBodyString(), bodyMsg);
+//    // write will trigger buffer preparation 
+//    assertEquals(dataHandler.getResponse().getStringBuffer(), "");
+    assertEquals(
+        dataHandler.getResponse().getStringBuffer().toString(), "Server Error!");
     
-    assertEquals(dataHandler.getResponse().getStringBuffer(), "Server Error!");
+    assertEquals(null, dataHandler.getErrorOccured());
+    assertEquals(503, dataHandler.getResponse().getHttpCode());
+    assertEquals(dataHandler.getRequest().getRequestedHttpProtocol(), HTTP_0_9);
+    // https 0.9 will consume rest as body and it wont be MALFORMED HEADER CASE.
+    assertEquals("Server Error!", dataHandler.getRequest().getBodyString());
+    
+    assertEquals("Server Error!", dummy.getWrittenBackMessage());
   }
   
   
