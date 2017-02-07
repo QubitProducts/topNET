@@ -20,7 +20,8 @@ import java.util.Set;
  */
 class DummySocketChannel extends SocketChannel {
   private int interestOpsValue;
-  private byte[] message;
+  private byte[] input;
+  private ByteBuffer output = ByteBuffer.allocate(64*1024);
   private final String reply = "";
 
   protected DummySocketChannel(SelectorProvider provider) {
@@ -28,13 +29,13 @@ class DummySocketChannel extends SocketChannel {
   }
   
   public void init(String message) {
-    this.message = message.getBytes();
+    this.input = message.getBytes();
   }
 
   int currentAt = 0;
   public int read() {
-    if (currentAt < message.length) {
-      return message[currentAt++];
+    if (currentAt < input.length) {
+      return input[currentAt++];
     } else {
       return -1;
     }
@@ -92,14 +93,14 @@ class DummySocketChannel extends SocketChannel {
 
   @Override
   public int read(ByteBuffer dst) throws IOException {
-    if (currentAt == message.length) {
+    if (currentAt == input.length) {
       return -1;
     }
     
     int count = 0;
-    for (; currentAt < message.length && dst.hasRemaining(); currentAt++) {
+    for (; currentAt < input.length && dst.hasRemaining(); currentAt++) {
       count++;
-      dst.put(message[currentAt]);
+      dst.put(input[currentAt]);
     }
     return count;
   }
@@ -109,14 +110,18 @@ class DummySocketChannel extends SocketChannel {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
+  
+  
   @Override
   public int write(ByteBuffer src) throws IOException {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    int pos = src.position();
+    output.put(src);
+    return src.position() - pos;
   }
 
   @Override
   public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
   @Override

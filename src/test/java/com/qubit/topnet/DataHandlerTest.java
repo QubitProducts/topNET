@@ -6,6 +6,7 @@
 package com.qubit.topnet;
 
 import static com.qubit.topnet.ServerBase.HTTP_0_9;
+import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.errors.ErrorTypes.HTTP_MALFORMED_HEADERS;
 import static com.qubit.topnet.errors.ErrorTypes.HTTP_NOT_FOUND;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
@@ -247,6 +248,59 @@ public class DataHandlerTest {
         .getLowerCaseHeader("header-multiline"), null);
     assertEquals(dataHandler.getRequest()
         .getLowerCaseHeader("header-xmultiline"), null);
+  }
+  
+  
+  @Test
+  @SuppressWarnings("empty-statement")
+  public void testFailingConsumingHeaders5() 
+      throws IOException,
+      OutputStreamAlreadySetException {
+    String bodyMsg = "{bodyMessage: \"Hello World!\"}";
+    String httpMsg = "POST /echo?param1=1&&param2=2&\r\n"
+        + "Header-multiline: abcde ef g, hij \r\n klmn1p  @#$%\r\n #$&*b \r\n"
+        + "Header-xmultiline: \tabcde ef g, hij \r\n\t klmn1p  @#$%\r\n\t\t#$&*b \r\n"
+        + "Header-space: abcde ef g, hij klmn1p \r\n"
+        + "ConTent-lEngtH:" + "   \t " + bodyMsg.length() + " \r\n"
+//        + "\r\n"
+        + bodyMsg;
+    
+    AcceptOnlyEventsTypeServer server = 
+        new AcceptOnlyEventsTypeServer("localhost", 3456);
+    
+    server.registerHandlerByPath("/echo", new Handler() {
+
+      @Override
+      public boolean process(Request request, Response response) throws Exception {
+        response.print("Whatever text.");
+        response.setErrorResponse(503, "Server Error!");
+        return false;
+      }
+      
+      @Override
+      public Handler getInstance() {
+        return this;
+      }
+    });
+    
+    DummySocketChannel dummy = new DummySocketChannel(null);
+    
+    dummy.init(httpMsg);
+    
+    //do not start server, only for config
+    DataHandler dataHandler = 
+        new DataHandler(server, dummy);
+    
+    while(dataHandler.read() >= 0);
+    
+    while(dataHandler.write() >= 0);
+    
+    assertEquals(dataHandler.getErrorOccured(), 503);
+    assertEquals(dataHandler.getRequest().getRequestedHttpProtocol(), HTTP_1_0);
+    // https 0.9 will consume rest as body and it wont be MALFORMED HEADER CASE.
+    assertEquals(dataHandler.getRequest().getBodyString(), bodyMsg);
+    
+    assertEquals(dataHandler.getResponse().getStringBuffer(), "Server Error!");
   }
   
   
