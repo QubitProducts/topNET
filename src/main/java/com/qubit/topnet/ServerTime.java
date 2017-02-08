@@ -62,7 +62,6 @@ class ServerTime {
     if (cachedTime == null || (lastRead + 499) < now) {
       lastRead = now;
       cachedTime = serverTime.get().getTime();
-      log.info(cachedTime);
     }
     return cachedTime;
   }
