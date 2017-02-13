@@ -43,7 +43,9 @@ import java.util.logging.Logger;
 public class Response {
   static private final Logger log = Logger.getLogger(Response.class.getName());
   
-  public static String serverName = "topNET";// + "/" + SERVER_VERSION;
+  public static String SERVER_VERSION = "2.0.3";
+  
+  public static String serverName = "topNET" + "/" + SERVER_VERSION;
   
   private static final String CRLF = "\r\n";
   private static final String OK_200 = "200 OK" + CRLF;
