@@ -24,7 +24,7 @@ import java.nio.charset.Charset;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public class BytesStream {
 
@@ -207,6 +207,10 @@ public class BytesStream {
     }
   }
   
+  /**
+   * Resets this bytes stream. 
+   * Clears any buffer chunks left and sets all markers to zero.
+   */
   public void reset() {
     this.currentReadingBuffer = first;
     this.currentWritingBuffer = first;

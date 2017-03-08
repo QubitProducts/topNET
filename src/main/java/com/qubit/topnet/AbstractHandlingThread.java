@@ -23,10 +23,15 @@ import java.util.List;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public abstract class AbstractHandlingThread extends Thread {
+  protected final ServerBase server;
 
+  public AbstractHandlingThread(ServerBase server){
+    this.server = server;
+  }
+  
   abstract public long getJobsAdded();
 
   abstract public long getJobsRemoved();

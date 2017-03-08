@@ -23,7 +23,7 @@ import com.qubit.topnet.waitonly.WaitTypeServer;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public class AcceptOnlyEventsTypeServer extends WaitTypeServer {
   

@@ -31,7 +31,7 @@ public class ResponseStream extends ResponseReader {
 
   private InputStream headersStream;
   private InputStream bodyStream;
-  private boolean headersRead = false;
+  protected boolean readingBody = false;
 
   public ResponseStream() {
   }
@@ -46,14 +46,14 @@ public class ResponseStream extends ResponseReader {
   @Override
   public int read() throws IOException {
     
-    if (this.headersRead) {
+    if (this.readingBody) {
       return readBody();
     }
     
     int ch;
     
     if ((ch = getHeadersStream().read()) == -1) {
-      this.headersRead = true;
+      this.readingBody = true;
       return readBody();
     }
     
@@ -108,5 +108,16 @@ public class ResponseStream extends ResponseReader {
     }
     
     return this.headerResponseReader;
+  }
+  
+  public boolean isReadingBody() {
+    return readingBody;
+  }
+
+  /**
+   * @param readingBody the readingBody to set
+   */
+  public void setReadingBody(boolean readingBody) {
+    this.readingBody = readingBody;
   }
 }

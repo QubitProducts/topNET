@@ -60,7 +60,7 @@ public class Demo {
     s.setJobsPerThread(jobs);
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
-    s.setThreadsAmount(th);
+    s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.POOL);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
@@ -83,7 +83,7 @@ public class Demo {
     s.setJobsPerThread(-1);
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
-    s.setThreadsAmount(th);
+    s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
@@ -105,7 +105,7 @@ public class Demo {
     s.setJobsPerThread(jobs);
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
-    s.setThreadsAmount(th);
+    s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);
@@ -127,7 +127,7 @@ public class Demo {
     s.setJobsPerThread(jobs);
     // one byte buffer!
     s.setMaxGrowningBufferChunkSize(bufChunkMax);
-    s.setThreadsAmount(2 * th);
+    s.setMinimumThreadsAmount(2 * th);
     s.setPoolType(PoolType.QUEUE_SHARED);
     s.setChannelReceiveBufferSize(channelBufSize);
     s.setChannelSendBufferSize(channelWriteBufSize);

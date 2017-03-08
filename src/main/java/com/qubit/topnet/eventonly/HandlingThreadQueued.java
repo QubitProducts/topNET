@@ -39,7 +39,6 @@ class HandlingThreadQueued extends HandlingThread {
   
   private final long maxIdle;
   private int limit = 16;
-  private final EventTypeServer server;
 
   private static final Logger log = Logger.getLogger(
       HandlingThreadQueued.class.getName());
@@ -51,7 +50,7 @@ class HandlingThreadQueued extends HandlingThread {
       int bufSize,
       int defaultMaxMessageSize,
       long maxIdle) {
-    this.server = server;
+    super(server);
     this.limit = jobsSize;
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
@@ -107,7 +106,7 @@ class HandlingThreadQueued extends HandlingThread {
           EventTypeServer.close(job.getSelectionKey(), job.getChannel());
           job.connectionClosedHandler();
           jobsRemoved++;
-          if (server.isCachingBuffers()) {
+          if (this.server.isCachingBuffers()) {
             this.recycledJobs.addLast(job);
           }
         }
@@ -183,14 +182,6 @@ class HandlingThreadQueued extends HandlingThread {
     return jobs;
   }
 
-  /**
-   * @return the server
-   */
-  @Override
-  public EventTypeServer getServer() {
-    return server;
-  }
-
   @Override
   public List<DataHandler> getValidJobs() {
     return Arrays.asList(jobs.toArray(new DataHandler[]{}));
@@ -201,8 +192,8 @@ class HandlingThreadQueued extends HandlingThread {
 
   private DataHandler getNewJob(SelectionKey key) {
 
-    if (!server.isCachingBuffers()) {
-      return new DataHandler(server, key);
+    if (!this.server.isCachingBuffers()) {
+      return new DataHandler(this.server, key);
     }
 
     DataHandler job = this.recycledJobs.pollFirst();

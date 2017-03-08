@@ -29,6 +29,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,7 +44,7 @@ public class WaitTypeServer extends ServerBase {
   private int delayForNoIOReadsInSuite = 100 * 1000;
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
   private HandlingThread[] handlingThreads;
-  
+
   public WaitTypeServer(String address, int port) {
     super(address, port);
   }
@@ -74,7 +75,7 @@ public class WaitTypeServer extends ServerBase {
     this.getServerSocket().bind(getListenAddress());
 
     // @todo move to cfg
-    this.setHandlingThreads(new HandlingThread[this.getThreadsAmount()]);
+    this.setHandlingThreads(new HandlingThread[this.getMinimumThreadsAmount()]);
 
     this.setChannelSelector(Selector.open());
 
@@ -126,6 +127,7 @@ public class WaitTypeServer extends ServerBase {
         handlingThreads[j] = null; // remove thread
       }
       this.clearThreadsCache();
+      this.allRegisteringHandlingThreads.clear();
       this.getServerChannel().close();
     } finally {
       this.setStoppingNow(false);
@@ -135,9 +137,18 @@ public class WaitTypeServer extends ServerBase {
 
   @Override
   public void removeThread(AbstractHandlingThread thread) {
+    this.allRegisteringHandlingThreads.remove(thread);
+    
     for (int i = 0; i < handlingThreads.length; i++) {
       if (handlingThreads[i] == thread) {
         handlingThreads[i] = null;
+      }
+    }
+    
+    for(Iterator<HandlingThread> it = threadsCache.iterator(); it.hasNext();) {
+      HandlingThread handlingThread = it.next();
+      if (handlingThread.getClass().equals(thread.getClass())) {
+        it.remove();
       }
     }
   }
@@ -201,7 +212,7 @@ public class WaitTypeServer extends ServerBase {
   }
 
   public int cleanupThreadsExcess() {
-    int threadsThatShouldBe = this.getThreadsAmount();
+    int threadsThatShouldBe = this.getMinimumThreadsAmount();
     HandlingThread[] threads = this.handlingThreads;
 
     if (threadsThatShouldBe >= threads.length) {
@@ -259,6 +270,7 @@ public class WaitTypeServer extends ServerBase {
               putThreadToCache(threads[i]);
               thread.wakeup();
             } else {
+              this.allRegisteringHandlingThreads.remove(threads[i]);
               threads[i].setRunning(false);
             }
           } else {
@@ -312,6 +324,8 @@ public class WaitTypeServer extends ServerBase {
     t.setDelayForNoIO(this.getDelayForNoIOReadsInSuite());
 
     t.start();
+    
+    this.allRegisteringHandlingThreads.add(t);
 
     return t;
   }
@@ -333,7 +347,7 @@ public class WaitTypeServer extends ServerBase {
     }
   }
 
-  public void clearThreadsCache() {
+  private void clearThreadsCache() {
     HandlingThread t;
     while ((t = threadsCache.pollFirst()) != null) {
       t.setRunning(false);
@@ -373,5 +387,4 @@ public class WaitTypeServer extends ServerBase {
   public void setDelayForNoIOReadsInSuite(int delayForNoIOReadsInSuite) {
     this.delayForNoIOReadsInSuite = delayForNoIOReadsInSuite;
   }
-
 }

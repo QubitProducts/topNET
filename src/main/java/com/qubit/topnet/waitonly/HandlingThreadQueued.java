@@ -39,7 +39,6 @@ public class HandlingThreadQueued extends HandlingThread {
           = new ConcurrentLinkedDeque<>();
   private final long maxIdle;
   private int limit = 16;
-  private final WaitTypeServer server;
 
   static final Logger log = Logger.getLogger(
           HandlingThreadQueued.class.getName());
@@ -51,7 +50,7 @@ public class HandlingThreadQueued extends HandlingThread {
           int bufSize,
           int defaultMaxMessageSize,
           long maxIdle) {
-    this.server = server;
+    super(server);
     this.limit = jobsSize;
     this.setDefaultMaxMessageSize(defaultMaxMessageSize);
     this.maxIdle = maxIdle;
@@ -107,7 +106,7 @@ public class HandlingThreadQueued extends HandlingThread {
           WaitTypeServer.close(job.getChannel());
           job.connectionClosedHandler();
           jobsRemoved++;
-          if (server.isCachingBuffers()) {
+          if (this.server.isCachingBuffers()) {
             this.recycledJobs.addLast(job);
           }
         }
@@ -183,14 +182,6 @@ public class HandlingThreadQueued extends HandlingThread {
   protected ConcurrentLinkedDeque<DataHandler> getJobs() {
     return jobs;
   }
-
-  /**
-   * @return the server
-   */
-  @Override
-  public WaitTypeServer getServer() {
-    return server;
-  }
   
   @Override
   public List<DataHandler> getValidJobs() {
@@ -202,8 +193,8 @@ public class HandlingThreadQueued extends HandlingThread {
   
   private DataHandler getNewJob(SocketChannel channel) {
     
-    if (!server.isCachingBuffers()) {
-      return new DataHandler(server, channel);
+    if (!this.server.isCachingBuffers()) {
+      return new DataHandler(this.server, channel);
     }
     
     DataHandler job = this.recycledJobs.pollFirst();

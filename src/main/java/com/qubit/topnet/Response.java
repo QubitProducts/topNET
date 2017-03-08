@@ -20,7 +20,9 @@
 
 package com.qubit.topnet;
 
-import static com.qubit.topnet.DataHandler.getDefaultProtocol;
+import static com.qubit.topnet.Request.getDefaultProtocol;
+import static com.qubit.topnet.ServerBase.HTTP_0_9;
+import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.ServerTime.getCachedTime;
 import com.qubit.topnet.exceptions.ResponseBuildingStartedException;
 import com.qubit.topnet.exceptions.TooLateToChangeHeadersException;
@@ -29,6 +31,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,7 +43,9 @@ import java.util.logging.Logger;
 public class Response {
   static private final Logger log = Logger.getLogger(Response.class.getName());
   
-  public static String serverName = "topNET";// + "/" + SERVER_VERSION;
+  public static String SERVER_VERSION = "2.0.3";
+  
+  public static String serverName = "topNET" + "/" + SERVER_VERSION;
   
   private static final String CRLF = "\r\n";
   private static final String OK_200 = "200 OK" + CRLF;
@@ -50,9 +55,7 @@ public class Response {
   public static final char[] HTTP_1_1_CHARS = "HTTP/1.1".toCharArray();
   public static final char[] HTTP_1_x_CHARS = "HTTP/1.x".toCharArray();
 
-  
-
-  private static void appendServerHeaer(StringBuilder buffer) {
+  private static void appendServerHeader(StringBuilder buffer) {
     if (Response.serverName != null) {
       buffer.append("Server: ");
       buffer.append(Response.serverName);
@@ -88,7 +91,7 @@ public class Response {
   private StringBuilder stringBuffer = null;
   private InputStream inputStreamForBody;
   private Object attachment;
-  private int httpProtocol = 1;
+  private int httpProtocol = HTTP_1_0;
 
   public void init (int httpProtocol) {
     this.httpProtocol = httpProtocol;
@@ -113,23 +116,23 @@ public class Response {
   }
 
   public void reset() {
-    if (headers != null) {
-      headers.clear();
+    if (this.headers != null) {
+      this.headers.clear();
     }
     
-    httpCode = 200;
-    responseStream = null;
-    tooLateToChangeHeaders = false;
-    contentLength = -1;
-    contentType = "text/html";
-    charset = null;
-    forcingClosingAfterRequest = false;
-    tellingConnectionClose = false;
-    moreDataComing = false;
-    stringBuffer = null;
-    inputStreamForBody = null;
-    attachment = null;
-    httpProtocol = 1;
+    this.httpCode = 200;
+    this.responseStream = null;
+    this.tooLateToChangeHeaders = false;
+    this.contentLength = -1;
+    this.contentType = "text/html";
+    this.charset = null;
+    this.forcingClosingAfterRequest = false;
+    this.tellingConnectionClose = false;
+    this.moreDataComing = false;
+    this.stringBuffer = null;
+    this.inputStreamForBody = null;
+    this.attachment = null;
+    this.httpProtocol = 1;
   }
   
   /**
@@ -158,8 +161,7 @@ public class Response {
   }
 
   public ByteArrayInputStream getHeadersToSend() {
-
-    StringBuilder buffer = getHeadersBuffer();
+    StringBuilder buffer = getHeadersBufferToResponse();
 
     ByteArrayInputStream stream
             = new ByteArrayInputStream(
@@ -168,17 +170,17 @@ public class Response {
     return stream;
   }
 
-  public StringBuilder getHeadersBuffer() {
+  public StringBuilder getHeadersBufferToResponse() {
+    
+    // normal cases:
     StringBuilder buffer = new StringBuilder();
-    String baseHeaders
-            = getHeadersBufferWithoutEOL(
-                    this.httpCode,
-                    this.getHttpProtocol());
+    String baseHeaders = getHeadersBufferWithoutEOL(this.httpCode,
+                                                    this.getHttpProtocol());
 
     buffer.append(baseHeaders);
     
     try {
-      this.addHeadersString(buffer);
+      this.addStandardHeadersToBuffer(buffer);
     } catch (TooLateToChangeHeadersException ex) {
       log.log(Level.SEVERE, "This should never happen.", ex);
     }
@@ -199,56 +201,11 @@ public class Response {
         return headersBufferWithoutEOLCache[index];
       }
     }
+
+    StringBuilder buffer =
+        prepareHTTPResponseFirstLine(httpCode, httpProtocol);
     
-    StringBuilder buffer = new StringBuilder();
-    int httpCodeNum = httpCode;
-
-    switch (httpProtocol) {
-      case 0:
-        buffer.append(HTTP_0_9_CHARS);
-        break;
-      case 1:
-        buffer.append(HTTP_1_0_CHARS);
-        break;
-      case 2:
-        buffer.append(HTTP_1_1_CHARS);
-        break;
-      case 3:
-        buffer.append(HTTP_1_x_CHARS);
-        break;
-      default:
-        buffer.append(HTTP_1_0_CHARS);
-        break;
-    }
-    
-    buffer.append(' ');
-
-    switch (httpCodeNum) {
-      case 200:
-        buffer.append(OK_200);
-        break;
-      case 204:
-        buffer.append(OK_204);
-        break;
-      case 404:
-        buffer.append("404 Not Found");
-        buffer.append(CRLF);
-        break;
-      case 400:
-        buffer.append("400 Bad Request");
-        buffer.append(CRLF);
-        break;
-      case 503:
-        buffer.append("503 Server Error");
-        buffer.append(CRLF);
-        break;
-      default:
-        buffer.append(httpCodeNum);
-        buffer.append(CRLF);
-        break;
-    }
-
-    Response.appendServerHeaer(buffer);
+    Response.appendServerHeader(buffer);
 
     if (index < headersBufferWithoutEOLCache.length) {
       headersBufferWithoutEOLCache[index] = buffer.toString();
@@ -257,7 +214,7 @@ public class Response {
     return headersBufferWithoutEOLCache[index];
   }
 
-  private void addHeadersString(StringBuilder buffer)
+  private void addStandardHeadersToBuffer(StringBuilder buffer)
           throws TooLateToChangeHeadersException {
     // add date!
     buffer.append("Date: ");
@@ -285,13 +242,14 @@ public class Response {
     if (this.isTooLateToChangeHeaders()) {
       throw new TooLateToChangeHeadersException();
     }
-    for (int i = 0; i < headers.size();) {
-      if (headers.get(i)[0].equals(name)) {
-        headers.remove(i);
-      } else {
-        i++;
+    
+    for (Iterator<String[]> it = headers.iterator(); it.hasNext();) {
+      String[] header = it.next();
+      if (header[0].equals(name)) {
+        it.remove();
       }
     }
+    
   }
 
   public List<String> getHeaders(String name) {
@@ -340,15 +298,15 @@ public class Response {
     if (this.getResponseStream() != null) {
       throw new ResponseBuildingStartedException();
     }
-    if (this.getStringBuffer() == null) {
-      this.setStringBuffer(new StringBuilder());
+    if (this.stringBuffer == null) {
+      this.stringBuffer = new StringBuilder();
     }
-    this.getStringBuffer().append(str);
+    this.stringBuffer.append(str);
   }
 
   protected void prepareResponseReader() {
     if (this.responseStream == null) {
-      if (this.getStringBuffer() != null) {
+      if (this.stringBuffer != null) {
         String charsetString = this.getCharset();
 
         Charset _charset = Charset.defaultCharset();
@@ -359,7 +317,7 @@ public class Response {
 
         charsetString = _charset.name();
 
-        byte[] bytes = this.getStringBuffer().toString().getBytes(_charset);
+        byte[] bytes = this.stringBuffer.toString().getBytes(_charset);
         // @todo its copying... lets do that without it
         if (this.getContentLength() < 0) { // only if not 
           this.setContentLength(bytes.length);
@@ -384,8 +342,8 @@ public class Response {
           log.log(Level.SEVERE,
                  "This should never happen - bad implementation.", ex);
         }
-
-        this.getStringBuffer().setLength(0);
+//@todo 
+//        this.stringBuffer.setLength(0);
         // @todo setter may be a good idea here
         this.responseStream = 
             prepareResponseStreamFromInputStream(bodyStream);
@@ -400,9 +358,15 @@ public class Response {
       }
     }
     
-    if (this.getResponseStream().getHeadersStream() == null) { // only once
-      this.prepareContentLengthHeader();
-      this.getResponseStream().setHeadersStream(getHeadersToSend());
+    // http 0.9 case
+    if (this.httpProtocol == HTTP_0_9) {
+      // skip headers
+      this.getResponseStream().setReadingBody(true);
+    } else {
+      if (this.getResponseStream().getHeadersStream() == null) { // only once
+        this.prepareContentLengthHeader();
+        this.getResponseStream().setHeadersStream(getHeadersToSend());
+      }
     }
   }
 
@@ -488,7 +452,7 @@ public class Response {
    */
   public void setStreamToReadFrom(InputStream inputStream)
           throws ResponseBuildingStartedException {
-    if (this.getStringBuffer() != null) {
+    if (this.stringBuffer != null) {
       throw new ResponseBuildingStartedException();
     }
 
@@ -584,5 +548,73 @@ public class Response {
    */
   public void setStringBuffer(StringBuilder stringBuffer) {
     this.stringBuffer = stringBuffer;
+  }
+
+  public static StringBuilder prepareHTTPResponseFirstLine(int httpCode, int httpProtocol) {
+    StringBuilder buffer = new StringBuilder();
+    int httpCodeNum = httpCode;
+
+    switch (httpProtocol) {
+      case 0:
+        buffer.append(HTTP_0_9_CHARS);
+        break;
+      case 1:
+        buffer.append(HTTP_1_0_CHARS);
+        break;
+      case 2:
+        buffer.append(HTTP_1_1_CHARS);
+        break;
+      case 3:
+        buffer.append(HTTP_1_x_CHARS);
+        break;
+      default:
+        buffer.append(HTTP_1_0_CHARS);
+        break;
+    }
+    
+    buffer.append(' ');
+
+    switch (httpCodeNum) {
+      case 200:
+        buffer.append(OK_200);
+        break;
+      case 204:
+        buffer.append(OK_204);
+        break;
+      case 404:
+        buffer.append("404 Not Found");
+        buffer.append(CRLF);
+        break;
+      case 400:
+        buffer.append("400 Bad Request");
+        buffer.append(CRLF);
+        break;
+      case 503:
+        buffer.append("503 Server Error");
+        buffer.append(CRLF);
+        break;
+      default:
+        buffer.append(httpCodeNum);
+        buffer.append(CRLF);
+        break;
+    }
+    
+    return buffer;
+  }
+  
+  public void setErrorResponse(int code, String message) 
+      throws TooLateToChangeHeadersException  {
+    this.setHttpCode(code);
+    // override any previous stream preparation.
+    this.responseStream = null;
+    this.stringBuffer = null;
+    
+    try {
+      // print message
+      this.print(message);
+    } catch (ResponseBuildingStartedException ex) {
+      log.log(Level.WARNING,
+          "Setting error message failed. \n It typically means incorrect usage of setErrorResponse.", ex);
+    }
   }
 }

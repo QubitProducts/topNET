@@ -23,7 +23,7 @@ import com.qubit.topnet.eventonly.EventTypeServer;
 
 /**
  *
- * @author piotr
+ * @author peter.fronc@qubit.com
  */
 public class PureEventsTypeServer extends EventTypeServer {
   

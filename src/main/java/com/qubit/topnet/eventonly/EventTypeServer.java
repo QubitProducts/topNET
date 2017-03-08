@@ -17,7 +17,6 @@
  * 
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
-
 package com.qubit.topnet.eventonly;
 
 import com.qubit.topnet.AbstractHandlingThread;
@@ -29,6 +28,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,75 +37,74 @@ import java.util.logging.Logger;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class EventTypeServer extends ServerBase {
-  
+
   private final static Logger log = Logger.getLogger(EventTypeServer.class.getName());
-  
+
   private HandlingThread[] handlingThreads;
-  
+
   private MainAcceptAndDispatchThread mainAcceptDispatcher;
-  
+
   public EventTypeServer(String address, int port) {
     super(address, port);
   }
 
   public void start() throws IOException {
-    
+
     if (this.isStarted()) {
       log.info("Server already started.");
       return;
     }
-    
+
     this.setStarted(true);
-    
+
     this.setServerChannel(ServerSocketChannel.open());
     this.getServerChannel().configureBlocking(false);
-    
+
     this.setServerSocket(getServerChannel().socket());
-    
+
     this.getServerSocket().setPerformancePreferences(
         this.getConnectionTimePerformancePref(),
         this.getLatencyPerformancePref(),
         this.getBandwithPerformancePref());
-    
+
     if (this.getChannelReceiveBufferSize() > 0) {
       this.getServerSocket().setReceiveBufferSize(this.getChannelReceiveBufferSize());
     }
-    
+
     this.getServerSocket().bind(getListenAddress());
 
     // @todo move to cfg
-    
-    this.setHandlingThreads(new HandlingThread[this.getThreadsAmount()]);
-    
-    this.setChannelSelector(Selector.open());
-    
-    getServerChannel().register(getChannelSelector(), SelectionKey.OP_ACCEPT);
-    
-    this.mainAcceptDispatcher = 
-            new MainAcceptAndDispatchThread(
-                this,
-                getChannelSelector(),
-                this.getDefaultAcceptIdleTime());
+    this.setHandlingThreads(new HandlingThread[this.getMinimumThreadsAmount()]);
 
-    log.info("Threads handling type used: " + this.getPoolType().name());
-    
+    this.setChannelSelector(Selector.open());
+
+    getServerChannel().register(getChannelSelector(), SelectionKey.OP_ACCEPT);
+
+    this.mainAcceptDispatcher
+        = new MainAcceptAndDispatchThread(
+            this,
+            getChannelSelector(),
+            this.getDefaultAcceptIdleTime());
+
+    log.log(Level.INFO, "Threads handling type used: {0}", this.getPoolType().name());
+
     this.setupThreadsList();
-    
+
     mainAcceptDispatcher.setNoSlotsAvailableTimeout(
         this.getNoSlotsAvailableTimeout());
-    
+
     mainAcceptDispatcher.setScalingDownTryPeriodMS(this.getScalingDownTryPeriodMS());
-    
+
     mainAcceptDispatcher.setAutoScalingDown(this.isAutoScalingDown());
-    
+
     mainAcceptDispatcher.start();
- 
+
     log.log(Level.INFO,
-            "Server starting at {0} on port {1}\nPool type: {2}", 
-            new Object[]{
-              getListenAddress().getHostName(),
-              this.getPort(),
-              this.getPoolType()});
+        "Server starting at {0} on port {1}\nPool type: {2}",
+        new Object[]{
+          getListenAddress().getHostName(),
+          this.getPort(),
+          this.getPoolType()});
   }
 
   public void stop() throws IOException {
@@ -117,9 +116,9 @@ public class EventTypeServer extends ServerBase {
       log.info("Server is being stopped. Please wait.");
       return;
     }
-    
+
     this.setStoppingNow(true);
-    
+
     try {
       this.mainAcceptDispatcher.setRunning(false); // help it to finish
       this.mainAcceptDispatcher = null;
@@ -128,6 +127,7 @@ public class EventTypeServer extends ServerBase {
         handlingThreads[j] = null; // remove thread
       }
       this.clearThreadsCache();
+      this.allRegisteringHandlingThreads.clear();
       this.getServerChannel().close();
     } finally {
       this.setStoppingNow(false);
@@ -137,9 +137,18 @@ public class EventTypeServer extends ServerBase {
 
   @Override
   public void removeThread(AbstractHandlingThread thread) {
+    this.allRegisteringHandlingThreads.remove(thread);
+    
     for (int i = 0; i < handlingThreads.length; i++) {
       if (handlingThreads[i] == thread) {
         handlingThreads[i] = null;
+      }
+    }
+    
+    for(Iterator<HandlingThread> it = threadsCache.iterator(); it.hasNext();) {
+      HandlingThread handlingThread = it.next();
+      if (handlingThread.getClass().equals(thread.getClass())) {
+        it.remove();
       }
     }
   }
@@ -153,7 +162,7 @@ public class EventTypeServer extends ServerBase {
     }
     return false;
   }
-  
+
   private void setupThreadsList() {
     int len = handlingThreads.length;
     for (int i = 0; i < len; i++) {
@@ -162,32 +171,32 @@ public class EventTypeServer extends ServerBase {
   }
 
   public boolean addThread() {
-    if (this.getScalingMax() > 0 && 
-        handlingThreads.length >= this.getScalingMax()) {
+    if (this.getScalingMax() > 0
+        && handlingThreads.length >= this.getScalingMax()) {
       return false;
     }
-    
+
     return this.addThreadDirectly();
   }
-  
+
   private boolean addThreadDirectly() {
-    
+
     int idx = -1;
-    for (int i= 0; i < handlingThreads.length; i++) {
+    for (int i = 0; i < handlingThreads.length; i++) {
       if (handlingThreads[i] == null) {
         idx = i;
         break;
       }
     }
-    
+
     if (idx == -1) {
       if (this.isAutoscalingThreads()) {
-        HandlingThread[] newArray = 
-            new HandlingThread[handlingThreads.length + 1];
+        HandlingThread[] newArray
+            = new HandlingThread[handlingThreads.length + 1];
 
         System.arraycopy(handlingThreads, 0,
-                         newArray, 0,
-                         handlingThreads.length);
+            newArray, 0,
+            handlingThreads.length);
 
         idx = handlingThreads.length;
         // update reference
@@ -196,23 +205,23 @@ public class EventTypeServer extends ServerBase {
         return false;
       }
     }
-    
+
     handlingThreads[idx] = this.getCachedOrNewThread();
-    
+
     return true;
   }
 
   public int cleanupThreadsExcess() {
-    int threadsThatShouldBe = this.getThreadsAmount();
+    int threadsThatShouldBe = this.getMinimumThreadsAmount();
     HandlingThread[] threads = this.handlingThreads;
-    
+
     if (threadsThatShouldBe >= threads.length) {
       return 0;
     }
-    
+
     double jobs = 0;
     double max = 0;
-    
+
     if (this.getPoolType() == PoolType.QUEUE_SHARED) {
       for (HandlingThread thread : threads) {
         if (thread != null) {
@@ -228,45 +237,46 @@ public class EventTypeServer extends ServerBase {
         }
       }
     }
-    
-    int threadsRequired = (int) ((jobs/max) * threads.length) + 1;
-    
+
+    int threadsRequired = (int) ((jobs / max) * threads.length) + 1;
+
     if (threadsRequired >= threads.length) {
       return 0;
     }
-    
+
     if (threadsRequired < threadsThatShouldBe) {
       threadsRequired = threadsThatShouldBe;
     }
 
     // less aggressive scaling down
     int threadsToRemove = threads.length - threadsRequired;
-    
+
     if (threadsToRemove > 1) {
-        threadsToRemove = Math.min(threadsToRemove, 1 + (threads.length / 6));
+      threadsToRemove = Math.min(threadsToRemove, 1 + (threads.length / 6));
     }
-    
+
     if (threadsToRemove > 0) {
-      
+
       int newAmount = threads.length - threadsToRemove;
       HandlingThread[] newThreads = new HandlingThread[newAmount];
-      
+
       int threadCount = 0;
-      
+
       for (int i = 0; i < threads.length; i++) {
         HandlingThread thread = threads[i];
         if (thread != null) {
-            if (threadCount >= newAmount) {
-                if (this.isCachingThreads()) {
-                    putThreadToCache(threads[i]);
-                    thread.wakeup();
-                } else {
-                    threads[i].setRunning(false);
-                }
+          if (threadCount >= newAmount) {
+            if (this.isCachingThreads()) {
+              putThreadToCache(threads[i]);
+              thread.wakeup();
             } else {
-                newThreads[threadCount] = threads[i];
+              this.allRegisteringHandlingThreads.remove(threads[i]);
+              threads[i].setRunning(false);
             }
-            threadCount++;
+          } else {
+            newThreads[threadCount] = threads[i];
+          }
+          threadCount++;
         }
       }
 
@@ -274,10 +284,10 @@ public class EventTypeServer extends ServerBase {
 
       return threadsToRemove;
     }
-    
+
     return 0;
   }
-  
+
   private HandlingThread getNewThread() {
     int jobsSize = this.getJobsPerThreadValue();
     int bufSize = this.getMaxGrowningBufferChunkSize();
@@ -290,21 +300,24 @@ public class EventTypeServer extends ServerBase {
             this,
             jobsSize,
             bufSize,
-            defaultMaxMessage, getDefaultIdleTime());
+            defaultMaxMessage,
+            getDefaultIdleTime());
         break;
       case QUEUE:
         t = new HandlingThreadQueued(
             this,
             jobsSize,
             bufSize,
-            defaultMaxMessage, getDefaultIdleTime());
+            defaultMaxMessage,
+            getDefaultIdleTime());
         break;
       case QUEUE_SHARED:
         t = new HandlingThreadSharedQueue(
             this,
             jobsSize,
             bufSize,
-            defaultMaxMessage, getDefaultIdleTime());
+            defaultMaxMessage,
+            getDefaultIdleTime());
         break;
       default:
         throw new RuntimeException(
@@ -312,12 +325,14 @@ public class EventTypeServer extends ServerBase {
     }
 
     t.start();
-    
+
+    this.allRegisteringHandlingThreads.add(t);
+
     return t;
   }
 
   private final ArrayDeque<HandlingThread> threadsCache = new ArrayDeque<>();
-  
+
   public HandlingThread getCachedOrNewThread() {
     HandlingThread t = threadsCache.pollFirst();
     if (t != null) {
@@ -326,16 +341,16 @@ public class EventTypeServer extends ServerBase {
       return this.getNewThread();
     }
   }
-  
+
   public void putThreadToCache(HandlingThread t) {
     if (t != null) {
       threadsCache.addLast(t);
     }
   }
-  
-  public void clearThreadsCache() {
+
+  private void clearThreadsCache() {
     HandlingThread t;
-    while ((t = threadsCache.pollFirst())  != null) {
+    while ((t = threadsCache.pollFirst()) != null) {
       t.setRunning(false);
       t.wakeup();
     }
@@ -347,7 +362,7 @@ public class EventTypeServer extends ServerBase {
   public HandlingThread[] getHandlingThreads() {
     return handlingThreads;
   }
-  
+
   @Override
   public AbstractHandlingThread[] getAllHandlingThreads() {
     return handlingThreads;

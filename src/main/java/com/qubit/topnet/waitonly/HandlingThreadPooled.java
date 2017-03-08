@@ -36,8 +36,6 @@ public class HandlingThreadPooled extends HandlingThread {
 
   private final DataHandlerHolder[] jobs;
   
-  private final WaitTypeServer server;
-  
   private final long maxIdle;
 
   private static final Logger log
@@ -49,7 +47,7 @@ public class HandlingThreadPooled extends HandlingThread {
           int bufSize,
           int defaultMaxMessageSize,
           long maxIdle) {
-    this.server = server;
+    super(server);
     jobs = new DataHandlerHolder[jobsSize];
     for (int i = 0; i < jobs.length; i++) {
       jobs[i] = new DataHandlerHolder();
@@ -117,7 +115,7 @@ public class HandlingThreadPooled extends HandlingThread {
     for (int i = 0; i < this.jobs.length; i++) {
       DataHandler job = this.jobs[i].dataHandler;
       if (job == null) {
-        job = new DataHandler(server, channel);
+        job = new DataHandler(this.server, channel);
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
         jobsAdded++;
@@ -130,7 +128,7 @@ public class HandlingThreadPooled extends HandlingThread {
         return true;
       } else if (job.owningThread == null) {
         job.reset();
-        job.init(server, channel);
+        job.init(this.server, channel);
         jobsAdded++;
         job.owningThread = this;
         job.setAcceptAndRunHandleStarted(ts);
@@ -156,7 +154,7 @@ public class HandlingThreadPooled extends HandlingThread {
   }
 
   private void removeJobFromPool(int i) {
-    if (server.isCachingBuffers()) {
+    if (this.server.isCachingBuffers()) {
       this.jobs[i].dataHandler.owningThread = null;
     } else {
       this.jobs[i].dataHandler = null;
@@ -167,14 +165,6 @@ public class HandlingThreadPooled extends HandlingThread {
   @Override
   public boolean canAddJob() {
     return this.jobsLeft() < this.jobs.length;
-  }
-
-  /**
-   * @return the server
-   */
-  @Override
-  public WaitTypeServer getServer() {
-    return server;
   }
 
   @Override

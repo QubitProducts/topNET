@@ -23,6 +23,7 @@ package com.qubit.topnet.examples;
 import com.qubit.topnet.Handler;
 import com.qubit.topnet.Request;
 import com.qubit.topnet.Response;
+import java.util.List;
 
 /**
  *
@@ -39,6 +40,15 @@ public class EchoHandler extends Handler {
   @Override
   public boolean process(Request request, Response response) 
           throws Exception {
+    List<String[]> header = request.getHeaders();
+    for (String[] strings : header) {
+      response.print(strings[0]);
+      response.print(": ");
+      response.print(strings[1]);
+      response.print("\n");
+    }
+    
+    response.print("\n");
     response.print(request.getBodyString());
     // using stream example (if you start using print, streaming will fail):
 //    ByteArrayInputStream is = new ByteArrayInputStream(

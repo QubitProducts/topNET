@@ -32,26 +32,6 @@ public class ErrorHandlingConfig {
 
   private Handler defaultGlobalErrorHandler;
 
-  private static ErrorHandlingConfig errorHandlingConfig;
-  
-  static {
-    errorHandlingConfig = new ErrorHandlingConfig();
-  }
-
-  /**
-   * @return the errorHandlingConfig
-   */
-  public static ErrorHandlingConfig getErrorHandlingConfig() {
-    return errorHandlingConfig;
-  }
-
-  /**
-   * @param cfg the errorHandlingConfig to set
-   */
-  public static void setErrorHandlingConfig(ErrorHandlingConfig cfg) {
-    errorHandlingConfig = cfg;
-  }
-
   public void setDefaultErrorHandler(int code, Handler handler) {
     getHandlers()[code] = handler;
   }
