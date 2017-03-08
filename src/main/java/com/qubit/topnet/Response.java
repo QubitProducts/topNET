@@ -43,7 +43,7 @@ import java.util.logging.Logger;
 public class Response {
   static private final Logger log = Logger.getLogger(Response.class.getName());
   
-  public static String SERVER_VERSION = "2.0.3";
+  public static String SERVER_VERSION = "2";
   
   public static String serverName = "topNET" + "/" + SERVER_VERSION;
   
