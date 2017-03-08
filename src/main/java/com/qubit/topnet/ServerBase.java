@@ -20,6 +20,7 @@
 package com.qubit.topnet;
 
 import static com.qubit.topnet.PoolType.POOL;
+import com.qubit.topnet.errors.ErrorHandlingConfig;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -141,6 +142,8 @@ public abstract class ServerBase {
    */
   protected final List<AbstractHandlingThread> allRegisteringHandlingThreads
       = new ArrayList<>();
+  
+  private ErrorHandlingConfig errorHandlingConfig = new ErrorHandlingConfig();
 
   /**
    * Abstract base server template class.
@@ -969,5 +972,19 @@ public abstract class ServerBase {
     }
 
     return handler;
+  }
+
+  /**
+   * @return the errorHandlingConfig
+   */
+  public ErrorHandlingConfig getErrorHandlingConfig() {
+    return errorHandlingConfig;
+  }
+
+  /**
+   * @param errorHandlingConfig the errorHandlingConfig to set
+   */
+  public void setErrorHandlingConfig(ErrorHandlingConfig errorHandlingConfig) {
+    this.errorHandlingConfig = errorHandlingConfig;
   }
 }

@@ -579,7 +579,7 @@ public final class DataHandler {
 
   private Handler getErrorHandler(Handler handler) {
     Handler errorHandler
-            = ErrorHandlingConfig.getErrorHandlingConfig()
+            = this.server.getErrorHandlingConfig()
             .getDefaultErrorHandler(getErrorCode(), this.errorOccured);
 
     request.setAssociatedException(this.errorException);
