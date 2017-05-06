@@ -29,6 +29,7 @@ import com.qubit.topnet.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.channels.ByteChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -79,7 +80,7 @@ public class Response {
   private int httpCode = 200;
   List<String[]> headers = new ArrayList<>();
   private ResponseStream responseStream;
-  private ByteChannel channelToReadFrom;
+  private ReadableByteChannel channelToReadFrom;
   private boolean tooLateToChangeHeaders;
   private long contentLength = -1;
   private String contentType = "text/html";
@@ -103,7 +104,7 @@ public class Response {
   }
   
   public static ResponseStream prepareResponseStreamFromInputStream(
-          InputStream bodyStream, ByteChannel channel) {
+          InputStream bodyStream, ReadableByteChannel channel) {
     ResponseStream r = new ResponseStream();
     
     r.setByteChannel(channel);
@@ -455,7 +456,7 @@ public class Response {
     }
   }
 
-  public void setChannelToReadFrom(ByteChannel channel)
+  public void setChannelToReadFrom(ReadableByteChannel channel)
       throws ResponseBuildingStartedException {
     if (this.stringBuffer != null) {
       throw new ResponseBuildingStartedException();
@@ -648,7 +649,7 @@ public class Response {
    * `setReadingChannelResponseOnly`.
    * @return the channelToReadFrom
    */
-  public ByteChannel getChannelToReadFrom() {
+  public ReadableByteChannel getChannelToReadFrom() {
     return channelToReadFrom;
   }
 
