@@ -89,12 +89,15 @@ class MainAcceptAndDispatchThread extends Thread {
 
       try {
         // pick current events list:
-        getChannelSelector().select();
+        getChannelSelector().select(333);
       } catch (IOException ex) {
         log.log(Level.SEVERE, null, ex);
       }
 
       Set<SelectionKey> selectionKeys = getChannelSelector().selectedKeys();
+      
+      if (selectionKeys.isEmpty()) continue;
+      
       HandlingThread[] handlingThreads = this.server.getHandlingThreads();
 
       for (SelectionKey key : selectionKeys) {
