@@ -36,6 +36,10 @@ public class ResponseStream extends ResponseReader {
   public ResponseStream() {
   }
 
+  public ResponseStream(InputStream bodyStream) {
+    this.setBodyStream(bodyStream);
+  }
+  
   /**
    * Main reading function. It returns integer != -1 if there is anything to
    * read.
@@ -119,5 +123,28 @@ public class ResponseStream extends ResponseReader {
    */
   public void setReadingBody(boolean readingBody) {
     this.readingBody = readingBody;
+  }
+  
+  /**
+   * This method will close all stream within this objects.
+   * @throws IOException 
+   */
+  @Override
+  public void close () throws IOException {
+    try {
+      super.close();
+    } finally {
+      try {
+        if (getHeadersStream() != null) getHeadersStream().close();
+      } finally {
+        try {
+          if (getBodyStream() != null) getBodyStream().close();
+        } finally {
+          if (this.getByteChannel() != null) {
+            this.getByteChannel().close();
+          }
+        } 
+      }
+    }
   }
 }

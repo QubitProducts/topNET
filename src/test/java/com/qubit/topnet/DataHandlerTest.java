@@ -20,7 +20,6 @@
 package com.qubit.topnet;
 
 import static com.qubit.topnet.ServerBase.HTTP_0_9;
-import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.errors.ErrorTypes.HTTP_MALFORMED_HEADERS;
 import static com.qubit.topnet.errors.ErrorTypes.HTTP_NOT_FOUND;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;

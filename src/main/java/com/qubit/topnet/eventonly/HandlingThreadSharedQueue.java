@@ -34,8 +34,10 @@ public class HandlingThreadSharedQueue extends HandlingThreadQueued {
   
   public HandlingThreadSharedQueue(
           EventTypeServer server,
-          int jobsSize, int bufSize,
-          int defaultMaxMessageSize, long maxIdle) {
+          int jobsSize,
+          int bufSize,
+          long defaultMaxMessageSize,
+          long maxIdle) {
     super(server, jobsSize, bufSize, defaultMaxMessageSize, maxIdle);
     syncPlease = true;
   }

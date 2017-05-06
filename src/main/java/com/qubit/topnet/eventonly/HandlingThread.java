@@ -45,7 +45,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
     spinBeforeCount = value;
   }
 
-  private int defaultMaxMessageSize;
+  private long defaultMaxMessageSize;
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;
@@ -159,14 +159,14 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   /**
    * @return the defaultMaxMessageSize
    */
-  public int getDefaultMaxMessageSize() {
+  public long getDefaultMaxMessageSize() {
     return defaultMaxMessageSize;
   }
 
   /**
    * @param defaultMaxMessageSize the defaultMaxMessageSize to set
    */
-  public void setDefaultMaxMessageSize(int defaultMaxMessageSize) {
+  public void setDefaultMaxMessageSize(long defaultMaxMessageSize) {
     this.defaultMaxMessageSize = defaultMaxMessageSize;
   }
 
@@ -207,7 +207,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
     }
 
     // check if not too large
-    int maxSize = dataHandler
+    long maxSize = dataHandler
         .getMaxMessageSize(getDefaultMaxMessageSize());
 
     if (maxSize != -1 && dataHandler.getSize() >= maxSize) {

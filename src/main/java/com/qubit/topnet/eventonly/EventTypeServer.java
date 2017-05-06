@@ -38,7 +38,8 @@ import java.util.logging.Logger;
  */
 public class EventTypeServer extends ServerBase {
 
-  private final static Logger log = Logger.getLogger(EventTypeServer.class.getName());
+  private final static Logger log = 
+      Logger.getLogger(EventTypeServer.class.getName());
 
   private HandlingThread[] handlingThreads;
 
@@ -68,7 +69,8 @@ public class EventTypeServer extends ServerBase {
         this.getBandwithPerformancePref());
 
     if (this.getChannelReceiveBufferSize() > 0) {
-      this.getServerSocket().setReceiveBufferSize(this.getChannelReceiveBufferSize());
+      this.getServerSocket()
+          .setReceiveBufferSize(this.getChannelReceiveBufferSize());
     }
 
     this.getServerSocket().bind(getListenAddress());
@@ -86,14 +88,17 @@ public class EventTypeServer extends ServerBase {
             getChannelSelector(),
             this.getDefaultAcceptIdleTime());
 
-    log.log(Level.INFO, "Threads handling type used: {0}", this.getPoolType().name());
+    log.log(Level.INFO,
+            "Threads handling type used: {0}",
+            this.getPoolType().name());
 
     this.setupThreadsList();
 
     mainAcceptDispatcher.setNoSlotsAvailableTimeout(
         this.getNoSlotsAvailableTimeout());
 
-    mainAcceptDispatcher.setScalingDownTryPeriodMS(this.getScalingDownTryPeriodMS());
+    mainAcceptDispatcher
+        .setScalingDownTryPeriodMS(this.getScalingDownTryPeriodMS());
 
     mainAcceptDispatcher.setAutoScalingDown(this.isAutoScalingDown());
 
@@ -290,8 +295,8 @@ public class EventTypeServer extends ServerBase {
 
   private HandlingThread getNewThread() {
     int jobsSize = this.getJobsPerThreadValue();
-    int bufSize = this.getMaxGrowningBufferChunkSize();
-    int defaultMaxMessage = this.getMaxMessageSize();
+    int bufSize = this.getMaxFromContentSizeBufferChunkSize();
+    long defaultMaxMessage = this.getMaxMessageSize();
     HandlingThread t;
 
     switch (this.getPoolType()) {

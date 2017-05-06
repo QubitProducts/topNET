@@ -23,7 +23,7 @@ package com.qubit.topnet.exceptions;
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
-public class TooLateToChangeHeadersException extends Exception {
+public class TooLateToChangeHeadersException extends RuntimeException {
 
   public TooLateToChangeHeadersException() {
   }

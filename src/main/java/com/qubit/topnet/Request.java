@@ -92,6 +92,7 @@ public class Request {
     this.server = server;
     this.encodingName = server.getUrlCharset().name();
     this.createdTime = new Date().getTime();
+    this.bytesStream.setMaxBufferSize(this.server.getMaxMessageSize());
   }
 
   /**
@@ -202,6 +203,7 @@ public class Request {
   }
 
   /**
+   * Path excluding query string.
    * @return the path
    */
   public String getPath() {
@@ -223,6 +225,7 @@ public class Request {
   }
 
   /**
+   * Path including query string.
    * @return the fullPath
    */
   public String getFullPath() {

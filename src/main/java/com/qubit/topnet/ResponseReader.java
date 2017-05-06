@@ -21,10 +21,27 @@
 package com.qubit.topnet;
 
 import java.io.InputStream;
+import java.nio.channels.ByteChannel;
 
 /**
  *
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public abstract class ResponseReader extends InputStream {
+  
+  private ByteChannel byteChannel;
+  
+  /**
+   * @return the byteChannel
+   */
+  public ByteChannel getByteChannel() {
+    return byteChannel;
+  }
+
+  /**
+   * @param byteChannel the byteChannel to set
+   */
+  public void setByteChannel(ByteChannel byteChannel) {
+    this.byteChannel = byteChannel;
+  }
 }

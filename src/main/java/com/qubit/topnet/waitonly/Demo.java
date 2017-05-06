@@ -27,6 +27,8 @@ import com.qubit.topnet.examples.AsyncAppenderHandler;
 import com.qubit.topnet.examples.DumpHandler;
 import com.qubit.topnet.examples.EchoHandler;
 import com.qubit.topnet.examples.SleepyHandler;
+import com.qubit.topnet.plugins.filesserve.FilesBrowserHandler;
+
 import java.io.IOException;
 
 /**
@@ -44,7 +46,7 @@ public class Demo {
     
     int jobs = 16;
     
-    int bufChunkMax = 1 * 1024 * 1024;
+    int bufChunkMax = 2 * 32 * 1024;
     BytesStream.setDefaultBufferChunkSize(bufChunkMax);
     
     int channelBufSize = -1;//64 * 1024;
@@ -55,12 +57,13 @@ public class Demo {
     int noIOdelay = 400 * 1000; //nanoseconds, or N*1000000 ms == (n * ms)
     BytesStream.setShrinkingBuffersAfterJob(false);
     boolean scalingDown = true;
+    boolean autoScaling  = true;
     
     WaitTypeServer s = new WaitTypeServer("localhost", 3456);
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.POOL);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -68,6 +71,7 @@ public class Demo {
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
     s.setAutoScalingDown(scalingDown);
+    s.setAutoscalingThreads(autoScaling);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -79,12 +83,13 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    
+    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+
     s = new WaitTypeServer("localhost", 3457);
 
     s.setJobsPerThread(-1);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -92,6 +97,7 @@ public class Demo {
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
     s.setAutoScalingDown(scalingDown);
+    s.setAutoscalingThreads(autoScaling);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -103,12 +109,13 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    
+    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+
     s = new WaitTypeServer("localhost", 3458);
     
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(1);
     s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -116,6 +123,7 @@ public class Demo {
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
     s.setAutoScalingDown(scalingDown);
+    s.setAutoscalingThreads(autoScaling);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -127,12 +135,13 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    
+    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+
     s = new WaitTypeServer("localhost", 3459);
     
     s.setJobsPerThread(-1);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(2 * th);
     s.setPoolType(PoolType.QUEUE_SHARED);
     s.setDelayForNoIOReadsInSuite(noIOdelay);
@@ -140,6 +149,7 @@ public class Demo {
     s.setChannelSendBufferSize(channelWriteBufSize);
     s.setWaitingForReadEvents(waitForEvents);
     s.setAutoScalingDown(scalingDown);
+    s.setAutoscalingThreads(autoScaling);
     s.start();
     Thread.sleep(200);
     s.stop();
@@ -151,5 +161,6 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
   }
 }

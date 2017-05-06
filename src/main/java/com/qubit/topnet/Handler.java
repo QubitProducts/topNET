@@ -45,7 +45,7 @@ public abstract class Handler {
    * It is important to understand that handlers processing chain is build of 
    * objects returned by this function.
    * 
-   * This function is shared among all worker threads in topNET!
+   * This function is shared among all worker threads in topNET.
    * 
    * @return instance of handler to be used in request processing.
    */
@@ -181,7 +181,7 @@ public abstract class Handler {
    * See {@link ServerBase#setMaxMessageSize(int) }
    * @return the maxIncomingDataSize
    */
-  public int getMaxIncomingDataSize() {
+  public long getMaxIncomingDataSize() {
     return -2;
   }
 
@@ -236,8 +236,13 @@ public abstract class Handler {
 
   /**
    * Triggered when bytes are read from channel.
+   * When streamin data this is a good moment to control growing buffer.
+   * topNET will fill growing bytesStream uncontrolled and after reading from 
+   * bytesStream you can update on it with this function.
+   * 
+   * @param finished true when reading is finished
    */
-  public void onBytesRead() {}
+  public void onBytesRead(boolean finished) {}
 
   public void requestFinishedHandler(DataHandler aThis) {}
 }
