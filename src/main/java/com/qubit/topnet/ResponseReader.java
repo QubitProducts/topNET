@@ -21,7 +21,6 @@
 package com.qubit.topnet;
 
 import java.io.InputStream;
-import java.nio.channels.ByteChannel;
 import java.nio.channels.ReadableByteChannel;
 
 /**

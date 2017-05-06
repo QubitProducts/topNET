@@ -543,8 +543,7 @@ public final class DataHandler {
 
       } while (writtenFromBuffer > 0);
 
-    } while (writtenFromBuffer > 0 
-            && this.currentResponseUnloadingBuffer != null);
+    } while (writtenFromBuffer > 0 );
 
     if (written > 0) {
       this.touch();
@@ -1201,7 +1200,7 @@ public final class DataHandler {
     return selectionKey;
   }
 
-  private void registerForWriting() throws ClosedChannelException {
+  public void registerForWriting() throws ClosedChannelException {
     if (this.selectionKey == null) {
       return;
     }

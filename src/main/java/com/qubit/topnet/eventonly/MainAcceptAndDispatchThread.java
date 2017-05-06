@@ -89,7 +89,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
       try {
         // pick current events list:
-        getChannelSelector().select(333);
+        getChannelSelector().select(4);
       } catch (IOException ex) {
         log.log(Level.SEVERE, null, ex);
       }

@@ -5,8 +5,10 @@ import com.qubit.topnet.Request;
 import com.qubit.topnet.Response;
 import com.qubit.topnet.exceptions.ResponseBuildingStartedException;
 import com.qubit.topnet.utils.Pair;
+import java.io.BufferedInputStream;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
@@ -23,42 +25,13 @@ import javax.activation.MimetypesFileTypeMap;
  * Created by piotrfronc on 04/05/2017.
  */
 public class FilesBrowserHandler extends Handler {
-
-  /**
-   * @return the chrootMode
-   */
-  public boolean isChrootMode() {
-    return chrootMode;
-  }
-
-  /**
-   * @param chrootMode the chrootMode to set
-   */
-  public void setChrootMode(boolean chrootMode) {
-    this.chrootMode = chrootMode;
-  }
-
-  /**
-   * @return the noBrowsing
-   */
-  public boolean isNoBrowsing() {
-    return noBrowsing;
-  }
-
-  /**
-   * @param noBrowsing the noBrowsing to set
-   */
-  public void setNoBrowsing(boolean noBrowsing) {
-    this.noBrowsing = noBrowsing;
-  }
-
   static final Logger log = 
       Logger.getLogger(FilesBrowserHandler.class.getName());
   
   private File directory;
   private String prefix;
   
-  private boolean chrootMode = true;
+  private boolean chrootMode = false;
   private boolean noBrowsing = false;
 //  private boolean allowSylinks = true;
 
@@ -257,6 +230,8 @@ public class FilesBrowserHandler extends Handler {
           new RandomAccessFile(requestedFile.getAbsolutePath(), "r");
       
       response.setChannelToReadFrom(aFile.getChannel());
+    
+        // response.setStreamToReadFrom(new BufferedInputStream(new FileInputStream(requestedFile)));
     } else {
       response.setErrorResponse(FORBIDDEN, "Forbidden.");
     }
@@ -266,5 +241,34 @@ public class FilesBrowserHandler extends Handler {
   public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
     return super.onBeforeOutputStreamIsSet(request, response); //To change body of generated methods, choose Tools | Templates.
   }
+  
+    /**
+   * @return the chrootMode
+   */
+  public boolean isChrootMode() {
+    return chrootMode;
+  }
+
+  /**
+   * @param chrootMode the chrootMode to set
+   */
+  public void setChrootMode(boolean chrootMode) {
+    this.chrootMode = chrootMode;
+  }
+
+  /**
+   * @return the noBrowsing
+   */
+  public boolean isNoBrowsing() {
+    return noBrowsing;
+  }
+
+  /**
+   * @param noBrowsing the noBrowsing to set
+   */
+  public void setNoBrowsing(boolean noBrowsing) {
+    this.noBrowsing = noBrowsing;
+  }
+
 
 }

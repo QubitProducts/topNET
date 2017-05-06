@@ -78,8 +78,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
     while (this.hasJobs()) {
       if (this.runSinglePass()) {
         if (count < 1) {
-          break;
-        } else {
+            break;
+          } else {
           count--;
         }
       } else {
@@ -87,8 +87,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
       }
     }
 
-    this.sleepNow();
-  }
+      this.sleepNow();
+    }
 
   /**
    * Returns false if not finished writing or
@@ -173,7 +173,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   public abstract boolean hasJobs();
 
   protected void wakeup() {
-    if (this.getState() == State.WAITING || this.getState() == State.TIMED_WAITING) {
+    if (this.getState() == State.WAITING || 
+        this.getState() == State.TIMED_WAITING) {
       synchronized (sleepingLocker) {
         sleepingLocker.notify();
       }
@@ -183,8 +184,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   private void sleepNow() {
     try {
       synchronized (sleepingLocker) {
-        sleepingLocker.wait();
-      }
+          sleepingLocker.wait();
+        }
     } catch (InterruptedException e) {
     }
   }
