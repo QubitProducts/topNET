@@ -504,7 +504,7 @@ public final class DataHandler {
     }
 
     int written = 0;
-    int ch = 0;
+    int readResult = 0;
     int writtenFromBuffer;
 
     do {
@@ -512,7 +512,7 @@ public final class DataHandler {
       writtenFromBuffer = 0;
 
       // load data to send
-      ch = this.loadIntoWholeBuffer(responseReader, bytesStream);
+      readResult = this.loadIntoWholeBuffer(responseReader, bytesStream);
 
       // flip em all
       this.flipAll(bytesStream);
@@ -550,7 +550,7 @@ public final class DataHandler {
     }
 
     // if nothing in output buff and nothjing to read from provider
-    if (this.currentResponseUnloadingBuffer == null && ch == -1) {
+    if (this.currentResponseUnloadingBuffer == null && readResult == -1) {
 
       if (this.response.isMoreDataComing()) {
         this.wasMarkedAsMoreDataIsComing = true;
