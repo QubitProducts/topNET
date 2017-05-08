@@ -31,8 +31,9 @@ import java.util.List;
  */
 public class EchoHandler extends Handler {
   
+  
   @Override
-  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
+  public boolean init(Request request, Response response) {
     // happens before processing and preparing any response.
     return true;
   }
