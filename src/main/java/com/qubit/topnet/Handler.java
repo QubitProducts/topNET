@@ -67,15 +67,15 @@ public abstract class Handler {
    * @param request
    * @param response 
    */
-  protected void triggerOnBeforeOutputStreamIsSet(Request request, Response response) {
-    if (this.onBeforeOutputStreamIsSet(request, response)) {
+  protected final void triggerOnBeforeOutputStreamIsSet(
+                                                Request request,
+                                                Response response) {
+    if (this.init(request, response)) {
+      
       Handler tmp = this.getNext();
-      while(tmp != null) {
-        if (!tmp.onBeforeOutputStreamIsSet(request, response)) {
-          break;
-        } else {
-          tmp = tmp.getNext();
-        }
+      
+      if (tmp != null) {
+        tmp.init(request, response);
       }
     }
   }
@@ -91,6 +91,10 @@ public abstract class Handler {
    * (normally grown buffers are truncated by topNET engine after response is 
    * sent).
    * 
+   * Headers are ready at init time, body is not and output stream is not 
+   * set - stream can be set now or by using BeforeOutputStreamSetEvent 
+   * (same time).
+   * 
    * This event is triggered on all handlers in the chain till one of handlers
    * return false.
    * 
@@ -98,7 +102,7 @@ public abstract class Handler {
    * @param response the response
    * @return true if next handler in chain can change the stream.
    */
-  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
+  public boolean init(Request request, Response response) {
     return true;
   }
   
@@ -184,7 +188,7 @@ public abstract class Handler {
   public long getMaxIncomingDataSize() {
     return -2;
   }
-
+  
   /**
    * Max idle defines maximum miliseconds amount for peer to not to return any
    * reads.
@@ -232,17 +236,4 @@ public abstract class Handler {
     this.next = next;
   }
 
-  public void connectionClosedHandler(DataHandler dataHandler) {}
-
-  /**
-   * Triggered when bytes are read from channel.
-   * When streamin data this is a good moment to control growing buffer.
-   * topNET will fill growing bytesStream uncontrolled and after reading from 
-   * bytesStream you can update on it with this function.
-   * 
-   * @param finished true when reading is finished
-   */
-  public void onBytesRead(boolean finished) {}
-
-  public void requestFinishedHandler(DataHandler aThis) {}
 }

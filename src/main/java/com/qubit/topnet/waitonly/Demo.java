@@ -27,7 +27,7 @@ import com.qubit.topnet.examples.AsyncAppenderHandler;
 import com.qubit.topnet.examples.DumpHandler;
 import com.qubit.topnet.examples.EchoHandler;
 import com.qubit.topnet.examples.SleepyHandler;
-import com.qubit.topnet.plugins.filesserve.FilesBrowserHandler;
+import com.qubit.topnet.plugins.filesserve.FilesDownloadHandler;
 
 import java.io.IOException;
 
@@ -83,7 +83,7 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new WaitTypeServer("localhost", 3457);
 
@@ -109,7 +109,7 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new WaitTypeServer("localhost", 3458);
     
@@ -135,7 +135,7 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new WaitTypeServer("localhost", 3459);
     
@@ -161,6 +161,6 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
   }
 }

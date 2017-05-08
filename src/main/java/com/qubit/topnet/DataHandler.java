@@ -21,8 +21,8 @@ package com.qubit.topnet;
 
 import static com.qubit.topnet.BytesStream.NO_BYTES_LEFT_VAL;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
-import com.qubit.topnet.errors.ErrorHandlingConfig;
 import com.qubit.topnet.errors.ErrorTypes;
+import com.qubit.topnet.events.BytesReadEvent;
 import com.qubit.topnet.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -105,6 +105,9 @@ public final class DataHandler {
   int currentReadingPositionInWrittenBufByWrite = 0;
   
   private int currentHeaderLineLength = 0;
+  
+  // used by event driven part
+  private boolean againTrayingInShortTime;
 
   public DataHandler(ServerBase server, SelectionKey key) {
     this.init(server, key);
@@ -168,6 +171,7 @@ public final class DataHandler {
     this.wasMarkedAsMoreDataIsComing = false;
     this.acceptedTime = 0;
     this.setRequestStartedTime(0);
+    this.againTrayingInShortTime = false;
   }
 
   // returns -2 when done reading -1 when data stream  to read is finished , 
@@ -317,8 +321,16 @@ public final class DataHandler {
                 return true;
               }
 
+              if (this.request.getBeforeOutputStreamSetEvent() != null) {
+                this.request
+                    .getBeforeOutputStreamSetEvent()
+                    .handle(request, response);
+              }
+              
               this.handlerUsed
-                  .triggerOnBeforeOutputStreamIsSet(this.request, this.response);
+                  .triggerOnBeforeOutputStreamIsSet(
+                      this.request,
+                      this.response);
 
               if (this.bodyRequired) {
                 if (this.contentLength < 0) {
@@ -346,19 +358,30 @@ public final class DataHandler {
 
     if (this.headersReady) {
       if (this.contentLength > 0) {
+        
         // this also validates this.bodyRequired
         if (request.getBytesStream().availableToRead() >= this.contentLength) {
-          handlerUsed.onBytesRead(true);
+           if (request.getBytesReadEvent() != null) {
+              request.getBytesReadEvent()
+                  .handle(this.request, this.response, true);
+           }
           return true;
         }
-        handlerUsed.onBytesRead(false);
+        
+        if (request.getBytesReadEvent() != null) {
+          request.getBytesReadEvent()
+              .handle(this.request, this.response, false);
+        }
+
       } else {
-        handlerUsed.onBytesRead(true);
+        if (request.getBytesReadEvent() != null) {
+          request.getBytesReadEvent().handle(this.request, this.response, true);
+        }
         // stop reading now coz there is nothing to read if cntnt is zero
         return true;
       }
     }
-
+    
     // we want handlerUsed.onBytesRead to be called for the content only.
     return false;
   }
@@ -540,7 +563,7 @@ public final class DataHandler {
             }
           }
         }
-
+          
       } while (writtenFromBuffer > 0);
 
     } while (writtenFromBuffer > 0 );
@@ -553,6 +576,7 @@ public final class DataHandler {
     if (this.currentResponseUnloadingBuffer == null && readResult == -1) {
 
       if (this.response.isMoreDataComing()) {
+        this.againTrayingInShortTime = true;
         this.wasMarkedAsMoreDataIsComing = true;
         return 0;
       } else {
@@ -623,6 +647,10 @@ public final class DataHandler {
       if (readResult == -1) {
         if (responseReader.getByteChannel() != null) {
           readResult = responseReader.getByteChannel().read(writeBuffer);
+          
+          if (readResult == 0 && writeBuffer.hasRemaining()) {
+            this.setAgainTrayingInShortTime(true);
+          }
         }
       }
 
@@ -650,116 +678,123 @@ public final class DataHandler {
    * @return
    * @throws IOException
    */
-  private int writeSimple() throws IOException {
-    this.markWriting();
-
-    ResponseReader responseReader;
-    if (this.headersOnly) {
-      responseReader = this.getInputStreamForResponse()
-          .getHeadersOnlyResponseReader();
-    } else {
-      responseReader = this.getInputStreamForResponse();
-    }
-
-    if (responseReader == null) {
-      if (this.response == null) {// should never happen
-        log.warning("Response set to null - check threads.");
-        return this.getFinishedWritingResponse();
-      }
-      if (this.response.isMoreDataComing()) {
-        this.wasMarkedAsMoreDataIsComing = true;
-        return 0;
-      } else {
-        return this.getFinishedWritingResponse();
-      }
-    }
-
-    if (!this.response.isTooLateToChangeHeaders()) {
-      this.response.setTooLateToChangeHeaders(true);
-    }
-
-    BytesStream bytesStream = request.getBytesStream();
-
-    int written = 0;
-    int readResult = 0;
-    int writtenFromBuffer;
-
-    BufferWrapper buf = bytesStream.getFirst();
-    if (buf == null) {
-      bytesStream.getBufferToWrite();
-      buf = bytesStream.getFirst();
-    }
-    ByteBuffer writeBuffer = buf.getByteBuffer();
-
-    boolean cleared;
-
-    do {
-      cleared = false;
-      writtenFromBuffer = 0;
-
-      // loading section into buffer
-      // fill buffer with data
-      if (!this.response.isReadingChannelResponseOnly()) {
-        while (writeBuffer.hasRemaining()
-            && (readResult = responseReader.read()) != -1) {
-          writeBuffer.put((byte) readResult);
-        }
-      }
-
-      if (readResult == -1) {
-        if (responseReader.getByteChannel() != null) {
-          readResult = responseReader.getByteChannel().read(writeBuffer);
-        }
-      }
-
-      // flip it
-      int oldPos = writeBuffer.position();
-      writeBuffer.position(currentReadingPositionInWrittenBufByWrite);
-      writeBuffer.limit(oldPos);
-
-      // writing to socket section
-      writtenFromBuffer = this.channel.write(writeBuffer);
-      written += writtenFromBuffer;
-
-      currentReadingPositionInWrittenBufByWrite = writeBuffer.position();
-
-      if (currentReadingPositionInWrittenBufByWrite == oldPos) {
-        // all written from buffer, reset it
-        cleared = true;
-        currentReadingPositionInWrittenBufByWrite = 0;
-        writeBuffer.clear();
-      } else {
-        writeBuffer.position(oldPos);
-      }
-
-    } while (writtenFromBuffer > 0);
-
-    if (written > 0) {
-      this.touch();
-    }
-
-    if (cleared && readResult == -1) {
-      if (this.response.isMoreDataComing()) {
-        this.wasMarkedAsMoreDataIsComing = true;
-        return 0;
-      } else {
-        // this check is for synchronization reasons between last read 
-        // from stream and new check - it could happen that response is marked as 
-        // finished and few bytes appeared still left to be read.
-        // one more check will make sure all are read
-        if (this.wasMarkedAsMoreDataIsComing) {
-          this.wasMarkedAsMoreDataIsComing = false;
-          return 0;
-        } else {
-          // Reading input is over, stream was used so close it:
-          DataHandler.closeResponseReaderStream(this.response);
-          return this.getFinishedWritingResponse();
-        }
-      }
-    } else {
-      return written;
-    }
-  }
+//  private int writeSimple() throws IOException {
+//    this.markWriting();
+//
+//    ResponseReader responseReader;
+//    if (this.headersOnly) {
+//      responseReader = this.getInputStreamForResponse()
+//          .getHeadersOnlyResponseReader();
+//    } else {
+//      responseReader = this.getInputStreamForResponse();
+//    }
+//
+//    if (responseReader == null) {
+//      if (this.response == null) {// should never happen
+//        log.warning("Response set to null - check threads.");
+//        return this.getFinishedWritingResponse();
+//      }
+//      if (this.response.isMoreDataComing()) {
+//        this.againTrayingInShortTime = true;
+//        this.wasMarkedAsMoreDataIsComing = true;
+//        return 0;
+//      } else {
+//        return this.getFinishedWritingResponse();
+//      }
+//    }
+//
+//    if (!this.response.isTooLateToChangeHeaders()) {
+//      this.response.setTooLateToChangeHeaders(true);
+//    }
+//
+//    BytesStream bytesStream = request.getBytesStream();
+//
+//    int written = 0;
+//    int readResult = 0;
+//    int writtenFromBuffer;
+//
+//    BufferWrapper buf = bytesStream.getFirst();
+//    if (buf == null) {
+//      bytesStream.getBufferToWrite();
+//      buf = bytesStream.getFirst();
+//    }
+//    ByteBuffer writeBuffer = buf.getByteBuffer();
+//
+//    boolean cleared;
+//
+//    do {
+//      cleared = false;
+//      writtenFromBuffer = 0;
+//
+//      // loading section into buffer
+//      // fill buffer with data
+//      if (!this.response.isReadingChannelResponseOnly()) {
+//        while (writeBuffer.hasRemaining()
+//            && (readResult = responseReader.read()) != -1) {
+//          writeBuffer.put((byte) readResult);
+//        }
+//      }
+//
+//      if (readResult == -1) {
+//        if (responseReader.getByteChannel() != null) {
+//          readResult = responseReader.getByteChannel().read(writeBuffer);
+//          
+//          if (readResult == 0 && writeBuffer.hasRemaining()) {
+//            this.setAgainTrayingInShortTime(true);
+//          } else {
+//            this.setAgainTrayingInShortTime(false);
+//          }
+//        }
+//      }
+//
+//      // flip it
+//      int oldPos = writeBuffer.position();
+//      writeBuffer.position(currentReadingPositionInWrittenBufByWrite);
+//      writeBuffer.limit(oldPos);
+//
+//      // writing to socket section
+//      writtenFromBuffer = this.channel.write(writeBuffer);
+//      written += writtenFromBuffer;
+//
+//      currentReadingPositionInWrittenBufByWrite = writeBuffer.position();
+//
+//      if (currentReadingPositionInWrittenBufByWrite == oldPos) {
+//        // all written from buffer, reset it
+//        cleared = true;
+//        currentReadingPositionInWrittenBufByWrite = 0;
+//        writeBuffer.clear();
+//      } else {
+//        writeBuffer.position(oldPos);
+//      }
+//
+//    } while (writtenFromBuffer > 0);
+//
+//    if (written > 0) {
+//      this.touch();
+//    }
+//
+//    if (cleared && readResult == -1) {
+//      if (this.response.isMoreDataComing()) {
+//        this.wasMarkedAsMoreDataIsComing = true;
+//        return 0;
+//      } else {
+//        // this check is for synchronization reasons between last read 
+//        // from stream and new check - it could happen that response is marked as 
+//        // finished and few bytes appeared still left to be read.
+//        // one more check will make sure all are read
+//        if (this.wasMarkedAsMoreDataIsComing) {
+//          this.wasMarkedAsMoreDataIsComing = false;
+//          return 0;
+//        } else {
+//          // Reading input is over, stream was used so close it:
+//          DataHandler.closeResponseReaderStream(this.response);
+//          return this.getFinishedWritingResponse();
+//        }
+//      }
+//    } else {
+//      return written;
+//    }
+//  }
 
   private Handler getErrorHandler(Handler handler) {
     Handler errorHandler
@@ -986,8 +1021,8 @@ public final class DataHandler {
 
   public final void requestFinishedHandler() {
     try {
-      if (this.handlerUsed != null) {
-        this.handlerUsed.requestFinishedHandler(this);
+      if (request != null && request.getRequestFinishedEvent() != null) {
+        request.getRequestFinishedEvent().handle(this.request, this.response);
       }
     } catch (Throwable t) {
       log.log(Level.SEVERE, "Exception in on close handler.", t);
@@ -1006,10 +1041,11 @@ public final class DataHandler {
     }
   }
 
+  
   public final void connectionClosedHandler() {
     try {
-      if (this.handlerUsed != null) {
-        this.handlerUsed.connectionClosedHandler(this);
+      if (request != null && this.request.getConnectionClosedEvent() != null) {
+        this.request.getConnectionClosedEvent().handle(request, response);
       }
     } catch (Throwable t) {
       log.log(Level.SEVERE, "Exception in on close handler.", t);
@@ -1125,14 +1161,13 @@ public final class DataHandler {
     if (!this.writingResponse) {
       this.bufferSizeCalculatedForWriting = false;
       request.getBytesStream().reset(); //--> now done in write function
-      this.registerForWriting(); // if it is in that mode!
       this.writingResponse = true; // running writing
     }
   }
 
   private int getFinishedWritingResponse() throws ClosedChannelException {
     this.cleanupAfterProcessing();
-    this.registerForReading();
+    this.switchToReadingInterest();
     return -1;
   }
 
@@ -1200,26 +1235,15 @@ public final class DataHandler {
     return selectionKey;
   }
 
-  public void registerForWriting() throws ClosedChannelException {
+  public void switchToWritingInterest() throws ClosedChannelException {
     if (this.selectionKey == null) {
-      return;
+      this.selectionKey.interestOps(OP_WRITE);
     }
-
-    this.channel.register(
-        this.server.getChannelSelector(),
-        OP_WRITE,
-        this.owningThread);
   }
 
-  private void registerForReading() throws ClosedChannelException {
-    if (this.selectionKey == null) {
-      return;
-    }
-    if (this.owningThread != null && this.server != null) {
-      this.channel.register(
-          this.server.getChannelSelector(),
-          OP_READ,
-          this.owningThread);
+  public void switchToReadingInterest() throws ClosedChannelException {
+    if (this.selectionKey != null) {
+      this.selectionKey.interestOps(OP_READ);
     }
   }
 
@@ -1263,9 +1287,25 @@ public final class DataHandler {
       // requerst uses growing buffer to store data and for larger inputs
       // handlers should controll handlingh and closing.
     } else {
-      if (handlerUsed != null) {
-        handlerUsed.onBytesRead(false);
+      if (this.request != null && this.request.getBytesReadEvent() != null) {
+        this.request.getBytesReadEvent()
+            .handle(this.request, this.response, false);
       }
     }
   }
+  
+  /**
+   * @return the againTrayingInShortTime
+   */
+  public boolean isAgainTrayingInShortTime() {
+    return againTrayingInShortTime;
+  }
+
+  /**
+   * @param againTrayingInShortTime the againTrayingInShortTime to set
+   */
+  public void setAgainTrayingInShortTime(boolean againTrayingInShortTime) {
+    this.againTrayingInShortTime = againTrayingInShortTime;
+  }
+
 }

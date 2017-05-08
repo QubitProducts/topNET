@@ -26,7 +26,7 @@ import com.qubit.topnet.examples.DumpHandler;
 import com.qubit.topnet.examples.EchoHandler;
 import com.qubit.topnet.examples.JobsNumHandler;
 import com.qubit.topnet.examples.SleepyHandler;
-import com.qubit.topnet.plugins.filesserve.FilesBrowserHandler;
+import com.qubit.topnet.plugins.filesserve.FilesDownloadHandler;
 
 import java.io.IOException;
 
@@ -78,7 +78,7 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new EventTypeServer("localhost", 4457);
 
@@ -101,7 +101,7 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new EventTypeServer("localhost", 4458);
 
@@ -124,7 +124,7 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new EventTypeServer("localhost", 4459);
 
@@ -147,7 +147,7 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
-    s.registerMatchingHandler(new FilesBrowserHandler("/browser", "./"));
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
   }
 }

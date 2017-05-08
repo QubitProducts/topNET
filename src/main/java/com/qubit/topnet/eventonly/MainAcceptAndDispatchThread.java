@@ -89,7 +89,7 @@ class MainAcceptAndDispatchThread extends Thread {
 
       try {
         // pick current events list:
-        getChannelSelector().select(4);
+        getChannelSelector().select();
       } catch (IOException ex) {
         log.log(Level.SEVERE, null, ex);
       }
@@ -121,9 +121,10 @@ class MainAcceptAndDispatchThread extends Thread {
                   newKey.attach(skl);
                   unprocessedSelectionKeyChain.add(skl);
                 } else {
-                  channel.register(getChannelSelector(),
-                    OP_READ,
-                    System.currentTimeMillis());
+                  channel.register(
+                      getChannelSelector(),
+                      OP_READ,
+                      System.currentTimeMillis());
                 }
               }
             } else {
