@@ -25,6 +25,7 @@ import static com.qubit.topnet.DataHandler.bodyReadyHandler;
 import com.qubit.topnet.ServerBase;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -44,8 +45,8 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   public static void setSpinCountBeforeSleep(int value) {
     spinBeforeCount = value;
   }
-
-  private int defaultMaxMessageSize;
+  private boolean wakeSelector = false;
+  private long defaultMaxMessageSize;
   private boolean running;
   protected volatile long jobsAdded = 0;
   protected volatile long jobsRemoved = 0;
@@ -53,12 +54,15 @@ public abstract class HandlingThread extends AbstractHandlingThread {
 
   public HandlingThread(ServerBase server) {
     super(server);
+    
   }
 
   abstract public boolean addJob(SelectionKey key, Long acceptTime);
 
   abstract boolean canAddJob();
 
+  private boolean tryAgainInShortTime = false;
+  
   @Override
   public void run() {
     try {
@@ -74,20 +78,23 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   }
 
   private void trySomeWork() {
-    long count = spinBeforeCount;
     while (this.hasJobs()) {
       if (this.runSinglePass()) {
-        if (count < 1) {
-          break;
-        } else {
-          count--;
-        }
-      } else {
-        count = spinBeforeCount;
-      }
+        break;
+      } 
     }
 
-    this.sleepNow();
+    if (this.tryAgainInShortTime) {
+      this.tryAgainInShortTime = false;
+      try {
+        synchronized (sleepingLocker) {
+          sleepingLocker.wait(1);
+        }
+      } catch (InterruptedException e) {
+      }
+    } else {
+      this.sleepNow();
+    }
   }
 
   /**
@@ -103,16 +110,31 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   private int writeResponse(DataHandler dataHandler)
       throws IOException {
     int written = dataHandler.write();
+    dataHandler.switchToReadingInterest();
+    
+    if (dataHandler.isAgainTrayingInShortTime()) {
+      dataHandler.setAgainTrayingInShortTime(false);
+      this.tryAgainInShortTime = true;
+    }
+    
     if (written < 0) {
       if (written == -1) {
+
         dataHandler.requestFinishedHandler();
+        
         if (dataHandler.finishedOrWaitForMoreRequests(true)) {
           // finished
           return -1;
         } else {
+          this.wakeSelector = true;
           return 0; /// REGISTER KEY RATHER THAN THIS
         }
       }
+    }
+    
+    dataHandler.switchToWritingInterest();
+    if (written == 0 && !this.tryAgainInShortTime) {
+      this.wakeSelector = true;
     }
     return written;
   }
@@ -141,7 +163,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
             return -1;
           }
         }
-
+        
         return many;
       }
     }
@@ -159,31 +181,44 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   /**
    * @return the defaultMaxMessageSize
    */
-  public int getDefaultMaxMessageSize() {
+  public long getDefaultMaxMessageSize() {
     return defaultMaxMessageSize;
   }
 
   /**
    * @param defaultMaxMessageSize the defaultMaxMessageSize to set
    */
-  public void setDefaultMaxMessageSize(int defaultMaxMessageSize) {
+  public void setDefaultMaxMessageSize(long defaultMaxMessageSize) {
     this.defaultMaxMessageSize = defaultMaxMessageSize;
   }
 
   public abstract boolean hasJobs();
 
   protected void wakeup() {
-    if (this.getState() == State.WAITING || this.getState() == State.TIMED_WAITING) {
-      synchronized (sleepingLocker) {
-        sleepingLocker.notify();
+      if (this.getState() == State.WAITING || 
+          this.getState() == State.TIMED_WAITING) {
+        synchronized (sleepingLocker) {
+          sleepingLocker.notify();
+        }
       }
-    }
-  }
 
+      if (spinBeforeCount == 0) {
+        spinBeforeCount = 1;
+      }
+    
+  }
+  
   private void sleepNow() {
     try {
       synchronized (sleepingLocker) {
-        sleepingLocker.wait();
+        if (this.wakeSelector) {
+          this.wakeSelector = false;
+          server.getChannelSelector().wakeup();
+        } else if (spinBeforeCount == 1) {
+          spinBeforeCount = 0;
+        } else {
+          sleepingLocker.wait();
+        }
       }
     } catch (InterruptedException e) {
     }
@@ -207,7 +242,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
     }
 
     // check if not too large
-    int maxSize = dataHandler
+    long maxSize = dataHandler
         .getMaxMessageSize(getDefaultMaxMessageSize());
 
     if (maxSize != -1 && dataHandler.getSize() >= maxSize) {

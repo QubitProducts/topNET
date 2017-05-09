@@ -95,6 +95,9 @@ class MainAcceptAndDispatchThread extends Thread {
       }
 
       Set<SelectionKey> selectionKeys = getChannelSelector().selectedKeys();
+      
+      if (selectionKeys.isEmpty()) continue;
+      
       HandlingThread[] handlingThreads = this.server.getHandlingThreads();
 
       for (SelectionKey key : selectionKeys) {
@@ -118,9 +121,10 @@ class MainAcceptAndDispatchThread extends Thread {
                   newKey.attach(skl);
                   unprocessedSelectionKeyChain.add(skl);
                 } else {
-                  channel.register(getChannelSelector(),
-                    OP_READ,
-                    System.currentTimeMillis());
+                  channel.register(
+                      getChannelSelector(),
+                      OP_READ,
+                      System.currentTimeMillis());
                 }
               }
             } else {

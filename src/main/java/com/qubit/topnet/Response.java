@@ -28,6 +28,7 @@ import com.qubit.topnet.exceptions.ResponseBuildingStartedException;
 import com.qubit.topnet.exceptions.TooLateToChangeHeadersException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ import java.util.logging.Logger;
  */
 public class Response {
   static private final Logger log = Logger.getLogger(Response.class.getName());
-    
+
   public static String serverName = "topNET/2.0";
   
   private static final String CRLF = "\r\n";
@@ -51,7 +52,7 @@ public class Response {
   public static final char[] HTTP_0_9_CHARS = "HTTP/0.9".toCharArray();
   public static final char[] HTTP_1_0_CHARS = "HTTP/1.0".toCharArray();
   public static final char[] HTTP_1_1_CHARS = "HTTP/1.1".toCharArray();
-  public static final char[] HTTP_1_x_CHARS = "HTTP/1.x".toCharArray();
+  public static final char[] HTTP_1_X_CHARS = "HTTP/1.x".toCharArray();
 
   private static void appendServerHeader(StringBuilder buffer) {
     if (Response.serverName != null) {
@@ -78,6 +79,7 @@ public class Response {
   private int httpCode = 200;
   List<String[]> headers = new ArrayList<>();
   private ResponseStream responseStream;
+  private ReadableByteChannel channelToReadFrom;
   private boolean tooLateToChangeHeaders;
   private long contentLength = -1;
   private String contentType = "text/html";
@@ -85,9 +87,10 @@ public class Response {
   private boolean forcingClosingAfterRequest = false;
   private boolean tellingConnectionClose = false;
   private volatile boolean moreDataComing = false;
+  private boolean readingChannelResponseOnly = false;
 
   private StringBuilder stringBuffer = null;
-  private InputStream inputStreamForBody;
+  private InputStream streamToReadFrom;
   private Object attachment;
   private int httpProtocol = HTTP_1_0;
 
@@ -100,17 +103,13 @@ public class Response {
   }
   
   public static ResponseStream prepareResponseStreamFromInputStream(
-          InputStream bodyStream) {
+          InputStream bodyStream, ReadableByteChannel channel) {
     ResponseStream r = new ResponseStream();
+    
+    r.setByteChannel(channel);
     r.setBodyStream(bodyStream);
+    
     return r;
-  }
-
-  /**
-   * @return the inputStreamForBody
-   */
-  public InputStream getStreamToReadFrom() {
-    return inputStreamForBody;
   }
 
   public void reset() {
@@ -128,7 +127,9 @@ public class Response {
     this.tellingConnectionClose = false;
     this.moreDataComing = false;
     this.stringBuffer = null;
-    this.inputStreamForBody = null;
+    this.streamToReadFrom = null;
+    this.channelToReadFrom = null;
+    this.readingChannelResponseOnly = false;
     this.attachment = null;
     this.httpProtocol = 1;
   }
@@ -305,15 +306,14 @@ public class Response {
   protected void prepareResponseReader() {
     if (this.responseStream == null) {
       if (this.stringBuffer != null) {
-        String charsetString = this.getCharset();
 
         Charset _charset = Charset.defaultCharset();
 
-        if (charsetString != null) {
+        if (this.getCharset() != null) {
           _charset = Charset.forName(getCharset());
         }
 
-        charsetString = _charset.name();
+        this.setCharset(_charset.name());
 
         byte[] bytes = this.stringBuffer.toString().getBytes(_charset);
         // @todo its copying... lets do that without it
@@ -330,12 +330,6 @@ public class Response {
             this.addHeader("Connection", "close");
           }
 
-          if (this.getHeader("Content-Type") == null) {
-            StringBuilder sb = new StringBuilder(this.getContentType());
-            sb.append("; charset=");
-            sb.append(charsetString);
-            this.addHeader("Content-Type", sb.toString());
-          }
         } catch (TooLateToChangeHeadersException ex) {
           log.log(Level.SEVERE,
                  "This should never happen - bad implementation.", ex);
@@ -344,15 +338,15 @@ public class Response {
 //        this.stringBuffer.setLength(0);
         // @todo setter may be a good idea here
         this.responseStream = 
-            prepareResponseStreamFromInputStream(bodyStream);
+            prepareResponseStreamFromInputStream(bodyStream, null);
         
       } else {
-        InputStream readingFrom = this.getStreamToReadFrom();
-        if (readingFrom == null) {
+        if (channelToReadFrom == null && streamToReadFrom == null) {
           this.setContentLength(0);
         }
         this.responseStream = 
-            prepareResponseStreamFromInputStream(readingFrom);
+            prepareResponseStreamFromInputStream(
+                streamToReadFrom, channelToReadFrom);
       }
     }
     
@@ -361,8 +355,9 @@ public class Response {
       // skip headers
       this.getResponseStream().setReadingBody(true);
     } else {
-      if (this.getResponseStream().getHeadersStream() == null) { // only once
-        this.prepareContentLengthHeader();
+      if (this.getResponseStream().getHeadersStream() == null) {
+        this.buildContentTypeWithCharset();        
+        this.prepareContentLengthHeader();  // only once
         this.getResponseStream().setHeadersStream(getHeadersToSend());
       }
     }
@@ -454,12 +449,24 @@ public class Response {
       throw new ResponseBuildingStartedException();
     }
 
-    this.inputStreamForBody = inputStream;
+    this.streamToReadFrom = inputStream;
     if (this.getResponseStream() != null) {
       this.getResponseStream().setBodyStream(this.getStreamToReadFrom());
     }
   }
 
+  public void setChannelToReadFrom(ReadableByteChannel channel)
+      throws ResponseBuildingStartedException {
+    if (this.stringBuffer != null) {
+      throw new ResponseBuildingStartedException();
+    }
+
+    this.channelToReadFrom = channel;
+    if (this.getResponseStream() != null) {
+      this.getResponseStream().setByteChannel(this.channelToReadFrom);
+    }
+  }
+  
   public boolean waitForData() {
     return false;
   }
@@ -479,6 +486,8 @@ public class Response {
   }
 
   /**
+   * Response can carry attachment - this is a plain object carried with
+   * response so may be used by other handlers. Normally its null.
    * @return the attachment
    */
   public Object getAttachment() {
@@ -486,6 +495,8 @@ public class Response {
   }
 
   /**
+   * Response can carry attachment - this is a plain object carried with
+   * response so may be used by other handlers.
    * @param attachment the attachment to set
    */
   public void setAttachment(Object attachment) {
@@ -563,7 +574,7 @@ public class Response {
         buffer.append(HTTP_1_1_CHARS);
         break;
       case 3:
-        buffer.append(HTTP_1_x_CHARS);
+        buffer.append(HTTP_1_X_CHARS);
         break;
       default:
         buffer.append(HTTP_1_0_CHARS);
@@ -615,4 +626,58 @@ public class Response {
           "Setting error message failed. \n It typically means incorrect usage of setErrorResponse.", ex);
     }
   }
+
+  public boolean buildContentTypeWithCharset() {
+    if (this.getHeader("Content-Type") == null) {
+      StringBuilder sb = new StringBuilder(this.getContentType());
+      if (this.getCharset() != null) {
+        sb.append("; charset=");
+        sb.append(this.getCharset());
+      }
+      this.addHeader("Content-Type", sb.toString());
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * Normally response will have attached reader stream to read
+   * response from (see ResponseStream), additionally channel may 
+   * be provided with this setter. To force the passed channel as response 
+   * only (reader will skip input streams - including headers) use 
+   * `setReadingChannelResponseOnly`.
+   * @return the channelToReadFrom
+   */
+  public ReadableByteChannel getChannelToReadFrom() {
+    return channelToReadFrom;
+  }
+
+  /**
+   * @return the inputStreamForBody
+   */
+  public InputStream getStreamToReadFrom() {
+    return streamToReadFrom;
+  }
+  
+  /**
+   * If channel response is set, this property will cause reading 
+   * only from `this.channelToReadFrom` set `with setChannelToReadFrom()`
+   *
+   * @return the readingChannelResponseOnly
+   */
+  public boolean isReadingChannelResponseOnly() {
+    return readingChannelResponseOnly;
+  }
+
+  /**
+   * If channel response is set, this property will cause reading only from
+   * `this.channelToReadFrom` set `with setChannelToReadFrom()`
+   *
+   * @param readingChannelResponseOnly the readingChannelResponseOnly to set, 
+   *  if true, only channel will be read.
+   */
+  public void setReadingChannelResponseOnly(boolean readingChannelResponseOnly) {
+    this.readingChannelResponseOnly = readingChannelResponseOnly;
+  }
+
 }

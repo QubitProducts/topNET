@@ -26,6 +26,8 @@ import com.qubit.topnet.examples.DumpHandler;
 import com.qubit.topnet.examples.EchoHandler;
 import com.qubit.topnet.examples.JobsNumHandler;
 import com.qubit.topnet.examples.SleepyHandler;
+import com.qubit.topnet.plugins.filesserve.FilesDownloadHandler;
+
 import java.io.IOException;
 
 /**
@@ -44,8 +46,7 @@ public class Demo {
 
     int jobs = 16;
 
-    int bufChunkMax = 64 * 1024;
-    BytesStream.setDefaultBufferChunkSize(bufChunkMax);
+    int bufChunkMax = 2 * 32 * 1024;
 
     int channelBufSize = -1;//4 * 1024 * 1024;
     int channelWriteBufSize = -1;//4 * 1024 * 1024;
@@ -59,7 +60,7 @@ public class Demo {
 
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.POOL);
     s.setChannelReceiveBufferSize(channelBufSize);
@@ -77,12 +78,13 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new EventTypeServer("localhost", 4457);
 
     s.setJobsPerThread(-1);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setChannelReceiveBufferSize(channelBufSize);
@@ -99,12 +101,13 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new EventTypeServer("localhost", 4458);
 
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(th);
     s.setPoolType(PoolType.QUEUE);
     s.setChannelReceiveBufferSize(channelBufSize);
@@ -121,12 +124,13 @@ public class Demo {
     s.registerHandlerByPath("/echo", new EchoHandler());
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
 
     s = new EventTypeServer("localhost", 4459);
 
     s.setJobsPerThread(jobs);
     // one byte buffer!
-    s.setMaxGrowningBufferChunkSize(bufChunkMax);
+    s.setMaxFromContentSizeBufferChunkSize(bufChunkMax);
     s.setMinimumThreadsAmount(2 * th);
     s.setPoolType(PoolType.QUEUE_SHARED);
     s.setChannelReceiveBufferSize(channelBufSize);
@@ -143,5 +147,7 @@ public class Demo {
     s.registerHandlerByPath("/jobs", new JobsNumHandler(s));
     s.registerHandlerByPath("/dump", new DumpHandler());
     s.registerHandlerByPath("/appender", new AsyncAppenderHandler());
+    s.registerMatchingHandler(new FilesDownloadHandler("/browser", "./"));
+
   }
 }

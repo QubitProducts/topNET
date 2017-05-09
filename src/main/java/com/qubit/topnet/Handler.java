@@ -45,7 +45,7 @@ public abstract class Handler {
    * It is important to understand that handlers processing chain is build of 
    * objects returned by this function.
    * 
-   * This function is shared among all worker threads in topNET!
+   * This function is shared among all worker threads in topNET.
    * 
    * @return instance of handler to be used in request processing.
    */
@@ -67,15 +67,15 @@ public abstract class Handler {
    * @param request
    * @param response 
    */
-  protected void triggerOnBeforeOutputStreamIsSet(Request request, Response response) {
-    if (this.onBeforeOutputStreamIsSet(request, response)) {
+  protected final void triggerOnBeforeOutputStreamIsSet(
+                                                Request request,
+                                                Response response) {
+    if (this.init(request, response)) {
+      
       Handler tmp = this.getNext();
-      while(tmp != null) {
-        if (!tmp.onBeforeOutputStreamIsSet(request, response)) {
-          break;
-        } else {
-          tmp = tmp.getNext();
-        }
+      
+      if (tmp != null) {
+        tmp.init(request, response);
       }
     }
   }
@@ -91,6 +91,10 @@ public abstract class Handler {
    * (normally grown buffers are truncated by topNET engine after response is 
    * sent).
    * 
+   * Headers are ready at init time, body is not and output stream is not 
+   * set - stream can be set now or by using BeforeOutputStreamSetEvent 
+   * (same time).
+   * 
    * This event is triggered on all handlers in the chain till one of handlers
    * return false.
    * 
@@ -98,7 +102,7 @@ public abstract class Handler {
    * @param response the response
    * @return true if next handler in chain can change the stream.
    */
-  public boolean onBeforeOutputStreamIsSet(Request request, Response response) {
+  public boolean init(Request request, Response response) {
     return true;
   }
   
@@ -181,10 +185,10 @@ public abstract class Handler {
    * See {@link ServerBase#setMaxMessageSize(int) }
    * @return the maxIncomingDataSize
    */
-  public int getMaxIncomingDataSize() {
+  public long getMaxIncomingDataSize() {
     return -2;
   }
-
+  
   /**
    * Max idle defines maximum miliseconds amount for peer to not to return any
    * reads.
@@ -232,12 +236,4 @@ public abstract class Handler {
     this.next = next;
   }
 
-  public void connectionClosedHandler(DataHandler dataHandler) {}
-
-  /**
-   * Triggered when bytes are read from channel.
-   */
-  public void onBytesRead() {}
-
-  public void requestFinishedHandler(DataHandler aThis) {}
 }

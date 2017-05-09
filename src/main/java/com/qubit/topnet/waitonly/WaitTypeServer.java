@@ -22,7 +22,6 @@ package com.qubit.topnet.waitonly;
 
 import com.qubit.topnet.AbstractHandlingThread;
 import com.qubit.topnet.PoolType;
-import static com.qubit.topnet.PoolType.POOL;
 import com.qubit.topnet.ServerBase;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
@@ -290,8 +289,8 @@ public class WaitTypeServer extends ServerBase {
 
   private HandlingThread getNewThread() {
     int jobsSize = this.getJobsPerThreadValue();
-    int bufSize = this.getMaxGrowningBufferChunkSize();
-    int defaultMaxMessage = this.getMaxMessageSize();
+    int bufSize = this.getMaxFromContentSizeBufferChunkSize();
+    long defaultMaxMessage = this.getMaxMessageSize();
     HandlingThread t;
 
     switch (this.getPoolType()) {
@@ -300,21 +299,24 @@ public class WaitTypeServer extends ServerBase {
             this,
             jobsSize,
             bufSize,
-            defaultMaxMessage, getDefaultIdleTime());
+            defaultMaxMessage,
+            getDefaultIdleTime());
         break;
       case QUEUE:
         t = new HandlingThreadQueued(
             this,
             jobsSize,
             bufSize,
-            defaultMaxMessage, getDefaultIdleTime());
+            defaultMaxMessage,
+            getDefaultIdleTime());
         break;
       case QUEUE_SHARED:
         t = new HandlingThreadSharedQueue(
             this,
             jobsSize,
             bufSize,
-            defaultMaxMessage, getDefaultIdleTime());
+            defaultMaxMessage,
+            getDefaultIdleTime());
         break;
       default:
         throw new RuntimeException(

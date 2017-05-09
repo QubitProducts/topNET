@@ -23,6 +23,10 @@ package com.qubit.topnet;
 import static com.qubit.topnet.ServerBase.HTTP_0_9;
 import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
+import com.qubit.topnet.events.BeforeOutputStreamSetEvent;
+import com.qubit.topnet.events.BytesReadEvent;
+import com.qubit.topnet.events.ConnectionClosedEvent;
+import com.qubit.topnet.events.RequestFinishedEvent;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -42,6 +46,20 @@ import java.util.logging.Logger;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class Request {
+
+  /**
+   * @return the requestFinishedEvent
+   */
+  public RequestFinishedEvent getRequestFinishedEvent() {
+    return requestFinishedEvent;
+  }
+
+  /**
+   * @param requestFinishedEvent the requestFinishedEvent to set
+   */
+  public void setRequestFinishedEvent(RequestFinishedEvent requestFinishedEvent) {
+    this.requestFinishedEvent = requestFinishedEvent;
+  }
 
   private static final Logger log = Logger.getLogger(Request.class.getName());
   
@@ -84,14 +102,20 @@ public class Request {
     
   private ServerBase server;
   private String encodingName = "UTF-8";
-  
-  public Request() {}
+  private ConnectionClosedEvent connectionClosedEvent;
+  private BytesReadEvent bytesReadEvent;
+  private BeforeOutputStreamSetEvent beforeOutputStreamSetEvent;
+  private RequestFinishedEvent requestFinishedEvent;
+    
+  public Request() {
+  }
   
   public void init(SocketChannel channel, ServerBase server) {
     this.channel = channel;
     this.server = server;
     this.encodingName = server.getUrlCharset().name();
     this.createdTime = new Date().getTime();
+    this.bytesStream.setMaxBufferSize(this.server.getMaxMessageSize());
   }
 
   /**
@@ -202,6 +226,7 @@ public class Request {
   }
 
   /**
+   * Path excluding query string.
    * @return the path
    */
   public String getPath() {
@@ -223,6 +248,7 @@ public class Request {
   }
 
   /**
+   * Path including query string.
    * @return the fullPath
    */
   public String getFullPath() {
@@ -710,5 +736,47 @@ public class Request {
   
   public static int getDefaultProtocol() {
     return HTTP_1_0;
+  }
+  
+    /**
+   * @return the beforeOutputStreamSetEvent
+   */
+  public BeforeOutputStreamSetEvent getBeforeOutputStreamSetEvent() {
+    return beforeOutputStreamSetEvent;
+  }
+
+  /**
+   * @param beforeOutputStreamSetEvent the beforeOutputStreamSetEvent to set
+   */
+  public void setBeforeOutputStreamSetEvent(BeforeOutputStreamSetEvent beforeOutputStreamSetEvent) {
+    this.beforeOutputStreamSetEvent = beforeOutputStreamSetEvent;
+  }
+
+  /**
+   * @return the bytesReadEvent
+   */
+  public BytesReadEvent getBytesReadEvent() {
+    return bytesReadEvent;
+  }
+
+  /**
+   * @param bytesReadEvent the bytesReadEvent to set
+   */
+  public void setBytesReadEvent(BytesReadEvent bytesReadEvent) {
+    this.bytesReadEvent = bytesReadEvent;
+  }
+
+  /**
+   * @return the connectionClosedEvent
+   */
+  public ConnectionClosedEvent getConnectionClosedEvent() {
+    return connectionClosedEvent;
+  }
+
+  /**
+   * @param connectionClosedEvent the connectionClosedEvent to set
+   */
+  public void setConnectionClosedEvent(ConnectionClosedEvent connectionClosedEvent) {
+    this.connectionClosedEvent = connectionClosedEvent;
   }
 }
