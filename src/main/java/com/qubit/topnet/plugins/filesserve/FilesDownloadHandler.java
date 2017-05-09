@@ -23,6 +23,7 @@ import javax.activation.MimetypesFileTypeMap;
  * Author Piotr Fronc
  */
 public class FilesDownloadHandler extends Handler {
+  
   static final Logger log = 
       Logger.getLogger(FilesDownloadHandler.class.getName());
   
@@ -39,7 +40,7 @@ public class FilesDownloadHandler extends Handler {
       NOT_FOUND = HttpURLConnection.HTTP_NOT_FOUND;
   
   final private String NO_MIME = "";
-  private Map<String, String> MIME_CACHE =  new HashMap<>();
+  private final Map<String, String> MIME_CACHE =  new HashMap<>();
   private static Properties MIMES;
   
   static {
@@ -53,7 +54,7 @@ public class FilesDownloadHandler extends Handler {
   }
   
   
-  public void prepare(String pprefix, String path) throws IOException {
+  public final void setPaths(String pprefix, String path) throws IOException {
     directory = new File(path).getCanonicalFile();
     prefix = pprefix;
     if (!directory.isDirectory()) {
@@ -64,9 +65,10 @@ public class FilesDownloadHandler extends Handler {
   }
 
   public FilesDownloadHandler(String urlPrefix, String path) throws IOException {
-    prepare(urlPrefix, path);
+    setPaths(urlPrefix, path);
   }
 
+  @Override
   public Handler getInstance() {
     return this;
   }
