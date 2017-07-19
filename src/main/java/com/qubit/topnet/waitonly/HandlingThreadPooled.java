@@ -22,6 +22,7 @@ package com.qubit.topnet.waitonly;
 
 import com.qubit.topnet.DataHandler;
 import com.qubit.topnet.DataHandlerHolder;
+import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +46,7 @@ public class HandlingThreadPooled extends HandlingThread {
           WaitTypeServer server,
           int jobsSize,
           int bufSize,
-          int defaultMaxMessageSize,
+          long defaultMaxMessageSize,
           long maxIdle) {
     super(server);
     jobs = new DataHandlerHolder[jobsSize];
@@ -88,6 +89,10 @@ public class HandlingThreadPooled extends HandlingThread {
             }
             isFinished = false;
           }
+        } catch (IOException ioe) {
+          log.log(Level.INFO, "IOException during handling data - probably connection lost, enter FINE level for more details.");
+          log.log(Level.FINE, "Exception during handling data.", ioe);
+          isFinished = true;
         } catch (Throwable es) {
           log.log(Level.SEVERE, "Exception during handling data.", es);
           isFinished = true;

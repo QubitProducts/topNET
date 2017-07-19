@@ -127,7 +127,7 @@ public class RequestTest {
     
     expResult = new HashMap<>();
     instance.reset();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("abc=1234".getBytes());
     expResult.put("abc", "1234");
     assertEquals(expResult, instance.getBodyParameters());
@@ -135,14 +135,14 @@ public class RequestTest {
     
     expResult = new HashMap<>();
     instance.reset();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("&abc=1234&&&".getBytes());
     expResult.put("abc", "1234");
     assertEquals(expResult, instance.getBodyParameters());
 
     expResult = new HashMap<>();
     instance.reset();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("&&&&abc=&==1234&&&".getBytes());
     expResult.put("abc", "");
     expResult.put("", "=1234");
@@ -150,7 +150,7 @@ public class RequestTest {
     
     expResult = new HashMap<>();
     instance.reset();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("&&&&abc=&==1234%26!%40%10%25&&&".getBytes());
     expResult.put("abc", "");
     expResult.put("", "=1234&!@%");
@@ -170,7 +170,7 @@ public class RequestTest {
     instance.reset();
     instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
     instance.analyzePathAndSplit();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("abc=1234".getBytes());
     expResult.put("koko", "1234");
     expResult.put("cdn", "1&!@%");
@@ -182,7 +182,7 @@ public class RequestTest {
     instance.reset();
     instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
     instance.analyzePathAndSplit();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("&abc=1234&&&".getBytes());
     expResult.put("koko", "1234");
     expResult.put("cdn", "1&!@%");
@@ -193,7 +193,7 @@ public class RequestTest {
     instance.reset();
     instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
     instance.analyzePathAndSplit();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("&&&&abc=&==1234&&&".getBytes());
     expResult.put("koko", "1234");
     expResult.put("cdn", "1&!@%");
@@ -205,7 +205,7 @@ public class RequestTest {
     instance.reset();
     instance.setFullPath("/echo?koko=1234&cdn=1%26!%40%10%25&&&");
     instance.analyzePathAndSplit();
-    buf = instance.getBytesStream().getBufferToWrite();
+    buf = instance.getBytesStream().getBufferToWrite().getByteBuffer();
     buf.put("&&&&abc=&==1234%26!%40%10%25&&&".getBytes());
     expResult.put("koko", "1234");
     expResult.put("cdn", "1&!@%");

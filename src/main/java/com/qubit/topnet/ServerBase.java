@@ -63,21 +63,21 @@ public abstract class ServerBase {
   /**
    * Flexible HTTP/1.x protocol marker (not all clients understand this).
    */
-  public static final int HTTP_1_x = 3;
+  public static final int HTTP_1_X = 3;
 
   private static boolean tellingConnectionClose = false;
   private static final int THREAD_JOBS_SIZE;
   private static final int THREADS_POOL_SIZE;
-
+  
   static {
     THREADS_POOL_SIZE
         = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
     THREAD_JOBS_SIZE = 64;
   }
 
-  public final static String SERVER_VERSION = "1.5.2";
   public static final int MAX_IDLE_TOUT = 15 * 1000; // miliseconds
   public static final int SCALING_UNLIMITED = 0;
+  public static final long DEFAULT_MAX_MESSAGE_SIZE = 16 * 1024 * 1024;
 
   /**
    * Runs DataHandler.setGeneralGlobalHandlingHooks(...)
@@ -92,35 +92,52 @@ public abstract class ServerBase {
   private Charset headerCharset = Charset.forName("ISO-8859-1");
   private Charset urlCharset = Charset.forName("ISO-8859-1");
 
+  private long maxResponseBufferFillSize = 8 * 32 * 1024;
   private int port = -1;
+  
   private InetSocketAddress listenAddress = null;
   private String address = null;
   private ServerSocketChannel serverChannel;
+  
   private int jobsPerThread = THREAD_JOBS_SIZE;
   private int minimumThreadsAmount = THREADS_POOL_SIZE;
-  private int maxGrowningBufferChunkSize = 512 * 1024;
-  private int maxMessageSize = 16 * 1024 * 1024;
+  private int maxFromContentSizeBufferChunkSize = 2 * 32 * 1024;
+  
+  private long maxMessageSize = DEFAULT_MAX_MESSAGE_SIZE;
   private long defaultIdleTime = MAX_IDLE_TOUT;
-  private PoolType poolType = POOL;
-  private boolean waitingForReadEvents = true;
   private long scalingDownTryPeriodMS = 10 * 1000;
+  
+  private PoolType poolType = POOL;
+  
+  private boolean waitingForReadEvents = true;
   private boolean stoppingNow = false;
   private boolean started = false;
   private boolean cachingBuffers = true;
+  
   private LimitsHandler limitsHandler;
+  
   private boolean puttingJobsEquallyToAllThreads = true;
   private boolean autoscalingThreads = true;
+  
   private int noSlotsAvailableTimeout = 5;
   private int scalingMax = SCALING_UNLIMITED;  // unlimited
+  
   private boolean autoScalingDown = true;
   private boolean cachingThreads = true;
+  
   private int defaultHeaderSizeLimit = 16 * 1024;
+
+  private ServerSocket serverSocket;
+
+  // channel native buffers sizes
   private int channelReceiveBufferSize = -1;
   private int channelSendBufferSize = -1;
-  private ServerSocket serverSocket;
+  
+  //performance native
   private int connectionTimePerformancePref = 0;
-  private int latencyPerformancePref = 0;
-  private int bandwithPerformancePref = 0;
+  private int latencyPerformancePref = 1;
+  private int bandwithPerformancePref = 8;
+  
   private long defaultAcceptIdleTime = MAX_IDLE_TOUT * 2;
   private int protocol = -1;
   private Selector channelSelector;
@@ -260,7 +277,7 @@ public abstract class ServerBase {
    * 
    * @return the maxMessageSize
    */
-  public int getMaxMessageSize() {
+  public long getMaxMessageSize() {
     return maxMessageSize;
   }
 
@@ -273,7 +290,7 @@ public abstract class ServerBase {
    * 
    * @param maxMessageSize the maxMessageSize to set
    */
-  public void setMaxMessageSize(int maxMessageSize) {
+  public void setMaxMessageSize(long maxMessageSize) {
     this.maxMessageSize = maxMessageSize;
   }
 
@@ -384,10 +401,10 @@ public abstract class ServerBase {
    * 
    * See also {@link BytesStream#setShrinkingBuffersAfterJob(boolean) }
    * {@link BytesStream#setDefaultBufferChunkSize(int) }
-   * @param maxGrowningBufferChunkSize the maxGrowningBufferChunkSize to set
+   * @param maxGrowningBufferChunkSize the maxFromContentSizeBufferChunkSize to set
    */
-  public void setMaxGrowningBufferChunkSize(int maxGrowningBufferChunkSize) {
-    this.maxGrowningBufferChunkSize = maxGrowningBufferChunkSize;
+  public void setMaxFromContentSizeBufferChunkSize(int maxGrowningBufferChunkSize) {
+    this.maxFromContentSizeBufferChunkSize = maxGrowningBufferChunkSize;
   }
 
   /**
@@ -402,10 +419,10 @@ public abstract class ServerBase {
    * 
    * See also {@link BytesStream#setShrinkingBuffersAfterJob(boolean) }
    * {@link BytesStream#setDefaultBufferChunkSize(int) }
-   * @return the maxGrowningBufferChunkSize
+   * @return the maxFromContentSizeBufferChunkSize
    */
-  public int getMaxGrowningBufferChunkSize() {
-    return maxGrowningBufferChunkSize;
+  public int getMaxFromContentSizeBufferChunkSize() {
+    return maxFromContentSizeBufferChunkSize;
   }
 
   /**
@@ -987,4 +1004,27 @@ public abstract class ServerBase {
   public void setErrorHandlingConfig(ErrorHandlingConfig errorHandlingConfig) {
     this.errorHandlingConfig = errorHandlingConfig;
   }
+  
+  /**
+   * Important setting indicating how large will be response write out buffer.
+   * In response to request server will try to fill fully but not more than this
+   * maximum (maximum + chunk size exactly).
+   *
+   * @param maxResponseBufferFillSize the maxResponseBufferFillSize to set
+   */
+  public void setMaxResponseBufferFillSize(long maxResponseBufferFillSize) {
+    this.maxResponseBufferFillSize = maxResponseBufferFillSize;
+  }
+
+  /**
+   * Important setting indicating how large will be response write out buffer.
+   * In response to request server will try to fill fully but not more than this
+   * maximum (maximum + chunk size exactly).
+   *
+   * @return the maxBufferFillSize
+   */
+  public long getMaxResponseBufferFillSize() {
+    return maxResponseBufferFillSize;
+  }
+
 }

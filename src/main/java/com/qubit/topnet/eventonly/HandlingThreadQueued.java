@@ -20,6 +20,7 @@
 package com.qubit.topnet.eventonly;
 
 import com.qubit.topnet.DataHandler;
+import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.util.Arrays;
 import java.util.List;
@@ -48,7 +49,7 @@ class HandlingThreadQueued extends HandlingThread {
       EventTypeServer server,
       int jobsSize,
       int bufSize,
-      int defaultMaxMessageSize,
+      long defaultMaxMessageSize,
       long maxIdle) {
     super(server);
     this.limit = jobsSize;
@@ -95,8 +96,11 @@ class HandlingThreadQueued extends HandlingThread {
           }
           isFinished = false;
         }
-
-      } catch (Exception es) {
+      } catch (IOException ioe) {
+        log.log(Level.INFO, "IOException during handling data - probably connection lost, enter FINE level for more details.");
+        log.log(Level.FINE, "Exception during handling data.", ioe);
+        isFinished = true;
+      } catch (Throwable es) {
         log.log(Level.SEVERE, "Exception during handling data.", es);
         isFinished = true;
       } finally {
