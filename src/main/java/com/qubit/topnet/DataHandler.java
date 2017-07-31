@@ -22,7 +22,6 @@ package com.qubit.topnet;
 import static com.qubit.topnet.BytesStream.NO_BYTES_LEFT_VAL;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
 import com.qubit.topnet.errors.ErrorTypes;
-import com.qubit.topnet.events.BytesReadEvent;
 import com.qubit.topnet.utils.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -182,12 +181,12 @@ public final class DataHandler {
     if (this.request == null) {
       this.request = new Request();
       this.response = new Response();
-      this.request.init(this.channel, this.server);
+      this.request.init(this.server, this);
       this.response.init(this.request.getRequestedHttpProtocol());
       this.reqInitialized = true;
     } else if (!this.reqInitialized) {
       this.reqInitialized = true;
-      this.request.init(this.channel, this.server);
+      this.request.init(this.server, this);
       this.response.init(this.request.getRequestedHttpProtocol());
       this.request.getBytesStream().reset();
     }
@@ -398,7 +397,8 @@ public final class DataHandler {
       bodyRequired = this.checkIfBodyRequired(line, lineLen);
       // two birds as one
       // true if no headers should be read!
-      boolean noHeaders = this.request.setMethodAndPathFromLine(line, lineLen);
+      boolean noHeaders = this.request
+          .setMethodAndPrototcolAndPathFromLine(line, lineLen);
 
       // check nonsense:
       if (this.request.getMethod() == null) {

@@ -319,9 +319,11 @@ public class DataHandlerTest {
     
     assertEquals(null, dataHandler.getErrorOccured());
     assertEquals(503, dataHandler.getResponse().getHttpCode());
+    // 0_9 will cvause content len to be 0
     assertEquals(dataHandler.getRequest().getRequestedHttpProtocol(), HTTP_0_9);
     // https 0.9 will consume rest as body and it wont be MALFORMED HEADER CASE.
-    assertEquals("Server Error!", dataHandler.getRequest().getBodyString());
+    assertEquals(0, dataHandler.getContentLength());
+    assertEquals("", dataHandler.getRequest().getBodyString());
     
     assertEquals("Server Error!", dummy.getWrittenBackMessage());
   }

@@ -30,7 +30,6 @@ import com.qubit.topnet.events.RequestFinishedEvent;
 import com.qubit.topnet.exceptions.OutputStreamAlreadySetException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +45,8 @@ import java.util.logging.Logger;
  * @author Peter Fronc <peter.fronc@qubitdigital.com>
  */
 public class Request {
+
+  private DataHandler dataHandler;
 
   /**
    * @return the requestFinishedEvent
@@ -75,7 +76,6 @@ public class Request {
       new byte[]{'H', 'T', 'T', 'P', '/', '1', '.', 'x'};
   
   private List<String[]> headers = new ArrayList<>();
-  private SocketChannel channel;
   private String bodyStringCache;
   private final BytesStream bytesStream = new BytesStream();
   private String path;
@@ -110,12 +110,12 @@ public class Request {
   public Request() {
   }
   
-  public void init(SocketChannel channel, ServerBase server) {
-    this.channel = channel;
+  public void init(ServerBase server, DataHandler dh) {
     this.server = server;
     this.encodingName = server.getUrlCharset().name();
     this.createdTime = new Date().getTime();
     this.bytesStream.setMaxBufferSize(this.server.getMaxMessageSize());
+    this.dataHandler = dh;
   }
 
   /**
@@ -127,14 +127,15 @@ public class Request {
   
   protected void reset() {
     this.requestedHttpProtocol = getDefaultProtocol();
+    
     if (this.bytesStream != null) {
       this.bytesStream.shrinkLessMore();
       this.bytesStream.reset();
     }
     
     this.headers.clear();
-    this.channel = null;
     this.bodyStringCache = null;
+    this.dataHandler = null;
     this.path = null;
     this.method = null;
     this.fullPath = null;
@@ -219,10 +220,6 @@ public class Request {
       }
     }
     return ret;
-  }
-
-  public SocketChannel getChannel() {
-    return channel;
   }
 
   /**
@@ -695,7 +692,7 @@ public class Request {
    * @param len the 'strlen' value
    * @return true if no headers should be processed
    */
-  protected boolean setMethodAndPathFromLine(byte[] line, int len) {
+  protected boolean setMethodAndPrototcolAndPathFromLine(byte[] line, int len) {
     int method_closing_idx = DataHandler.indexOf(line, len, ' ', 0);
     
     if (method_closing_idx < 1) {
@@ -723,6 +720,7 @@ public class Request {
       
       return false;
     } else {
+      // HTTP 0.9 support.
       this.requestedHttpProtocol = HTTP_0_9;
       this.fullPath = new String(
           line,
@@ -778,5 +776,12 @@ public class Request {
    */
   public void setConnectionClosedEvent(ConnectionClosedEvent connectionClosedEvent) {
     this.connectionClosedEvent = connectionClosedEvent;
+  }
+
+  /**
+   * @return the dataHandler
+   */
+  public DataHandler getDataHandler() {
+    return dataHandler;
   }
 }
