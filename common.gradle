@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 
 String mavenGroupId = 'com.qubit'
-String mavenVersion = '2.0.6'
+String mavenVersion = '2.0.9'
 String mavenArtifactId = name.replace("modules/", "")
 
 group = mavenGroupId
@@ -105,15 +105,15 @@ def isWindows () {
 }
 
 def installRemoteAll = false
-def installRemoteAllSnapshots = false
+def installRemoteAllSnapshots = true
 
 uploadArchives {
   //logger.warn "installRemoteAll: "+ installRemoteAll +", installRemoteAllSnapshots: " + installRemoteAllSnapsots
   if (installRemoteAll) {
     repositories.mavenDeployer {
         repository(
-          url: "") {
-            authentication(userName: "maven", password: "")
+          url: "http://opentag-test.qubitproducts.com/mvn/repository/internal/") {
+            authentication(userName: "maven", password: "maven12345")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
             pom.version = mavenVersion
@@ -123,8 +123,8 @@ uploadArchives {
   if (installRemoteAllSnapshots) {
     repositories.mavenDeployer {
         repository(
-          url: "") {
-            authentication(userName: "maven", password: "")
+          url: "http://opentag-test.qubitproducts.com/mvn/repository/snapshots/") {
+            authentication(userName: "maven", password: "maven12345")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
             pom.version = mavenVersion
