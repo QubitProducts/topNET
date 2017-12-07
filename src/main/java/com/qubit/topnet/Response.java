@@ -23,6 +23,7 @@ package com.qubit.topnet;
 import static com.qubit.topnet.Request.getDefaultProtocol;
 import static com.qubit.topnet.ServerBase.HTTP_0_9;
 import static com.qubit.topnet.ServerBase.HTTP_1_0;
+import static com.qubit.topnet.ServerBase.getCharsetForName;
 import static com.qubit.topnet.ServerTime.getCachedTime;
 import com.qubit.topnet.exceptions.ResponseBuildingStartedException;
 import com.qubit.topnet.exceptions.TooLateToChangeHeadersException;
@@ -44,7 +45,7 @@ import java.util.logging.Logger;
 public class Response {
   static private final Logger log = Logger.getLogger(Response.class.getName());
 
-  public static String serverName = "topNET/2.0.5";
+  public static String serverName = "topNET/2.0.9";
   
   private static final String CRLF = "\r\n";
   private static final String OK_200 = "200 OK" + CRLF;
@@ -310,7 +311,7 @@ public class Response {
         Charset _charset = Charset.defaultCharset();
 
         if (this.getCharset() != null) {
-          _charset = Charset.forName(getCharset());
+          _charset = getCharsetForName(getCharset());
         }
 
         this.setCharset(_charset.name());

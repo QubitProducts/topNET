@@ -23,6 +23,7 @@ package com.qubit.topnet;
 import static com.qubit.topnet.ServerBase.HTTP_0_9;
 import static com.qubit.topnet.ServerBase.HTTP_1_0;
 import static com.qubit.topnet.ServerBase.HTTP_1_1;
+import static com.qubit.topnet.ServerBase.getCharsetForName;
 import com.qubit.topnet.events.BeforeOutputStreamSetEvent;
 import com.qubit.topnet.events.BytesReadEvent;
 import com.qubit.topnet.events.ConnectionClosedEvent;
@@ -185,8 +186,12 @@ public class Request {
       
       if (contentType != null) {
         int idx = contentType.indexOf("charset=");
-        String charsetString = contentType.substring(idx + 8).trim();
-        charset = Charset.forName(charsetString);
+        if (idx != -1) {
+          String charsetString = contentType.substring(idx + 8).trim();
+          charset = getCharsetForName(charsetString);
+        } else {
+          charset = Charset.defaultCharset();
+        }
       } else {
         charset = Charset.defaultCharset();
       }

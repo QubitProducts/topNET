@@ -29,6 +29,8 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
+import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -89,8 +91,16 @@ public abstract class ServerBase {
     DataHandler.setGeneralGlobalHandlingHooks(hooks);
   }
 
-  private Charset headerCharset = Charset.forName("ISO-8859-1");
-  private Charset urlCharset = Charset.forName("ISO-8859-1");
+  public static Charset getCharsetForName(String name) {
+    try {
+      return Charset.forName(name);
+    } catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
+      return Charset.defaultCharset();
+    }
+  }
+  
+  private Charset headerCharset = getCharsetForName("ISO-8859-1");
+  private Charset urlCharset = getCharsetForName("ISO-8859-1");
 
   private long maxResponseBufferFillSize = 8 * 32 * 1024;
   private int port = -1;
