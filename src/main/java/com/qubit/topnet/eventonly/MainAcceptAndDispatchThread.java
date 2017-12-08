@@ -172,7 +172,7 @@ class MainAcceptAndDispatchThread extends Thread {
       if (System.currentTimeMillis() > (lastMeassured + getInfoLogsFrequency())) {
           log.log(Level.INFO, "Accepted connections: {0}", acceptedCnt);
           log.log(Level.INFO,
-                  "Max accept idle gained total ML:{0} HL:{1}",
+                  "Max idle closed for ACCEPT:{0} and for CONNECTION:{1}",
                    new Object[]{closedIdleCounter, handlingClosedIdleCounter});
           lastMeassured = System.currentTimeMillis();
       }
@@ -222,6 +222,7 @@ class MainAcceptAndDispatchThread extends Thread {
     }
   }
 
+  // counter fpor closed idle requests
   private long closedIdleCounter = 0;
 
   /**

@@ -25,7 +25,6 @@ import static com.qubit.topnet.DataHandler.bodyReadyHandler;
 import com.qubit.topnet.ServerBase;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,6 +38,7 @@ public abstract class HandlingThread extends AbstractHandlingThread {
   private static final Logger log
       = Logger.getLogger(HandlingThread.class.getName());
 
+  // counter for closed idle connections
   static volatile long handlingClosedIdleCounter = 0;
   private static int spinBeforeCount = 0;
 

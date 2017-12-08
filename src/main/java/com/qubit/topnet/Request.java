@@ -187,7 +187,11 @@ public class Request {
       if (contentType != null) {
         int idx = contentType.indexOf("charset=");
         if (idx != -1) {
-          String charsetString = contentType.substring(idx + 8).trim();
+          String charsetString = contentType.substring(idx + 8);
+          int colonIdx = charsetString.indexOf(';');
+          if (colonIdx != -1) {
+            charsetString = charsetString.substring(0, colonIdx).trim();
+          }
           charset = getCharsetForName(charsetString);
         } else {
           charset = Charset.defaultCharset();
