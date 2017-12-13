@@ -105,7 +105,7 @@ def isWindows () {
 }
 
 def installRemoteAll = false
-def installRemoteAllSnapshots = true
+def installRemoteAllSnapshots = false
 
 uploadArchives {
   //logger.warn "installRemoteAll: "+ installRemoteAll +", installRemoteAllSnapshots: " + installRemoteAllSnapsots
@@ -113,7 +113,7 @@ uploadArchives {
     repositories.mavenDeployer {
         repository(
           url: "http://opentag-test.qubitproducts.com/mvn/repository/internal/") {
-            authentication(userName: "maven", password: "maven12345")
+            authentication(userName: "maven", password: "...")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
             pom.version = mavenVersion
@@ -124,7 +124,7 @@ uploadArchives {
     repositories.mavenDeployer {
         repository(
           url: "http://opentag-test.qubitproducts.com/mvn/repository/snapshots/") {
-            authentication(userName: "maven", password: "maven12345")
+            authentication(userName: "maven", password: "...")
             pom.groupId = mavenGroupId
             pom.artifactId = mavenArtifactId
             pom.version = mavenVersion
