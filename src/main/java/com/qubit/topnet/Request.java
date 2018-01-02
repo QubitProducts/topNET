@@ -188,6 +188,10 @@ public class Request {
       if (charset == null) {
         String contentType = this.getHeader("Content-Type");
 
+        if (contentType == null) {
+          contentType = this.getLowerCaseHeader("content-type");
+        }
+        
         if (contentType != null) {
           int idx = contentType.indexOf("charset=");
           if (idx != -1) {
