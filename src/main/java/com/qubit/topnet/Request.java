@@ -175,29 +175,34 @@ public class Request {
   }
   
   public String getBodyString() throws OutputStreamAlreadySetException {
+    return getBodyString(null);
+  }
+  
+  public String getBodyString(Charset charset) throws OutputStreamAlreadySetException {
     if (this.bodyStringCache == null) {
         
       if (!(this.bytesStream instanceof BytesStream)) {
         throw new OutputStreamAlreadySetException();
       }
       
-      Charset charset;
-      String contentType = this.getHeader("Content-Type");
-      
-      if (contentType != null) {
-        int idx = contentType.indexOf("charset=");
-        if (idx != -1) {
-          String charsetString = contentType.substring(idx + 8);
-          int colonIdx = charsetString.indexOf(';');
-          if (colonIdx != -1) {
-            charsetString = charsetString.substring(0, colonIdx).trim();
+      if (charset == null) {
+        String contentType = this.getHeader("Content-Type");
+
+        if (contentType != null) {
+          int idx = contentType.indexOf("charset=");
+          if (idx != -1) {
+            String charsetString = contentType.substring(idx + 8);
+            int colonIdx = charsetString.indexOf(';');
+            if (colonIdx != -1) {
+              charsetString = charsetString.substring(0, colonIdx).trim();
+            }
+            charset = getCharsetForName(charsetString);
+          } else {
+            charset = Charset.defaultCharset();
           }
-          charset = getCharsetForName(charsetString);
         } else {
           charset = Charset.defaultCharset();
         }
-      } else {
-        charset = Charset.defaultCharset();
       }
       
       this.bodyStringCache = bytesStream
